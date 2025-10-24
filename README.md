@@ -3,6 +3,7 @@ A Dispatcharr plugin that automatically matches and assigns streams to channels 
 
 ## Features
 * **Intelligent Stream Matching**: Automatically finds and assigns streams to channels using sophisticated name-matching algorithms
+* **Unlimited Stream Support**: Fetches and processes ALL available streams regardless of quantity (no 10,000 stream limit)
 * **OTA Callsign Matching**: Direct callsign extraction and matching for Over-The-Air broadcast channels
 * **Multiple Streams Per Channel**: Assigns all matching streams to each channel, sorted by quality
 * **Quality Prioritization**: Sorts matched streams by quality (4K → FHD → HD → (H) → (F) → (D) → SD → Slow)
@@ -13,6 +14,8 @@ A Dispatcharr plugin that automatically matches and assigns streams to channels 
 * **Customizable Ignore Tags**: Filter out unwanted tags during matching
 * **Profile & Group Filtering**: Target specific channel profiles and groups
 * **Preview Mode**: Dry-run CSV export to review matches before applying changes
+* **CSV Export Management**: Built-in cleanup tool to delete old export files
+* **Real-time Updates**: WebSocket-based frontend refresh for immediate visual feedback
 * **Comprehensive Logging**: Detailed matching logic and debug information
 
 ## Requirements
@@ -48,41 +51,48 @@ It is recommended to use the [Channel Mapparr Plugin](https://github.com/Pirates
 
 ### Step-by-Step Workflow
 1. **Configure Settings**
-   * Enter your Dispatcharr URL, username, and password
-   * Specify an existing **Profile Name** (cannot be "All")
-   * Optionally specify **Channel Groups** (leave empty to process all)
-   * Optionally configure **Ignore Tags** to filter out unwanted tags
-   * Set **Visible Channel Limit** (default: 1 channel per callsign group)
-   * Click **Save Settings**
+   * Enter your Dispatcharr URL, username, and password
+   * Specify an existing **Profile Name** (cannot be "All")
+   * Optionally specify **Channel Groups** (leave empty to process all)
+   * Optionally configure **Ignore Tags** to filter out unwanted tags
+   * Set **Visible Channel Limit** (default: 1 channel per callsign group)
+   * Click **Save Settings**
 
 2. **Load and Process Channels**
-   * Click **Run** on `Load/Process Channels`
-   * The plugin loads channels from the specified profile and groups
-   * Fetches all available streams (handles pagination automatically)
-   * Review the summary showing channel and stream counts
+   * Click **Run** on `Load/Process Channels`
+   * The plugin loads channels from the specified profile and groups
+   * Fetches all available streams (handles pagination automatically with no limit)
+   * Review the summary showing channel and stream counts
 
 3. **Preview Changes (Dry Run)**
-   * Click **Run** on `Preview Changes (Dry Run)`
-   * Exports a CSV to `/data/exports/stream_mapparr_preview_YYYYMMDD_HHMMSS.csv`
-   * Review matched streams for each channel
-   * Shows which channels will be updated vs skipped
-   * Identifies channels without matches
+   * Click **Run** on `Preview Changes (Dry Run)`
+   * Exports a CSV to `/data/exports/stream_mapparr_preview_YYYYMMDD_HHMMSS.csv`
+   * Review matched streams for each channel
+   * Shows which channels will be updated vs skipped
+   * Identifies channels without matches
 
 4. **Add Streams to Channels**
-   * Click **Run** on `Add Stream(s) to Channels`
-   * Adds all matched streams to each channel (sorted by quality)
-   * Only updates channels within the visible channel limit
-   * Enables updated channels in the profile
-   * Triggers M3U refresh to update the GUI
-   * Exports results to `/data/exports/stream_mapparr_results_YYYYMMDD_HHMMSS.csv`
+   * Click **Run** on `Add Stream(s) to Channels`
+   * Adds all matched streams to each channel (sorted by quality)
+   * Only updates channels within the visible channel limit
+   * Enables updated channels in the profile
+   * Triggers real-time frontend refresh via WebSocket
+   * Exports results to `/data/exports/stream_mapparr_results_YYYYMMDD_HHMMSS.csv`
 
 5. **Manage Channel Visibility (Optional)**
-   * Click **Run** on `Manage Channel Visibility`
-   * Disables all channels in the profile
-   * Enables only channels with 0-1 streams (not attached to other channels)
-   * Enables only the highest priority channel per callsign group
-   * Useful for cleaning up duplicate channels
-   * Exports visibility report to `/data/exports/stream_mapparr_visibility_YYYYMMDD_HHMMSS.csv`
+   * Click **Run** on `Manage Channel Visibility`
+   * Disables all channels in the profile
+   * Enables only channels with 0-1 streams (not attached to other channels)
+   * Enables only the highest priority channel per callsign group
+   * Useful for cleaning up duplicate channels
+   * Triggers real-time frontend refresh via WebSocket
+   * Exports visibility report to `/data/exports/stream_mapparr_visibility_YYYYMMDD_HHMMSS.csv`
+
+6. **Clear CSV Exports (Optional)**
+   * Click **Run** on `Clear CSV Exports`
+   * Deletes all CSV files created by this plugin from `/data/exports/`
+   * Shows list of deleted files (up to 10 listed with count of additional files)
+   * Useful for cleaning up old reports and freeing disk space
 
 ## Matching Logic
 
@@ -90,18 +100,18 @@ It is recommended to use the [Channel Mapparr Plugin](https://github.com/Pirates
 For broadcast channels like "CBS - IN South Bend (WSBT) [HD]":
 
 1. **Callsign Extraction**: Parses channel name BEFORE any cleaning to extract callsign
-   * Pattern: `NETWORK - STATE City (CALLSIGN) [Quality]`
-   * Example: `CBS - IN South Bend (WSBT) [HD]` → Callsign: `WSBT`
+   * Pattern: `NETWORK - STATE City (CALLSIGN) [Quality]`
+   * Example: `CBS - IN South Bend (WSBT) [HD]` → Callsign: `WSBT`
 
 2. **Direct Callsign Matching**: Searches all streams for the exact callsign using word boundaries
-   * Matches: `US CBS 22 (WSBT) South Bend/Elkhart Area (H)`
-   * Matches: `CBS: IN SOUTH BEND WSBT`
-   * Excludes: `WSBTV` (different callsign)
+   * Matches: `US CBS 22 (WSBT) South Bend/Elkhart Area (H)`
+   * Matches: `CBS: IN SOUTH BEND WSBT`
+   * Excludes: `WSBTV` (different callsign)
 
 3. **Fallback to Networks.json**: If direct matching fails, validates against FCC database
-   * Confirms network affiliation
-   * Validates state and callsign combination
-   * Searches streams for validated callsign
+   * Confirms network affiliation
+   * Validates state and callsign combination
+   * Searches streams for validated callsign
 
 4. **Quality Sorting**: All matched streams sorted by quality precedence
 
@@ -109,24 +119,24 @@ For broadcast channels like "CBS - IN South Bend (WSBT) [HD]":
 For non-OTA channels, the plugin uses a multi-stage process:
 
 1. **Exact Match After Cleaning**: Matches channel names after removing quality tags
-   * Example: "TBS [FHD]" → "TBS" matches "US: TBS"
+   * Example: "TBS [FHD]" → "TBS" matches "US: TBS"
 
 2. **Word Boundary Matching**: Ensures complete word matches to avoid false positives
-   * Example: "FX" matches "US: FX" but NOT "FXX" or "WFXR"
+   * Example: "FX" matches "US: FX" but NOT "FXX" or "WFXR"
 
 3. **Longer Channel Filtering**: Uses `channels.txt` to distinguish similar names
-   * Example: "FX" does NOT match "FX Movie Channel" (different channel)
+   * Example: "FX" does NOT match "FX Movie Channel" (different channel)
 
 4. **Call Sign Filtering**: Excludes local TV station call signs
-   * Example: "FX" does NOT match "WBKB FX (WBKBDT4)" (local FOX affiliate)
+   * Example: "FX" does NOT match "WBKB FX (WBKBDT4)" (local FOX affiliate)
 
 5. **Timezone Filtering**: Automatically excludes West/Pacific feeds
-   * Example: "SYFY [HD]" matches "US NBC SYFY (East)" but NOT "US NBC SYFY (West)"
+   * Example: "SYFY [HD]" matches "US NBC SYFY (East)" but NOT "US NBC SYFY (West)"
 
 ### Channel Grouping and Priority
 Channels are grouped by callsign (OTA) or cleaned name (regular):
 * Within each group, channels are sorted by quality tag priority:
-  * `[4K]` → `[FHD]` → `[HD]` → `[SD]` → `[Unknown]` → `[Slow]` → No tag
+  * `[4K]` → `[FHD]` → `[HD]` → `[SD]` → `[Unknown]` → `[Slow]` → No tag
 * Then by channel number (ascending)
 * Only the highest priority channels (up to Visible Channel Limit) receive streams
 
@@ -142,25 +152,25 @@ Matched streams are automatically sorted by quality precedence:
 ## Example Transformations
 
 ### OTA Channels (Callsign Matching)
-**Channel**: `CBS - IN South Bend (WSBT) [HD]`  
+**Channel**: `CBS - IN South Bend (WSBT) [HD]`  
 **Matched Streams**: `US CBS 22 (WSBT) South Bend/Elkhart Area (H)`, `US CBS 22 (WSBT) South Bend/Elkhart Area (F)`, `CBS: IN SOUTH BEND WSBT`
 
-**Channel**: `CBS - CA Monterey (KION) [FHD]`  
+**Channel**: `CBS - CA Monterey (KION) [FHD]`  
 **Matched Streams**: `US CBS 46 (KION) Monterey (H)`, `US CBS 46 (KION) Monterey (F)`, `CBS: CA MONTEREY KION`, `US: FOX Monterey (KION)`
 
-**Channel**: `CBS - NM Albuquerque (KRQE) [HD]`  
+**Channel**: `CBS - NM Albuquerque (KRQE) [HD]`  
 **Matched Streams**: `US FOX (KRQE) Albuquerque Santa Fe (H)`, `US CBS 13 (KRQE) Albuquerque Santa Fe (H)`, `US FOX (KRQE) Alburquerque (F)`, `US CBS (KRQE) Albuquerque (F)`, `CBS: NM ALBUQUERQUE KRQE`, `FOX: ALBUQUERQUE NM KRQE`, `US: CBS 13 Albuquerque (KRQE)`, `US: FOX 13 Albuquerque (KRQE)`
 
 ### Standard Channels
-**Channel**: `TBS [FHD]`  
+**Channel**: `TBS [FHD]`  
 **Matched Streams**: `USA: TBS`, `US: TBS`, `US: TBS`
 
-**Channel**: `FX (East) [HD]`  
-**Matched Streams**: `US: FX`, `US: FX`, `US FX (East) (S)`, `US FX (East) (H)`, `US FX (East) (A)`, `US (F2) FX (East)`  
+**Channel**: `FX (East) [HD]`  
+**Matched Streams**: `US: FX`, `US: FX`, `US FX (East) (S)`, `US FX (East) (H)`, `US FX (East) (A)`, `US (F2) FX (East)`  
 **Excluded**: `US: FX Movie Channel`, `(US) (FOX1) WBKB FX (WBKBDT4)`
 
-**Channel**: `SYFY [HD]`  
-**Matched Streams**: `USA SYFY`, `US: SYFY`, `US: SYFY`, `US NBC SYFY (East) (D)`  
+**Channel**: `SYFY [HD]`  
+**Matched Streams**: `USA SYFY`, `US: SYFY`, `US: SYFY`, `US NBC SYFY (East) (D)`  
 **Excluded**: `US NBC SYFY (West) (D)`
 
 ### Duplicate Channel Handling
@@ -175,10 +185,11 @@ Matched streams are automatically sorted by quality precedence:
 
 | Action | Description |
 |:-------|:------------|
-| **Load/Process Channels** | Load channels from specified profile/groups and fetch all available streams |
+| **Load/Process Channels** | Load channels from specified profile/groups and fetch all available streams (unlimited) |
 | **Preview Changes (Dry Run)** | Export CSV showing which streams will be matched to each channel |
 | **Add Stream(s) to Channels** | Apply matched streams to channels, enabling highest priority channels in each group |
 | **Manage Channel Visibility** | Disable all channels, then enable only channels with 0-1 streams (excluding duplicates and attached channels) |
+| **Clear CSV Exports** | Delete all CSV export files created by this plugin to free up disk space |
 
 ## File Locations
 * **Processing Cache**: `/data/stream_mapparr_processed.json`
@@ -186,10 +197,10 @@ Matched streams are automatically sorted by quality precedence:
 * **Results Report**: `/data/exports/stream_mapparr_results_YYYYMMDD_HHMMSS.csv`
 * **Visibility Report**: `/data/exports/stream_mapparr_visibility_YYYYMMDD_HHMMSS.csv`
 * **Plugin Files**:
-  * `/data/plugins/stream_mapparr/plugin.py`
-  * `/data/plugins/stream_mapparr/__init__.py`
-  * `/data/plugins/stream_mapparr/channels.txt`
-  * `/data/plugins/stream_mapparr/networks.json`
+  * `/data/plugins/stream_mapparr/plugin.py`
+  * `/data/plugins/stream_mapparr/__init__.py`
+  * `/data/plugins/stream_mapparr/channels.txt`
+  * `/data/plugins/stream_mapparr/networks.json`
 
 ## CSV Export Format
 
@@ -262,6 +273,105 @@ Matched streams are automatically sorted by quality precedence:
 * Use Ignore Tags to filter out quality indicators
 * Check logs for matching logic details
 
+**Frontend not updating after changes**
+* Plugin uses WebSocket-based updates for real-time refresh
+* If changes are not immediately visible, refresh your browser
+* Check logs for "Frontend refresh triggered via WebSocket" message
+
+**Many old CSV export files**
+* Use the "Clear CSV Exports" action to delete all old reports
+* This will free up disk space in `/data/exports/`
+
+**"Plugin 'stream-mapparr' not found" error**
+* Log out of Dispatcharr
+* Refresh your browser or close and reopen it
+* Log back in and try again
+
+### Updating the Plugin
+
+To update Stream-Mapparr from a previous version:
+
+1. **Remove Old Version**
+   * Navigate to **Plugins** in Dispatcharr
+   * Click the trash icon next to the old Stream-Mapparr plugin
+   * Confirm deletion
+
+2. **Restart Dispatcharr**
+   * Log out of Dispatcharr
+   * Restart the Docker container:
+     ```bash
+     docker restart dispatcharr
+     ```
+
+3. **Install New Version**
+   * Log back into Dispatcharr
+   * Navigate to **Plugins**
+   * Click **Import Plugin** and upload the new plugin zip file
+   * Enable the plugin after installation
+
+4. **Verify Installation**
+   * Check that the new version number appears in the plugin list
+   * Reconfigure your settings if needed
+   * Run "Load/Process Channels" to test
+
+## FAQ
+
+### How do I improve matching accuracy?
+
+**Option 1: Use Channel Mapparr Plugin (Recommended)**
+* Install and run the [Channel Mapparr Plugin](https://github.com/PiratesIRC/Dispatcharr-Channel-Maparr-Plugin)
+* This automatically standardizes channel names across your entire setup
+* Provides consistent naming that Stream-Mapparr can reliably match
+
+**Option 2: Edit channels.txt manually**
+* Navigate to `/data/plugins/stream_mapparr/channels.txt`
+* Add standardized channel names (one per line)
+* Example entries:
+  ```
+  TBS
+  FX
+  FX Movie Channel
+  SYFY
+  USA Network
+  ```
+* This helps the plugin distinguish between similar channel names
+* Restart the plugin after editing
+
+### How many streams can the plugin handle?
+
+Stream-Mapparr has no stream limit. The plugin automatically handles pagination and will fetch all available streams regardless of quantity. It has been successfully tested with libraries containing 10,000+ streams.
+
+### Why use Visible Channel Limit?
+
+The Visible Channel Limit setting controls how many channels per group receive streams and remain visible. For example, if you have:
+* `CBS - AL Birmingham (WIAT) [FHD]`
+* `CBS - AL Birmingham (WIAT) [HD]`
+* `CBS - AL Birmingham (WIAT) [SD]`
+
+With a limit of 1, only the highest priority channel (`[FHD]`) receives streams and stays visible. This prevents duplicate channels from cluttering your guide.
+
+### What happens to existing stream assignments?
+
+When you run "Add Stream(s) to Channels", the plugin:
+* Removes all existing stream assignments from matched channels
+* Adds the new matched streams (sorted by quality)
+* Only affects channels within the Visible Channel Limit
+
+Channels outside the limit or without matches are left unchanged.
+
+### Can I undo changes?
+
+The plugin exports CSV reports for every action:
+* Preview reports show what will change
+* Results reports show what was changed
+* Visibility reports show which channels were enabled/disabled
+
+You can use these reports to manually revert changes if needed. However, there is no built-in "undo" function.
+
+### How do I clean up old export files?
+
+Use the "Clear CSV Exports" action to delete all CSV files created by Stream-Mapparr. This removes files from `/data/exports/` that start with `stream_mapparr_` and helps free up disk space.
+
 ### Debugging Commands
 ```bash
 # Check plugin files
@@ -278,3 +388,13 @@ docker logs -f dispatcharr | grep "Extracted callsign"
 
 # Check stream matches
 docker logs -f dispatcharr | grep "Found callsign match"
+
+# Check CSV exports
+docker exec dispatcharr ls -lh /data/exports/stream_mapparr_*
+```
+
+## Performance Notes
+* **No Stream Limit**: Version 0.3 removes the previous 10,000 stream limitation
+* **Automatic Pagination**: Plugin handles API pagination automatically, fetching all available streams
+* **Large Libraries**: Successfully tested with 10,000+ streams
+* **WebSocket Updates**: Real-time frontend refresh eliminates need for manual page refresh after changes
