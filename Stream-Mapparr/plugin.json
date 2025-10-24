@@ -1,0 +1,16 @@
+{
+  "name": "Stream-Mapparr",
+  "key": "stream-mapparr",
+  "module": "stream_mapparr.plugin",
+  "class": "Plugin",
+  "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
+  "author": "community",
+  "homepage": "https://github.com/PiratesIRC/Stream-Mapparr",
+  "actions": [
+    "load_process_channels",
+    "preview_changes",
+    "add_streams_to_channels",
+    "manage_channel_visibility",
+    "clear_csv_exports"
+  ]
+}

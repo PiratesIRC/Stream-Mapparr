@@ -28,7 +28,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
     
     name = "Stream-Mapparr"
-    version = "0.2"
+    version = "0.3"
     description = "Automatically add matching streams to channels based on name similarity and quality precedence"
     
     # Settings rendered by UI
@@ -117,6 +117,16 @@ class Plugin:
                 "required": True,
                 "title": "Manage Channel Visibility?",
                 "message": "This will disable ALL channels in the profile, then enable only channels with 0 or 1 stream that are not attached to other channels. Continue?"
+            }
+        },
+        {
+            "id": "clear_csv_exports",
+            "label": "Clear CSV Exports",
+            "description": "Delete all CSV export files created by this plugin",
+            "confirm": {
+                "required": True,
+                "title": "Clear CSV Exports?",
+                "message": "This will delete all CSV export files created by this plugin. Continue?"
             }
         },
     ]
@@ -283,16 +293,27 @@ class Plugin:
             logger.error(f"API POST request failed for {endpoint}: {e}")
             raise Exception(f"API POST request failed: {e}")
 
-    def _trigger_m3u_refresh(self, token, settings, logger):
-        """Triggers a global M3U refresh to update the GUI via WebSockets."""
-        logger.info("Triggering M3U refresh to update the GUI...")
+    def _trigger_frontend_refresh(self, settings, logger):
+        """Trigger frontend channel list refresh via WebSocket"""
         try:
-            self._post_api_data("/api/m3u/refresh/", token, {}, settings, logger)
-            logger.info("M3U refresh triggered successfully.")
-            return True
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                # Send WebSocket message to trigger frontend refresh
+                async_to_sync(channel_layer.group_send)(
+                    "dispatcharr_updates",
+                    {
+                        "type": "channels.updated",
+                        "message": "Channel visibility updated by Event Channel Managarr"
+                    }
+                )
+                logger.info("Frontend refresh triggered via WebSocket")
+                return True
         except Exception as e:
-            logger.error(f"Failed to trigger M3U refresh: {e}")
-            return False
+            logger.warning(f"Could not trigger frontend refresh: {e}")
+        return False
 
     def _clean_channel_name(self, name, ignore_tags=None):
         """Remove brackets and their contents from channel name for matching, and remove ignore tags."""
@@ -332,9 +353,9 @@ class Plugin:
             else:
                 quality_clean = quality.strip('[]()').strip()
                 patterns = [
-                    f"\\[{quality_clean}\\]",
-                    f"\\({quality_clean}\\)",
-                    f"\\b{quality_clean}\\b"
+                    rf'\[{re.escape(quality_clean)}\]',
+                    rf'\({re.escape(quality_clean)}\)',
+                    rf'\b{re.escape(quality_clean)}\b'
                 ]
                 for pattern in patterns:
                     if re.search(pattern, stream_name, re.IGNORECASE):
@@ -356,24 +377,6 @@ class Plugin:
             elif tag in channel_name:
                 return tag
         return ""
-
-    def _sort_channels_by_priority(self, channels):
-        """Sort channels by quality tag priority, then by channel number."""
-        def get_priority_key(channel):
-            quality_tag = self._extract_channel_quality_tag(channel['name'])
-            try:
-                quality_index = self.CHANNEL_QUALITY_TAG_ORDER.index(quality_tag)
-            except ValueError:
-                quality_index = len(self.CHANNEL_QUALITY_TAG_ORDER)
-            
-            # Get channel number, default to 999999 if not available
-            channel_number = channel.get('channel_number', 999999)
-            if channel_number is None:
-                channel_number = 999999
-            
-            return (quality_index, channel_number)
-        
-        return sorted(channels, key=get_priority_key)
 
     def _sort_streams_by_quality(self, streams):
         """Sort streams by quality precedence."""
@@ -459,6 +462,11 @@ class Plugin:
         
         channel_name = channel['name']
         
+        cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
+        #logger.info(f"  Cleaned channel name for matching: {cleaned_channel_name}")
+        if "24/7" in channel_name.lower():
+            logger.info(f"  Cleaned channel name for matching: {cleaned_channel_name}")
+                
         # FIRST: Check if this is an OTA channel and try callsign matching
         if self._is_ota_channel(channel_name):
             logger.info(f"Matching OTA channel: {channel_name}")
@@ -484,7 +492,11 @@ class Plugin:
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     logger.info(f"  Sorted {len(sorted_streams)} streams by quality (callsign matching)")
-                    return sorted_streams
+                    
+                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+                    match_reason = "Callsign match"
+                    
+                    return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
                 else:
                     logger.info(f"  No streams found with callsign {callsign}")
                     # Try networks.json fallback
@@ -494,96 +506,65 @@ class Plugin:
                     if matched_streams:
                         sorted_streams = self._sort_streams_by_quality(matched_streams)
                         logger.info(f"  Sorted {len(sorted_streams)} OTA streams by quality")
-                        return sorted_streams
+                        
+                        cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+                        match_reason = "OTA networks.json match"
+                        
+                        return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
             else:
                 logger.info(f"  Could not extract OTA info from: {channel_name}")
         
         # SECOND: Regular channel matching logic (only if not OTA or OTA matching failed)
-        cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
-        logger.info(f"Matching streams for channel: {channel_name}")
-        logger.info(f"  Cleaned channel name: {cleaned_channel_name}")
+        matching_streams = []
+        match_reason = "No match"
         
         # Debug: show first few stream names to verify we have streams
-        if all_streams:
-            sample_streams = [s['name'] for s in all_streams[:5]]
-            logger.info(f"  Sample streams available: {sample_streams}")
-        else:
-            logger.info(f"  No streams available to match against")
-            return []
+        if not all_streams:
+            logger.warning("No streams available for matching!")
+            return [], cleaned_channel_name, [], "No streams available"
         
-        matching_streams = []
+        # Check for exact match in known channels list
+        if cleaned_channel_name in known_channels:
+            logger.info(f"Found exact match for '{cleaned_channel_name}' in known channels list")
+            
+            # Look for streams that match this channel name exactly
+            for stream in all_streams:
+                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
+                
+                if cleaned_stream_name.lower() == cleaned_channel_name.lower():
+                    matching_streams.append(stream)
+            
+            if matching_streams:
+                sorted_streams = self._sort_streams_by_quality(matching_streams)
+                logger.info(f"  Found {len(sorted_streams)} streams matching exact known channel name")
+                
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+                match_reason = "Exact match (known channels)"
+                
+                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
-        # Escape special regex characters in channel name for word boundary matching
-        escaped_channel_name = re.escape(cleaned_channel_name)
-        
-        # Build a list of longer channel names that contain our channel name
-        longer_channels = []
-        if known_channels:
-            for known_channel in known_channels:
-                if cleaned_channel_name.lower() != known_channel.lower():
-                    if cleaned_channel_name.lower() in known_channel.lower():
-                        longer_channels.append(known_channel)
-        
-        if longer_channels:
-            logger.info(f"  Longer channels to exclude: {longer_channels}")
-        
+        # Fallback to fuzzy matching
         for stream in all_streams:
-            stream_name = stream['name']
-            stream_cleaned = self._clean_channel_name(stream_name, ignore_tags)
+            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
             
-            # Simple exact match after cleaning (case insensitive)
-            if cleaned_channel_name.lower() == stream_cleaned.lower():
-                logger.info(f"  Found exact match: {stream_name}")
+            # Simple case-insensitive substring matching
+            if cleaned_channel_name.lower() in cleaned_stream_name.lower() or cleaned_stream_name.lower() in cleaned_channel_name.lower():
                 matching_streams.append(stream)
-                continue
-            
-            # Pattern matching - more flexible
-            # The pattern looks for the cleaned channel name as a substring
-            # It can be at the start, after a colon/space, or standalone
-            pattern = r'(?:^|[:\s])\s*' + escaped_channel_name + r'(?:\s*[\[\(\|]|$)'
-            
-            if re.search(pattern, stream_name, re.IGNORECASE):
-                # Filter 1: Skip if it is part of a call sign
-                call_sign_pattern = r'\b[A-Z]{4,5}\s+' + escaped_channel_name + r'\b'
-                if re.search(call_sign_pattern, stream_name):
-                    logger.info(f"  Skipped (call sign): {stream_name}")
-                    continue
-                
-                # Filter 2: Skip if stream actually contains a longer channel name
-                skip_stream = False
-                for longer_channel in longer_channels:
-                    escaped_longer = re.escape(longer_channel)
-                    longer_pattern = r'(?:^|[:\s])\s*' + escaped_longer + r'(?:\s*[\[\(\|]|$)'
-                    if re.search(longer_pattern, stream_name, re.IGNORECASE):
-                        logger.info(f"  Skipped (matches longer channel '{longer_channel}'): {stream_name}")
-                        skip_stream = True
-                        break
-                
-                if skip_stream:
-                    continue
-                
-                # Filter 3: Skip West/Pacific timezone feeds unless channel explicitly mentions West
-                channel_is_west = bool(re.search(r'\b(west|pacific|pst)\b', cleaned_channel_name, re.IGNORECASE))
-                stream_is_west = bool(re.search(r'\(west\)|\(pacific\)|\(pst\)', stream_name, re.IGNORECASE))
-                
-                if stream_is_west and not channel_is_west:
-                    logger.info(f"  Skipped (West coast feed): {stream_name}")
-                    continue
-                
-                matching_streams.append(stream)
-                logger.info(f"  Found pattern match: {stream_name}")
         
-        # Return all matching streams sorted by quality
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
-            logger.info(f"  Sorted {len(sorted_streams)} streams by quality (regular matching)")
-            return sorted_streams
+            logger.info(f"  Found {len(sorted_streams)} streams matching via fuzzy match")
+            
+            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+            match_reason = "Fuzzy match"
+            
+            return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
-        logger.info(f"  No matching streams found")
-        return []
+        # No match found
+        return [], cleaned_channel_name, [], "No match"
 
     def _load_networks_data(self, logger):
-        """Load OTA network data from networks.json file."""
+        """Load networks.json file for OTA channel matching."""
         networks_file = os.path.join(os.path.dirname(__file__), 'networks.json')
         networks_data = []
         
@@ -591,7 +572,7 @@ class Plugin:
             if os.path.exists(networks_file):
                 with open(networks_file, 'r', encoding='utf-8') as f:
                     networks_data = json.load(f)
-                logger.info(f"Loaded {len(networks_data)} network entries from networks.json")
+                logger.info(f"Loaded {len(networks_data)} networks from networks.json")
             else:
                 logger.warning(f"networks.json not found at {networks_file}")
         except Exception as e:
@@ -599,109 +580,82 @@ class Plugin:
         
         return networks_data
 
-    def _parse_network_affiliation(self, network_affiliation):
-        """Extract the primary network from network_affiliation field."""
-        if not network_affiliation:
-            return None
-        
-        # Handle patterns like "CBS (12.1), CW (12.2), MeTV (12.3)"
-        # Extract text before the first parenthesis
-        if '(' in network_affiliation:
-            network_affiliation = network_affiliation.split('(')[0].strip()
-        
-        # Handle patterns like "WTOV D1 - NBC; WTOV D2 - FOX"
-        # Extract text after the last dash before the first separator
-        if ' - ' in network_affiliation:
-            # Split by semicolons/slashes first to get the first segment
-            for separator in [';', '/']:
-                if separator in network_affiliation:
-                    network_affiliation = network_affiliation.split(separator)[0].strip()
-                    break
-            # Now extract after the dash
-            if ' - ' in network_affiliation:
-                network_affiliation = network_affiliation.split(' - ')[-1].strip()
-        
-        # Split by separators: comma, semicolon, or slash
-        for separator in [',', ';', '/']:
-            if separator in network_affiliation:
-                network_affiliation = network_affiliation.split(separator)[0].strip()
-                break
-        
-        return network_affiliation.upper()
-
     def _match_ota_streams(self, channel_name, all_streams, networks_data, logger):
-        """Match OTA channel to streams using networks.json data."""
+        """Match OTA channel using networks.json data."""
+        if not networks_data:
+            return []
+        
         ota_info = self._extract_ota_info(channel_name)
         if not ota_info:
-            logger.info(f"  Could not parse OTA info from: {channel_name}")
             return []
         
-        logger.info(f"  OTA channel parsed: Network={ota_info['network']}, State={ota_info['state']}, City={ota_info['city']}, Callsign={ota_info['callsign']}")
+        network = ota_info['network']
+        state = ota_info['state']
+        city = ota_info['city']
         
-        # Find matching network entries
-        matching_networks = []
-        for network_entry in networks_data:
-            entry_callsign = self._parse_callsign(network_entry.get('callsign', ''))
-            entry_network = self._parse_network_affiliation(network_entry.get('network_affiliation', ''))
-            entry_state = network_entry.get('community_served_state', '').upper()
-            
-            # Match on callsign and state
-            if (entry_callsign == ota_info['callsign'] and 
-                entry_state == ota_info['state'] and
-                entry_network == ota_info['network']):
-                matching_networks.append(network_entry)
-                logger.info(f"  Found matching network entry: {entry_callsign} in {entry_state}")
+        logger.info(f"  Searching networks.json for: {network} {state} {city}")
         
-        if not matching_networks:
-            logger.info(f"  No matching network entries found in networks.json")
+        # Find matching network entry
+        matching_entry = None
+        for entry in networks_data:
+            if (entry.get('network', '').upper() == network and 
+                entry.get('state', '').upper() == state and
+                entry.get('city', '').upper() == city):
+                matching_entry = entry
+                break
+        
+        if not matching_entry:
+            logger.info(f"  No networks.json entry found for {network} {state} {city}")
             return []
         
-        # Now search for streams matching the exact callsign
+        # Get stream names from the entry
+        stream_names = matching_entry.get('stream_names', [])
+        if not stream_names:
+            logger.info(f"  No stream names in networks.json entry")
+            return []
+        
+        logger.info(f"  Found {len(stream_names)} stream names in networks.json: {stream_names}")
+        
+        # Find streams matching these names
         matching_streams = []
-        callsign = ota_info['callsign']
-        
         for stream in all_streams:
-            stream_name = stream['name'].upper()
-            
-            # Use word boundary regex to ensure exact callsign match
-            # Pattern: callsign must be a complete word (not part of a longer callsign)
-            callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
-            
-            if re.search(callsign_pattern, stream_name):
-                # Additional validation: ensure it is the right network
-                # The stream should contain the network name or be validated by context
-                if ota_info['network'] in stream_name:
+            stream_name = stream['name']
+            for target_name in stream_names:
+                # Case-insensitive substring match
+                if target_name.lower() in stream_name.lower():
                     matching_streams.append(stream)
-                    logger.info(f"  Found OTA stream match: {stream['name']}")
+                    logger.info(f"  Matched stream: {stream_name}")
+                    break
         
         return matching_streams
 
-    def run(self, action, params, context):
-        """Main plugin entry point"""
-        LOGGER.info(f"Stream-Mapparr run called with action: {action}")
-        
+    def run(self, action, settings, context=None):
+        """Execute plugin action."""
         try:
-            settings = context.get("settings", {})
-            logger = context.get("logger", LOGGER)
+            logger = LOGGER
+            
+            # If settings is empty but context has settings, use context settings
+            if context and isinstance(context, dict) and not settings:
+                if 'settings' in context:
+                    settings = context['settings']
             
             action_map = {
                 "load_process_channels": self.load_process_channels_action,
                 "preview_changes": self.preview_changes_action,
                 "add_streams_to_channels": self.add_streams_to_channels_action,
                 "manage_channel_visibility": self.manage_channel_visibility_action,
+                "clear_csv_exports": self.clear_csv_exports_action,
             }
             
             if action not in action_map:
-                return {
-                    "status": "error",
-                    "message": f"Unknown action: {action}",
-                    "available_actions": list(action_map.keys())
-                }
+                return {"status": "error", "message": f"Unknown action: {action}"}
             
             return action_map[action](settings, logger)
                 
         except Exception as e:
             LOGGER.error(f"Error in plugin run: {str(e)}")
+            import traceback
+            LOGGER.error(traceback.format_exc())
             return {"status": "error", "message": str(e)}
 
     def load_process_channels_action(self, settings, logger):
@@ -828,13 +782,12 @@ class Plugin:
             channels_to_process = channels_in_profile
             logger.info(f"Processing {len(channels_to_process)} channels (including those with existing streams)")
             
-            # Get all streams - DO NOT filter by group, get all streams (handle pagination)
-            logger.info("Fetching all streams from all groups...")
+            # Get all streams - DO NOT filter by group, get all streams (handle pagination with NO LIMIT)
+            logger.info("Fetching all streams from all groups (unlimited)...")
             all_streams_data = []
             page = 1
-            max_pages = 100
 
-            while page <= max_pages:
+            while True:
                 endpoint = f"/api/channels/streams/?page={page}&page_size=100"
                 streams_response = self._get_api_data(endpoint, token, settings, logger)
                 
@@ -902,6 +855,24 @@ class Plugin:
             logger.error(f"Error loading channels: {str(e)}")
             return {"status": "error", "message": f"Error loading channels: {str(e)}"}
 
+    def _sort_channels_by_priority(self, channels):
+        """Sort channels by quality tag priority, then by channel number."""
+        def get_priority_key(channel):
+            quality_tag = self._extract_channel_quality_tag(channel['name'])
+            try:
+                quality_index = self.CHANNEL_QUALITY_TAG_ORDER.index(quality_tag)
+            except ValueError:
+                quality_index = len(self.CHANNEL_QUALITY_TAG_ORDER)
+            
+            # Get channel number, default to 999999 if not available
+            channel_number = channel.get('channel_number', 999999)
+            if channel_number is None:
+                channel_number = 999999
+            
+            return (quality_index, channel_number)
+        
+        return sorted(channels, key=get_priority_key)
+
     def preview_changes_action(self, settings, logger):
         """Preview which streams will be added to channels without making changes."""
         if not os.path.exists(self.processed_data_file):
@@ -962,7 +933,7 @@ class Plugin:
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 
                 # Match streams for this channel group (using first channel as representative)
-                matched_streams = self._match_streams_to_channel(
+                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, known_channels, networks_data
                 )
                 
@@ -975,39 +946,38 @@ class Plugin:
                     match_info = {
                         "channel_id": channel['id'],
                         "channel_name": channel['name'],
+                        "channel_name_cleaned": cleaned_channel_name,
                         "channel_number": channel.get('channel_number'),
                         "matched_streams": len(matched_streams),
                         "stream_names": [s['name'] for s in matched_streams],
-                        "stream_ids": [s['id'] for s in matched_streams],
+                        "stream_names_cleaned": cleaned_stream_names,
+                        "match_reason": match_reason,
                         "will_update": True
                     }
                     all_matches.append(match_info)
                     
                     if matched_streams:
                         total_channels_with_matches += 1
-                        total_channels_to_update += 1
                     else:
                         total_channels_without_matches += 1
+                    total_channels_to_update += 1
                 
-                # Add match info for channels that will NOT be updated
+                # Add match info for channels that will NOT be updated (exceeds limit)
                 for channel in channels_not_updated:
                     match_info = {
                         "channel_id": channel['id'],
                         "channel_name": channel['name'],
+                        "channel_name_cleaned": cleaned_channel_name,
                         "channel_number": channel.get('channel_number'),
                         "matched_streams": len(matched_streams),
                         "stream_names": [s['name'] for s in matched_streams],
-                        "stream_ids": [s['id'] for s in matched_streams],
+                        "stream_names_cleaned": cleaned_stream_names,
+                        "match_reason": f"Skipped (exceeds limit of {visible_channel_limit})",
                         "will_update": False
                     }
                     all_matches.append(match_info)
-                    
-                    if matched_streams:
-                        total_channels_with_matches += 1
-                    else:
-                        total_channels_without_matches += 1
             
-            # Generate CSV
+            # Export to CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
             filepath = os.path.join("/data/exports", filename)
@@ -1016,60 +986,57 @@ class Plugin:
             
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 fieldnames = [
+                    'will_update',
                     'channel_id',
                     'channel_name',
+                    'channel_name_cleaned',
                     'channel_number',
-                    'matched_streams_count',
-                    'stream_names',
-                    'stream_ids',
-                    'will_update'
+                    'matched_streams',
+                    'match_reason',
+                    'stream_names'
                 ]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 
                 for match in all_matches:
                     writer.writerow({
+                        'will_update': 'Yes' if match['will_update'] else 'No',
                         'channel_id': match['channel_id'],
                         'channel_name': match['channel_name'],
-                        'channel_number': match['channel_number'],
-                        'matched_streams_count': match['matched_streams'],
-                        'stream_names': ' | '.join(match['stream_names']),
-                        'stream_ids': ', '.join(map(str, match['stream_ids'])),
-                        'will_update': 'Yes' if match['will_update'] else 'No'
+                        'channel_name_cleaned': match['channel_name_cleaned'],
+                        'channel_number': match.get('channel_number', 'N/A'),
+                        'matched_streams': match['matched_streams'],
+                        'match_reason': match['match_reason'],
+                        'stream_names': '; '.join(match['stream_names'][:5])  # Show first 5
                     })
             
-            logger.info(f"Preview CSV exported to {filepath}")
+            logger.info(f"Preview exported to {filepath}")
             
-            # Create summary message
+            # Calculate summary
+            channels_skipped = len([m for m in all_matches if not m['will_update']])
+            
             message_parts = [
-                "Preview completed:",
-                f"• Total channels: {len(channels)}",
+                f"Preview completed for {len(channels)} channels:",
+                f"• Channels that will be updated: {total_channels_to_update}",
+                f"• Channels skipped (exceeds limit): {channels_skipped}",
                 f"• Channels with matches: {total_channels_with_matches}",
                 f"• Channels without matches: {total_channels_without_matches}",
-                f"• Channels that will be updated: {total_channels_to_update}",
-                f"• Visible channel limit: {visible_channel_limit}",
                 "",
-                f"Preview exported to: {filepath}",
+                f"Preview report exported to: {filepath}",
                 "",
-                "Sample matches (✓ = will update):"
+                "Sample channels to update (first 10):"
             ]
             
-            # Show first 10 channels
-            for match in all_matches[:10]:
-                update_marker = "✓" if match['will_update'] else "✗"
-                if match['matched_streams'] > 0:
-                    stream_preview = ', '.join(match['stream_names'][:3])
-                    if match['matched_streams'] > 3:
-                        stream_preview += f" ... (+{match['matched_streams'] - 3} more)"
-                    message_parts.append(f"{update_marker} {match['channel_name']}: {stream_preview}")
-                else:
-                    message_parts.append(f"{update_marker} {match['channel_name']}: No matches found")
+            # Show first 10 channels that will be updated
+            shown = 0
+            for match in all_matches:
+                if match['will_update'] and shown < 10:
+                    stream_summary = f"{match['matched_streams']} stream(s)" if match['matched_streams'] > 0 else "No streams"
+                    message_parts.append(f"• {match['channel_name']}: {stream_summary}")
+                    shown += 1
             
-            if len(all_matches) > 10:
-                message_parts.append(f"... and {len(all_matches) - 10} more channels")
-            
-            message_parts.append("")
-            message_parts.append("Use 'Add Streams to Channels' to apply these changes.")
+            if total_channels_to_update > 10:
+                message_parts.append(f"... and {total_channels_to_update - 10} more channels")
             
             return {
                 "status": "success",
@@ -1081,7 +1048,7 @@ class Plugin:
             return {"status": "error", "message": f"Error previewing changes: {str(e)}"}
 
     def add_streams_to_channels_action(self, settings, logger):
-        """Add matching streams to channels and replace existing assignments."""
+        """Add matching streams to channels and replace existing stream assignments."""
         if not os.path.exists(self.processed_data_file):
             return {
                 "status": "error",
@@ -1094,7 +1061,7 @@ class Plugin:
             if error:
                 return {"status": "error", "message": error}
             
-            # Load known channel names for precise matching
+            # Load known channel names and networks data
             known_channels = self._load_channel_list(logger)
             networks_data = self._load_networks_data(logger)
             
@@ -1102,23 +1069,20 @@ class Plugin:
             with open(self.processed_data_file, 'r') as f:
                 processed_data = json.load(f)
             
+            profile_id = processed_data.get('profile_id')
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
+            ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
-            profile_id = processed_data.get('profile_id')
             
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
-            if not profile_id:
-                return {"status": "error", "message": "Profile ID not found in processed data."}
+            logger.info(f"Adding streams to {len(channels)} channels")
+            logger.info(f"Visible channel limit: {visible_channel_limit}")
             
-            logger.info(f"Adding streams to channels with visible limit: {visible_channel_limit}")
-            
-            # Group channels by their cleaned name for matching
+            # Group channels by their cleaned name
             channel_groups = {}
-            ignore_tags = processed_data.get('ignore_tags', [])
-            
             for channel in channels:
                 # Use ORIGINAL name for OTA channels, cleaned name for others
                 if self._is_ota_channel(channel['name']):
@@ -1135,11 +1099,12 @@ class Plugin:
                     channel_groups[group_key] = []
                 channel_groups[group_key].append(channel)
             
-            # Match streams to channel groups and update
-            all_matches = []
+            # Process each channel group
             channels_updated = 0
             channels_skipped = 0
-            channels_to_enable = []  # Track channels that should be enabled in the profile
+            channels_with_matches = 0
+            channels_without_matches = 0
+            update_details = []
             
             for group_key, group_channels in channel_groups.items():
                 logger.info(f"Processing channel group: {group_key} ({len(group_channels)} channels)")
@@ -1147,123 +1112,311 @@ class Plugin:
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 
-                # Match streams for this channel group (using first channel as representative)
-                matched_streams = self._match_streams_to_channel(
+                # Match streams for this channel group
+                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, known_channels, networks_data
                 )
                 
-                # Determine which channels will be updated based on limit
+                # Determine which channels to update based on limit
                 channels_to_update = sorted_channels[:visible_channel_limit]
                 channels_not_updated = sorted_channels[visible_channel_limit:]
                 
-                # Update only the channels within the visible limit
-                if matched_streams:
-                    stream_ids = [s['id'] for s in matched_streams]
+                # Update only the channels within the limit
+                for channel in channels_to_update:
+                    channel_id = channel['id']
+                    channel_name = channel['name']
                     
-                    for channel in channels_to_update:
-                        try:
-                            payload = {
-                                'id': channel['id'],
-                                'streams': stream_ids
-                            }
+                    try:
+                        if matched_streams:
+                            # Get the best stream (first in sorted list)
+                            best_stream = matched_streams[0]
+                            stream_id = best_stream['id']
                             
-                            logger.info(f"Updating channel {channel['name']} (ID: {channel['id']}) with {len(stream_ids)} streams")
-                            self._patch_api_data(
-                                f"/api/channels/channels/{channel['id']}/",
-                                token,
-                                payload,
-                                settings,
-                                logger
+                            # Check if channel already has this stream assigned
+                            existing_stream = ChannelStream.objects.filter(
+                                channel_id=channel_id
+                            ).first()
+                            
+                            if existing_stream and existing_stream.stream_id == stream_id:
+                                logger.info(f"  Channel '{channel_name}' already has stream '{best_stream['name']}' - skipping")
+                                channels_skipped += 1
+                                continue
+                            
+                            # Remove existing stream assignments
+                            ChannelStream.objects.filter(channel_id=channel_id).delete()
+                            
+                            # Add new stream assignment
+                            ChannelStream.objects.create(
+                                channel_id=channel_id,
+                                stream_id=stream_id
                             )
                             
-                            # Add to list of channels to enable in profile
-                            channels_to_enable.append(channel['id'])
-                            
-                            match_info = {
-                                "channel_id": channel['id'],
-                                "channel_name": channel['name'],
-                                "channel_number": channel.get('channel_number'),
-                                "matched_streams": len(matched_streams),
-                                "stream_names": [s['name'] for s in matched_streams],
-                                "stream_ids": stream_ids,
-                                "will_update": True,
-                                "status": "Updated"
-                            }
-                            all_matches.append(match_info)
                             channels_updated += 1
+                            channels_with_matches += 1
                             
-                        except Exception as e:
-                            logger.error(f"Failed to update channel {channel['name']} (ID: {channel['id']}): {e}")
-                            match_info = {
-                                "channel_id": channel['id'],
-                                "channel_name": channel['name'],
-                                "channel_number": channel.get('channel_number'),
-                                "matched_streams": len(matched_streams),
-                                "stream_names": [s['name'] for s in matched_streams],
-                                "stream_ids": stream_ids,
-                                "will_update": True,
-                                "status": f"Error: {str(e)}"
-                            }
-                            all_matches.append(match_info)
-                            channels_skipped += 1
-                    
-                    # Add match info for channels NOT updated (over the limit)
-                    for channel in channels_not_updated:
-                        match_info = {
-                            "channel_id": channel['id'],
-                            "channel_name": channel['name'],
-                            "channel_number": channel.get('channel_number'),
-                            "matched_streams": len(matched_streams),
-                            "stream_names": [s['name'] for s in matched_streams],
-                            "stream_ids": stream_ids,
-                            "will_update": False,
-                            "status": "Skipped (over limit)"
-                        }
-                        all_matches.append(match_info)
-                        channels_skipped += 1
-                else:
-                    # No matches found for this group
-                    for channel in sorted_channels:
-                        match_info = {
-                            "channel_id": channel['id'],
-                            "channel_name": channel['name'],
-                            "channel_number": channel.get('channel_number'),
-                            "matched_streams": 0,
-                            "stream_names": [],
-                            "stream_ids": [],
-                            "will_update": False,
-                            "status": "No matches"
-                        }
-                        all_matches.append(match_info)
-                        channels_skipped += 1
+                            update_details.append({
+                                'channel_name': channel_name,
+                                'stream_name': best_stream['name'],
+                                'matched_streams': len(matched_streams)
+                            })
+                            
+                            logger.info(f"  Added stream '{best_stream['name']}' to channel '{channel_name}'")
+                        else:
+                            # No matches found - remove existing streams
+                            existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
+                            if existing_count > 0:
+                                ChannelStream.objects.filter(channel_id=channel_id).delete()
+                                logger.info(f"  Removed {existing_count} stream(s) from channel '{channel_name}' (no matches found)")
+                            
+                            channels_without_matches += 1
+                            
+                    except Exception as e:
+                        logger.error(f"  Failed to update channel '{channel_name}': {e}")
+                
+                # Log skipped channels
+                for channel in channels_not_updated:
+                    logger.info(f"  Skipped channel '{channel['name']}' (exceeds limit of {visible_channel_limit})")
+                    channels_skipped += 1
             
-            # Enable channels in the profile that received streams
+            # Trigger frontend refresh
+            self._trigger_frontend_refresh(settings, logger)
+            
+            # Export detailed report
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"stream_mapparr_update_{timestamp}.csv"
+            filepath = os.path.join("/data/exports", filename)
+            
+            os.makedirs("/data/exports", exist_ok=True)
+            
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['channel_name', 'stream_name', 'matched_streams']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                for detail in update_details:
+                    writer.writerow(detail)
+            
+            logger.info(f"Update report exported to {filepath}")
+            
+            # Create summary message
+            message_parts = [
+                f"Stream assignment completed:",
+                f"• Channels updated: {channels_updated}",
+                f"• Channels skipped (exceeds limit): {channels_skipped}",
+                f"• Channels with matches: {channels_with_matches}",
+                f"• Channels without matches: {channels_without_matches}",
+                "",
+                f"Update report exported to: {filepath}",
+                "",
+                "Sample updates (first 10):"
+            ]
+            
+            # Show first 10 updates
+            for detail in update_details[:10]:
+                message_parts.append(f"• {detail['channel_name']}: {detail['stream_name']}")
+            
+            if len(update_details) > 10:
+                message_parts.append(f"... and {len(update_details) - 10} more updates")
+            
+            message_parts.append("")
+            message_parts.append("Frontend refresh triggered - changes should be visible in the interface shortly.")
+            
+            return {
+                "status": "success",
+                "message": "\n".join(message_parts)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error adding streams to channels: {str(e)}")
+            return {"status": "error", "message": f"Error adding streams to channels: {str(e)}"}
+
+    def manage_channel_visibility_action(self, settings, logger):
+        """Disable all channels, then enable only channels with 0 or 1 stream (excluding attached channels)."""
+        if not os.path.exists(self.processed_data_file):
+            return {
+                "status": "error",
+                "message": "No processed data found. Please run 'Load/Process Channels' first."
+            }
+        
+        try:
+            # Get API token
+            token, error = self._get_api_token(settings, logger)
+            if error:
+                return {"status": "error", "message": error}
+            
+            # Load processed data
+            with open(self.processed_data_file, 'r') as f:
+                processed_data = json.load(f)
+            
+            profile_id = processed_data.get('profile_id')
+            channels = processed_data.get('channels', [])
+            ignore_tags = processed_data.get('ignore_tags', [])
+            visible_channel_limit = processed_data.get('visible_channel_limit', 1)
+            
+            if not channels:
+                return {"status": "error", "message": "No channels found in processed data."}
+            
+            logger.info(f"Managing visibility for {len(channels)} channels")
+            logger.info(f"Visible channel limit: {visible_channel_limit}")
+            
+            # Step 1: Get stream counts for all channels
+            logger.info("Step 1: Counting streams for each channel...")
+            channel_stream_counts = {}
+            
+            for channel in channels:
+                channel_id = channel['id']
+                stream_count = ChannelStream.objects.filter(channel_id=channel_id).count()
+                channel_stream_counts[channel_id] = {
+                    'name': channel['name'],
+                    'stream_count': stream_count
+                }
+                logger.info(f"  Channel '{channel['name']}': {stream_count} stream(s)")
+            
+            # Step 2: Find channels that are attached to other channels
+            logger.info("Step 2: Identifying attached channels...")
+            channels_attached_to_others = set()
+            
+            for channel in channels:
+                attached_channel_id = channel.get('attached_channel_id')
+                if attached_channel_id:
+                    channels_attached_to_others.add(channel['id'])
+                    logger.info(f"  Channel '{channel['name']}' is attached to another channel")
+            
+            # Step 3: Disable all channels first
+            logger.info(f"Step 3: Disabling all {len(channels)} channels...")
+            try:
+                bulk_disable_payload = [
+                    {"channel_id": channel['id'], "enabled": False}
+                    for channel in channels
+                ]
+                
+                self._patch_api_data(
+                    f"/api/channels/profiles/{profile_id}/channels/bulk-update/",
+                    token,
+                    bulk_disable_payload,
+                    settings,
+                    logger
+                )
+                logger.info(f"Successfully disabled all {len(channels)} channels")
+                
+            except Exception as e:
+                logger.error(f"Failed to bulk disable channels: {e}")
+                logger.info("Attempting to disable channels individually...")
+                
+                # Fallback: disable one by one
+                for channel in channels:
+                    try:
+                        self._patch_api_data(
+                            f"/api/channels/profiles/{profile_id}/channels/{channel['id']}/",
+                            token,
+                            {"enabled": False},
+                            settings,
+                            logger
+                        )
+                    except Exception as e2:
+                        logger.error(f"Failed to disable channel {channel['id']}: {e2}")
+            
+            # Step 3.5: Group channels and apply visible channel limit
+            logger.info("Step 3.5: Grouping channels and applying visibility limit...")
+            
+            # Group channels by their cleaned name
+            channel_groups = {}
+            for channel in channels:
+                # Use ORIGINAL name for OTA channels, cleaned name for others
+                if self._is_ota_channel(channel['name']):
+                    # For OTA channels, group by callsign
+                    ota_info = self._extract_ota_info(channel['name'])
+                    if ota_info:
+                        group_key = f"OTA_{ota_info['callsign']}"
+                    else:
+                        group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                else:
+                    group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                
+                if group_key not in channel_groups:
+                    channel_groups[group_key] = []
+                channel_groups[group_key].append(channel)
+            
+            # Determine which channels to enable
+            channels_to_enable = []
+            
+            for group_key, group_channels in channel_groups.items():
+                logger.info(f"Processing channel group: {group_key} ({len(group_channels)} channels)")
+                
+                # Sort channels in this group by priority
+                sorted_channels = self._sort_channels_by_priority(group_channels)
+                
+                # Filter to only channels with 0-1 streams and not attached
+                eligible_channels = [
+                    ch for ch in sorted_channels
+                    if channel_stream_counts[ch['id']]['stream_count'] <= 1
+                    and ch['id'] not in channels_attached_to_others
+                ]
+                
+                # If there are eligible channels, enable only the highest priority one
+                enabled_in_group = False
+                
+                for ch in group_channels:
+                    channel_id = ch['id']
+                    channel_name = ch['name']
+                    stream_count = ch['stream_count']
+                    is_attached = ch['attached']
+                    
+                    # Determine reason for enabling/disabling
+                    if is_attached:
+                        reason = 'Attached to another channel'
+                        should_enable = False
+                    elif stream_count >= 2:
+                        reason = f'{stream_count} streams (too many)'
+                        should_enable = False
+                    elif not enabled_in_group and (stream_count == 0 or stream_count == 1):
+                        # This is the highest priority channel with 0-1 streams
+                        reason = f'{stream_count} stream{"" if stream_count == 1 else "s"}'
+                        should_enable = True
+                        enabled_in_group = True
+                    else:
+                        # Another channel in this group is already enabled
+                        reason = 'Duplicate - higher priority channel in group already enabled'
+                        should_enable = False
+                    
+                    channel_stream_counts[channel_id] = {
+                        'name': channel_name,
+                        'stream_count': stream_count,
+                        'reason': reason
+                    }
+                    
+                    if should_enable:
+                        channels_to_enable.append(channel_id)
+                        logger.info(f"  Will enable: {channel_name} ({reason})")
+                    else:
+                        logger.info(f"  Will keep disabled: {channel_name} ({reason})")
+            
+            # Step 4: Enable selected channels
+            logger.info(f"Step 4: Enabling {len(channels_to_enable)} channels...")
             channels_enabled = 0
+            
             if channels_to_enable:
-                logger.info(f"Enabling {len(channels_to_enable)} channels in profile (ID: {profile_id})")
                 try:
-                    # Build bulk update payload
-                    bulk_payload = [
+                    bulk_enable_payload = [
                         {"channel_id": channel_id, "enabled": True}
                         for channel_id in channels_to_enable
                     ]
                     
-                    # Use bulk update endpoint
                     self._patch_api_data(
                         f"/api/channels/profiles/{profile_id}/channels/bulk-update/",
                         token,
-                        bulk_payload,
+                        bulk_enable_payload,
                         settings,
                         logger
                     )
                     channels_enabled = len(channels_to_enable)
-                    logger.info(f"Successfully enabled {channels_enabled} channels in profile")
+                    logger.info(f"Successfully enabled {channels_enabled} channels")
                     
                 except Exception as e:
-                    logger.error(f"Failed to bulk enable channels in profile: {e}")
+                    logger.error(f"Failed to bulk enable channels: {e}")
                     logger.info("Attempting to enable channels individually...")
                     
-                    # Fallback: enable channels one by one
+                    # Fallback: enable one by one
                     for channel_id in channels_to_enable:
                         try:
                             self._patch_api_data(
@@ -1277,13 +1430,12 @@ class Plugin:
                         except Exception as e2:
                             logger.error(f"Failed to enable channel {channel_id}: {e2}")
             
-            # Trigger M3U refresh
-            if channels_updated > 0:
-                self._trigger_m3u_refresh(token, settings, logger)
+            # Trigger frontend refresh
+            self._trigger_frontend_refresh(settings, logger)
             
-            # Generate results CSV
+            # Generate visibility report CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"stream_mapparr_results_{timestamp}.csv"
+            filename = f"stream_mapparr_visibility_{timestamp}.csv"
             filepath = os.path.join("/data/exports", filename)
             
             os.makedirs("/data/exports", exist_ok=True)
@@ -1292,68 +1444,62 @@ class Plugin:
                 fieldnames = [
                     'channel_id',
                     'channel_name',
-                    'channel_number',
-                    'matched_streams_count',
-                    'stream_names',
-                    'stream_ids',
-                    'will_update',
-                    'status'
+                    'stream_count',
+                    'reason',
+                    'enabled'
                 ]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 
-                for match in all_matches:
+                for channel_id, info in channel_stream_counts.items():
                     writer.writerow({
-                        'channel_id': match['channel_id'],
-                        'channel_name': match['channel_name'],
-                        'channel_number': match['channel_number'],
-                        'matched_streams_count': match['matched_streams'],
-                        'stream_names': ' | '.join(match['stream_names']),
-                        'stream_ids': ', '.join(map(str, match['stream_ids'])),
-                        'will_update': 'Yes' if match['will_update'] else 'No',
-                        'status': match['status']
+                        'channel_id': channel_id,
+                        'channel_name': info['name'],
+                        'stream_count': info.get('stream_count', 'N/A'),
+                        'reason': info.get('reason', ''),
+                        'enabled': 'Yes' if channel_id in channels_to_enable else 'No'
                     })
             
-            logger.info(f"Results CSV exported to {filepath}")
+            logger.info(f"Visibility report exported to {filepath}")
+            
+            # Count channels by category
+            channels_with_0_streams = sum(1 for info in channel_stream_counts.values() if info.get('stream_count') == 0)
+            channels_with_1_stream = sum(1 for info in channel_stream_counts.values() if info.get('stream_count') == 1)
+            channels_with_2plus_streams = sum(1 for info in channel_stream_counts.values() if isinstance(info.get('stream_count'), int) and info.get('stream_count') >= 2)
+            channels_attached = len(channels_attached_to_others)
+            channels_duplicates = len([info for info in channel_stream_counts.values() if 'Duplicate' in info.get('reason', '')])
             
             # Create summary message
             message_parts = [
-                "Stream addition completed:",
+                "Channel visibility management completed:",
                 f"• Total channels processed: {len(channels)}",
-                f"• Channels updated: {channels_updated}",
-                f"• Channels enabled in profile: {channels_enabled}",
-                f"• Channels skipped: {channels_skipped}",
-                f"• Visible channel limit: {visible_channel_limit}",
+                f"• Channels disabled: {len(channels) - channels_enabled}",
+                f"• Channels enabled: {channels_enabled}",
                 "",
-                f"Results exported to: {filepath}",
+                "Breakdown:",
+                f"• Enabled (0-1 streams): {channels_enabled} channels",
+                f"• Disabled (2+ streams): {channels_with_2plus_streams} channels",
+                f"• Disabled (duplicates): {channels_duplicates} channels",
+                f"• Disabled (attached): {channels_attached} channels",
                 "",
-                "Sample updates (✓ = updated):"
+                f"Visibility report exported to: {filepath}",
+                "",
+                "Sample enabled channels:"
             ]
             
-            # Show first 10 channels
+            # Show first 10 enabled channels
             shown_count = 0
-            for match in all_matches:
-                if shown_count >= 10:
-                    break
-                
-                update_marker = "✓" if match['will_update'] else "✗"
-                if match['matched_streams'] > 0:
-                    stream_preview = ', '.join(match['stream_names'][:3])
-                    if match['matched_streams'] > 3:
-                        stream_preview += f" ... (+{match['matched_streams'] - 3} more)"
-                    message_parts.append(f"{update_marker} {match['channel_name']}: {match['status']}")
-                    if match['will_update']:
-                        message_parts.append(f"  Streams: {stream_preview}")
-                else:
-                    message_parts.append(f"{update_marker} {match['channel_name']}: {match['status']}")
-                
-                shown_count += 1
+            for channel_id in channels_to_enable[:10]:
+                info = channel_stream_counts.get(channel_id)
+                if info:
+                    message_parts.append(f"• {info['name']}: {info.get('reason', 'N/A')}")
+                    shown_count += 1
             
-            if len(all_matches) > 10:
-                message_parts.append(f"... and {len(all_matches) - 10} more channels")
+            if len(channels_to_enable) > 10:
+                message_parts.append(f"... and {len(channels_to_enable) - 10} more enabled channels")
             
             message_parts.append("")
-            message_parts.append("GUI refresh triggered - changes should be visible in the interface shortly.")
+            message_parts.append("Frontend refresh triggered - changes should be visible in the interface shortly.")
             
             return {
                 "status": "success",
@@ -1361,301 +1507,61 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error adding streams to channels: {str(e)}")
-            return {"status": "error", "message": f"Error adding streams to channels: {str(e)}"}
+            logger.error(f"Error managing channel visibility: {str(e)}")
+            return {"status": "error", "message": f"Error managing channel visibility: {str(e)}"}
 
-    def manage_channel_visibility_action(self, settings, logger):
-            """Disable all channels in profile, then enable only channels with 0 or 1 stream that are not attached to other channels or duplicates."""
-            if not os.path.exists(self.processed_data_file):
-                return {
-                    "status": "error",
-                    "message": "No processed data found. Please run 'Load/Process Channels' first."
-                }
+    def clear_csv_exports_action(self, settings, logger):
+        """Delete all CSV export files created by this plugin"""
+        try:
+            export_dir = "/data/exports"
             
-            try:
-                # Get API token
-                token, error = self._get_api_token(settings, logger)
-                if error:
-                    return {"status": "error", "message": error}
-                
-                # Load processed data
-                with open(self.processed_data_file, 'r') as f:
-                    processed_data = json.load(f)
-                
-                channels = processed_data.get('channels', [])
-                profile_id = processed_data.get('profile_id')
-                ignore_tags = processed_data.get('ignore_tags', [])
-                
-                if not channels:
-                    return {"status": "error", "message": "No channels found in processed data."}
-                
-                if not profile_id:
-                    return {"status": "error", "message": "Profile ID not found in processed data."}
-                
-                logger.info(f"Managing visibility for {len(channels)} channels in profile (ID: {profile_id})")
-                
-                # Step 1: Disable ALL channels in the profile
-                logger.info("Step 1: Disabling all channels in profile...")
-                try:
-                    bulk_disable_payload = [
-                        {"channel_id": ch['id'], "enabled": False}
-                        for ch in channels
-                    ]
-                    
-                    self._patch_api_data(
-                        f"/api/channels/profiles/{profile_id}/channels/bulk-update/",
-                        token,
-                        bulk_disable_payload,
-                        settings,
-                        logger
-                    )
-                    logger.info(f"Successfully disabled {len(channels)} channels")
-                except Exception as e:
-                    logger.error(f"Failed to bulk disable channels: {e}")
-                    logger.info("Attempting to disable channels individually...")
-                    
-                    # Fallback: disable one by one
-                    disabled_count = 0
-                    for channel in channels:
-                        try:
-                            self._patch_api_data(
-                                f"/api/channels/profiles/{profile_id}/channels/{channel['id']}/",
-                                token,
-                                {"enabled": False},
-                                settings,
-                                logger
-                            )
-                            disabled_count += 1
-                        except Exception as e2:
-                            logger.error(f"Failed to disable channel {channel['id']}: {e2}")
-                    
-                    logger.info(f"Disabled {disabled_count} channels individually")
-                
-                # Step 2: Group channels by callsign and get stream counts
-                logger.info("Step 2: Grouping channels and checking stream assignments...")
-                
-                # Group channels by callsign (for OTA) or cleaned name (for regular)
-                channel_groups = {}
-                channels_attached_to_others = set()
-                
-                for channel in channels:
-                    channel_id = channel['id']
-                    channel_name = channel['name']
-                    
-                    # Determine group key
-                    if self._is_ota_channel(channel_name):
-                        ota_info = self._extract_ota_info(channel_name)
-                        if ota_info:
-                            group_key = f"OTA_{ota_info['callsign']}"
-                        else:
-                            group_key = self._clean_channel_name(channel_name, ignore_tags)
-                    else:
-                        group_key = self._clean_channel_name(channel_name, ignore_tags)
-                    
-                    if group_key not in channel_groups:
-                        channel_groups[group_key] = []
-                    
-                    # Get channel data
-                    try:
-                        channel_data = self._get_api_data(
-                            f"/api/channels/channels/{channel_id}/",
-                            token,
-                            settings,
-                            logger
-                        )
-                        
-                        # Check if attached to another channel
-                        if channel_data.get('channel') is not None:
-                            channels_attached_to_others.add(channel_id)
-                            logger.info(f"  Channel {channel_name} is attached to another channel")
-                        
-                        stream_count = len(channel_data.get('streams', []))
-                        
-                        channel_groups[group_key].append({
-                            'id': channel_id,
-                            'name': channel_name,
-                            'stream_count': stream_count,
-                            'channel_number': channel.get('channel_number'),
-                            'attached': channel_id in channels_attached_to_others
-                        })
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to get data for channel {channel_id}: {e}")
-                
-                # Step 3: Determine which channels to enable
-                logger.info("Step 3: Determining which channels to enable...")
-                channels_to_enable = []
-                channel_stream_counts = {}
-                
-                for group_key, group_channels in channel_groups.items():
-                    # Sort channels by priority (same logic as other actions)
-                    sorted_group = self._sort_channels_by_priority([
-                        {'id': ch['id'], 'name': ch['name'], 'channel_number': ch['channel_number']}
-                        for ch in group_channels
-                    ])
-                    
-                    # Find channels with 0-1 streams (not attached)
-                    eligible_channels = [
-                        ch for ch in group_channels 
-                        if (ch['stream_count'] == 0 or ch['stream_count'] == 1) and not ch['attached']
-                    ]
-                    
-                    # If there are eligible channels, enable only the highest priority one
-                    enabled_in_group = False
-                    
-                    for ch in group_channels:
-                        channel_id = ch['id']
-                        channel_name = ch['name']
-                        stream_count = ch['stream_count']
-                        is_attached = ch['attached']
-                        
-                        # Determine reason for enabling/disabling
-                        if is_attached:
-                            reason = 'Attached to another channel'
-                            should_enable = False
-                        elif stream_count >= 2:
-                            reason = f'{stream_count} streams (too many)'
-                            should_enable = False
-                        elif not enabled_in_group and (stream_count == 0 or stream_count == 1):
-                            # This is the highest priority channel with 0-1 streams
-                            reason = f'{stream_count} stream{"" if stream_count == 1 else "s"}'
-                            should_enable = True
-                            enabled_in_group = True
-                        else:
-                            # Another channel in this group is already enabled
-                            reason = 'Duplicate - higher priority channel in group already enabled'
-                            should_enable = False
-                        
-                        channel_stream_counts[channel_id] = {
-                            'name': channel_name,
-                            'stream_count': stream_count,
-                            'reason': reason
-                        }
-                        
-                        if should_enable:
-                            channels_to_enable.append(channel_id)
-                            logger.info(f"  Will enable: {channel_name} ({reason})")
-                        else:
-                            logger.info(f"  Will keep disabled: {channel_name} ({reason})")
-                
-                # Step 4: Enable selected channels
-                logger.info(f"Step 4: Enabling {len(channels_to_enable)} channels...")
-                channels_enabled = 0
-                
-                if channels_to_enable:
-                    try:
-                        bulk_enable_payload = [
-                            {"channel_id": channel_id, "enabled": True}
-                            for channel_id in channels_to_enable
-                        ]
-                        
-                        self._patch_api_data(
-                            f"/api/channels/profiles/{profile_id}/channels/bulk-update/",
-                            token,
-                            bulk_enable_payload,
-                            settings,
-                            logger
-                        )
-                        channels_enabled = len(channels_to_enable)
-                        logger.info(f"Successfully enabled {channels_enabled} channels")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to bulk enable channels: {e}")
-                        logger.info("Attempting to enable channels individually...")
-                        
-                        # Fallback: enable one by one
-                        for channel_id in channels_to_enable:
-                            try:
-                                self._patch_api_data(
-                                    f"/api/channels/profiles/{profile_id}/channels/{channel_id}/",
-                                    token,
-                                    {"enabled": True},
-                                    settings,
-                                    logger
-                                )
-                                channels_enabled += 1
-                            except Exception as e2:
-                                logger.error(f"Failed to enable channel {channel_id}: {e2}")
-                
-                # Trigger M3U refresh
-                self._trigger_m3u_refresh(token, settings, logger)
-                
-                # Generate visibility report CSV
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"stream_mapparr_visibility_{timestamp}.csv"
-                filepath = os.path.join("/data/exports", filename)
-                
-                os.makedirs("/data/exports", exist_ok=True)
-                
-                with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-                    fieldnames = [
-                        'channel_id',
-                        'channel_name',
-                        'stream_count',
-                        'reason',
-                        'enabled'
-                    ]
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    writer.writeheader()
-                    
-                    for channel_id, info in channel_stream_counts.items():
-                        writer.writerow({
-                            'channel_id': channel_id,
-                            'channel_name': info['name'],
-                            'stream_count': info.get('stream_count', 'N/A'),
-                            'reason': info.get('reason', ''),
-                            'enabled': 'Yes' if channel_id in channels_to_enable else 'No'
-                        })
-                
-                logger.info(f"Visibility report exported to {filepath}")
-                
-                # Count channels by category
-                channels_with_0_streams = sum(1 for info in channel_stream_counts.values() if info.get('stream_count') == 0)
-                channels_with_1_stream = sum(1 for info in channel_stream_counts.values() if info.get('stream_count') == 1)
-                channels_with_2plus_streams = sum(1 for info in channel_stream_counts.values() if isinstance(info.get('stream_count'), int) and info.get('stream_count') >= 2)
-                channels_attached = len(channels_attached_to_others)
-                channels_duplicates = len([info for info in channel_stream_counts.values() if 'Duplicate' in info.get('reason', '')])
-                
-                # Create summary message
-                message_parts = [
-                    "Channel visibility management completed:",
-                    f"• Total channels processed: {len(channels)}",
-                    f"• Channels disabled: {len(channels) - channels_enabled}",
-                    f"• Channels enabled: {channels_enabled}",
-                    "",
-                    "Breakdown:",
-                    f"• Enabled (0-1 streams): {channels_enabled} channels",
-                    f"• Disabled (2+ streams): {channels_with_2plus_streams} channels",
-                    f"• Disabled (duplicates): {channels_duplicates} channels",
-                    f"• Disabled (attached): {channels_attached} channels",
-                    "",
-                    f"Visibility report exported to: {filepath}",
-                    "",
-                    "Sample enabled channels:"
-                ]
-                
-                # Show first 10 enabled channels
-                shown_count = 0
-                for channel_id in channels_to_enable[:10]:
-                    info = channel_stream_counts.get(channel_id)
-                    if info:
-                        message_parts.append(f"✓ {info['name']}: {info.get('reason', 'N/A')}")
-                        shown_count += 1
-                
-                if len(channels_to_enable) > 10:
-                    message_parts.append(f"... and {len(channels_to_enable) - 10} more enabled channels")
-                
-                message_parts.append("")
-                message_parts.append("GUI refresh triggered - changes should be visible in the interface shortly.")
-                
+            if not os.path.exists(export_dir):
                 return {
                     "status": "success",
-                    "message": "\n".join(message_parts)
+                    "message": "No export directory found. No files to delete."
                 }
-                
-            except Exception as e:
-                logger.error(f"Error managing channel visibility: {str(e)}")
-                return {"status": "error", "message": f"Error managing channel visibility: {str(e)}"}
+            
+            # Find all CSV files created by this plugin
+            deleted_count = 0
+            deleted_files = []
+            
+            for filename in os.listdir(export_dir):
+                if filename.startswith("stream_mapparr_") and filename.endswith(".csv"):
+                    filepath = os.path.join(export_dir, filename)
+                    try:
+                        os.remove(filepath)
+                        deleted_count += 1
+                        deleted_files.append(filename)
+                        logger.info(f"Deleted CSV file: {filename}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {filename}: {e}")
+            
+            if deleted_count == 0:
+                return {
+                    "status": "success",
+                    "message": "No CSV export files found to delete."
+                }
+            
+            message_parts = [
+                f"Successfully deleted {deleted_count} CSV export file(s):",
+                ""
+            ]
+            
+            # Show first 10 deleted files
+            for filename in deleted_files[:10]:
+                message_parts.append(f"• {filename}")
+            
+            if len(deleted_files) > 10:
+                message_parts.append(f"• ... and {len(deleted_files) - 10} more files")
+            
+            return {
+                "status": "success",
+                "message": "\n".join(message_parts)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error clearing CSV exports: {e}")
+            return {"status": "error", "message": f"Error clearing CSV exports: {e}"}
 
 
 # Export fields and actions for Dispatcharr plugin system
