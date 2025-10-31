@@ -15,6 +15,9 @@ from django.utils import timezone
 # Django model imports
 from apps.channels.models import Channel, Stream, ChannelStream, ChannelProfileMembership
 
+# Import fuzzy matcher
+from .fuzzy_matcher import FuzzyMatcher
+
 # Setup logging using Dispatcharr's format
 LOGGER = logging.getLogger("plugins.stream_mapparr")
 if not LOGGER.handlers:
@@ -28,11 +31,18 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
     
     name = "Stream-Mapparr"
-    version = "0.3"
-    description = "Automatically add matching streams to channels based on name similarity and quality precedence"
+    version = "0.4"
+    description = "Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
     fields = [
+        {
+            "id": "fuzzy_match_threshold",
+            "label": "Fuzzy Match Threshold",
+            "type": "number",
+            "default": 85,
+            "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
+        },
         {
             "id": "dispatcharr_url",
             "label": "Dispatcharr URL",
@@ -150,8 +160,24 @@ class Plugin:
         self.loaded_channels = []
         self.loaded_streams = []
         self.channel_stream_matches = []
+        self.fuzzy_matcher = None
         
-        LOGGER.info(f"{self.name} Plugin v{self.version} initialized")
+        LOGGER.info(f"[Stream-Mapparr] {self.name} Plugin v{self.version} initialized")
+
+    def _initialize_fuzzy_matcher(self, match_threshold=85):
+        """Initialize the fuzzy matcher with configured threshold."""
+        if self.fuzzy_matcher is None:
+            try:
+                plugin_dir = os.path.dirname(__file__)
+                self.fuzzy_matcher = FuzzyMatcher(
+                    plugin_dir=plugin_dir,
+                    match_threshold=match_threshold,
+                    logger=LOGGER
+                )
+                LOGGER.info(f"[Stream-Mapparr] Initialized FuzzyMatcher with threshold: {match_threshold}")
+            except Exception as e:
+                LOGGER.warning(f"[Stream-Mapparr] Failed to initialize FuzzyMatcher: {e}")
+                self.fuzzy_matcher = None
 
     def _get_api_token(self, settings, logger):
         """Get an API access token using username and password."""
@@ -166,17 +192,17 @@ class Plugin:
             url = f"{dispatcharr_url}/api/accounts/token/"
             payload = {"username": username, "password": password}
             
-            logger.info(f"Attempting to authenticate with Dispatcharr at: {url}")
+            logger.info(f"[Stream-Mapparr] Attempting to authenticate with Dispatcharr at: {url}")
             response = requests.post(url, json=payload, timeout=15)
 
             if response.status_code == 401:
-                logger.error("Authentication failed - invalid credentials")
+                logger.error("[Stream-Mapparr] Authentication failed - invalid credentials")
                 return None, "Authentication failed. Please check your username and password in the plugin settings."
             elif response.status_code == 404:
-                logger.error(f"API endpoint not found - check Dispatcharr URL: {dispatcharr_url}")
+                logger.error(f"[Stream-Mapparr] API endpoint not found - check Dispatcharr URL: {dispatcharr_url}")
                 return None, f"API endpoint not found. Please verify your Dispatcharr URL: {dispatcharr_url}"
             elif response.status_code >= 500:
-                logger.error(f"Server error from Dispatcharr: {response.status_code}")
+                logger.error(f"[Stream-Mapparr] Server error from Dispatcharr: {response.status_code}")
                 return None, f"Dispatcharr server error ({response.status_code}). Please check if Dispatcharr is running properly."
             
             response.raise_for_status()
@@ -184,26 +210,26 @@ class Plugin:
             access_token = token_data.get("access")
 
             if not access_token:
-                logger.error("No access token returned from API")
+                logger.error("[Stream-Mapparr] No access token returned from API")
                 return None, "Login successful, but no access token was returned by the API."
             
-            logger.info("Successfully obtained API access token")
+            logger.info("[Stream-Mapparr] Successfully obtained API access token")
             return access_token, None
             
         except requests.exceptions.ConnectionError as e:
-            logger.error(f"Connection error: {e}")
+            logger.error(f"[Stream-Mapparr] Connection error: {e}")
             return None, f"Unable to connect to Dispatcharr at {dispatcharr_url}. Please check the URL and ensure Dispatcharr is running."
         except requests.exceptions.Timeout as e:
-            logger.error(f"Request timeout: {e}")
+            logger.error(f"[Stream-Mapparr] Request timeout: {e}")
             return None, "Request timed out while connecting to Dispatcharr. Please check your network connection."
         except requests.RequestException as e:
-            logger.error(f"Request error: {e}")
+            logger.error(f"[Stream-Mapparr] Request error: {e}")
             return None, f"Network error occurred while authenticating: {e}"
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON response: {e}")
+            logger.error(f"[Stream-Mapparr] Invalid JSON response: {e}")
             return None, "Invalid response from Dispatcharr API. Please check if the URL is correct."
         except Exception as e:
-            logger.error(f"Unexpected error during authentication: {e}")
+            logger.error(f"[Stream-Mapparr] Unexpected error during authentication: {e}")
             return None, f"Unexpected error during authentication: {e}"
 
     def _get_api_data(self, endpoint, token, settings, logger):
@@ -213,17 +239,17 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
         
         try:
-            logger.info(f"Making API request to: {endpoint}")
+            logger.info(f"[Stream-Mapparr] Making API request to: {endpoint}")
             response = requests.get(url, headers=headers, timeout=30)
             
             if response.status_code == 401:
-                logger.error("API token expired or invalid")
+                logger.error("[Stream-Mapparr] API token expired or invalid")
                 raise Exception("API authentication failed. Token may have expired.")
             elif response.status_code == 403:
-                logger.error("API access forbidden")
+                logger.error("[Stream-Mapparr] API access forbidden")
                 raise Exception("API access forbidden. Check user permissions.")
             elif response.status_code == 404:
-                logger.error(f"API endpoint not found: {endpoint}")
+                logger.error(f"[Stream-Mapparr] API endpoint not found: {endpoint}")
                 raise Exception(f"API endpoint not found: {endpoint}")
             
             response.raise_for_status()
@@ -236,7 +262,7 @@ class Plugin:
             return []
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed for {endpoint}: {e}")
+            logger.error(f"[Stream-Mapparr] API request failed for {endpoint}: {e}")
             raise Exception(f"API request failed: {e}")
 
     def _patch_api_data(self, endpoint, token, payload, settings, logger):
@@ -246,24 +272,24 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         
         try:
-            logger.info(f"Making API PATCH request to: {endpoint}")
+            logger.info(f"[Stream-Mapparr] Making API PATCH request to: {endpoint}")
             response = requests.patch(url, headers=headers, json=payload, timeout=60)
             
             if response.status_code == 401:
-                logger.error("API token expired or invalid")
+                logger.error("[Stream-Mapparr] API token expired or invalid")
                 raise Exception("API authentication failed. Token may have expired.")
             elif response.status_code == 403:
-                logger.error("API access forbidden")
+                logger.error("[Stream-Mapparr] API access forbidden")
                 raise Exception("API access forbidden. Check user permissions.")
             elif response.status_code == 404:
-                logger.error(f"API endpoint not found: {endpoint}")
+                logger.error(f"[Stream-Mapparr] API endpoint not found: {endpoint}")
                 raise Exception(f"API endpoint not found: {endpoint}")
             
             response.raise_for_status()
             return response.json()
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"API PATCH request failed for {endpoint}: {e}")
+            logger.error(f"[Stream-Mapparr] API PATCH request failed for {endpoint}: {e}")
             raise Exception(f"API PATCH request failed: {e}")
 
     def _post_api_data(self, endpoint, token, payload, settings, logger):
@@ -273,24 +299,24 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
         
         try:
-            logger.info(f"Making API POST request to: {endpoint}")
+            logger.info(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             
             if response.status_code == 401:
-                logger.error("API token expired or invalid")
+                logger.error("[Stream-Mapparr] API token expired or invalid")
                 raise Exception("API authentication failed. Token may have expired.")
             elif response.status_code == 403:
-                logger.error("API access forbidden")
+                logger.error("[Stream-Mapparr] API access forbidden")
                 raise Exception("API access forbidden. Check user permissions.")
             elif response.status_code == 404:
-                logger.error(f"API endpoint not found: {endpoint}")
+                logger.error(f"[Stream-Mapparr] API endpoint not found: {endpoint}")
                 raise Exception(f"API endpoint not found: {endpoint}")
             
             response.raise_for_status()
             return response.json()
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"API POST request failed for {endpoint}: {e}")
+            logger.error(f"[Stream-Mapparr] API POST request failed for {endpoint}: {e}")
             raise Exception(f"API POST request failed: {e}")
 
     def _trigger_frontend_refresh(self, settings, logger):
@@ -309,14 +335,22 @@ class Plugin:
                         "message": "Channel visibility updated by Event Channel Managarr"
                     }
                 )
-                logger.info("Frontend refresh triggered via WebSocket")
+                logger.info("[Stream-Mapparr] Frontend refresh triggered via WebSocket")
                 return True
         except Exception as e:
-            logger.warning(f"Could not trigger frontend refresh: {e}")
+            logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
         return False
 
     def _clean_channel_name(self, name, ignore_tags=None):
-        """Remove brackets and their contents from channel name for matching, and remove ignore tags."""
+        """
+        Remove brackets and their contents from channel name for matching, and remove ignore tags.
+        Uses fuzzy matcher's normalization if available, otherwise falls back to basic cleaning.
+        """
+        if self.fuzzy_matcher:
+            # Use fuzzy matcher's normalization
+            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True)
+        
+        # Fallback to basic cleaning
         if ignore_tags is None:
             ignore_tags = []
         
@@ -391,54 +425,41 @@ class Plugin:
         
         return sorted(streams, key=get_quality_index)
 
-    def _load_channel_list(self, logger):
-        """Load channel names from channels.txt file for precise matching."""
-        channels_file = os.path.join(os.path.dirname(__file__), 'channels.txt')
-        channel_names = []
+    def _load_channels_data(self, logger):
+        """Load channel data from *_channels.json files."""
+        plugin_dir = os.path.dirname(__file__)
+        channels_data = []
         
         try:
-            if os.path.exists(channels_file):
-                with open(channels_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:  # Skip empty lines
-                            channel_names.append(line)
-                logger.info(f"Loaded {len(channel_names)} channel names from channels.txt")
+            # Find all *_channels.json files
+            from glob import glob
+            pattern = os.path.join(plugin_dir, '*_channels.json')
+            channel_files = glob(pattern)
+            
+            if channel_files:
+                for channel_file in channel_files:
+                    try:
+                        with open(channel_file, 'r', encoding='utf-8') as f:
+                            file_data = json.load(f)
+                            channels_data.extend(file_data)
+                        logger.info(f"[Stream-Mapparr] Loaded {len(file_data)} channels from {os.path.basename(channel_file)}")
+                    except Exception as e:
+                        logger.error(f"[Stream-Mapparr] Error loading {channel_file}: {e}")
+                
+                logger.info(f"[Stream-Mapparr] Loaded total of {len(channels_data)} channels from {len(channel_files)} file(s)")
             else:
-                logger.warning(f"channels.txt not found at {channels_file}")
+                logger.warning(f"[Stream-Mapparr] No *_channels.json files found in {plugin_dir}")
         except Exception as e:
-            logger.error(f"Error loading channels.txt: {e}")
+            logger.error(f"[Stream-Mapparr] Error loading channel data files: {e}")
         
-        return channel_names
+        return channels_data
 
-    def _is_ota_channel(self, channel_name):
-        """Check if a channel name matches OTA pattern."""
-        # OTA pattern: "NETWORK - STATE City (CALLSIGN)" with optional quality tags
-        # Examples: "ABC - TN Chattanooga (WTVC)", "NBC - NY New York (WNBC) [HD]"
-        ota_pattern = r'^[A-Z]+\s*-\s*[A-Z]{2}\s+.+\([A-Z]+.*?\)'
-        return bool(re.search(ota_pattern, channel_name))
+    def _is_ota_channel(self, channel_info):
+        """Check if a channel has callsign (indicating it's an OTA broadcast channel)."""
+        if not channel_info:
+            return False
+        return 'callsign' in channel_info and channel_info['callsign']
 
-    def _extract_ota_info(self, channel_name):
-        """Extract network, state, city, and callsign from OTA channel name."""
-        # Pattern: "NETWORK - STATE City (CALLSIGN)" with optional quality tags after
-        # Match: CBS - IN South Bend (WSBT) [HD]
-        match = re.match(r'^([A-Z]+)\s*-\s*([A-Z]{2})\s+([^(]+)\(([A-Z][A-Z0-9-]+)\)', channel_name)
-        if match:
-            network = match.group(1).strip().upper()
-            state = match.group(2).strip().upper()
-            city = match.group(3).strip().upper()
-            callsign = match.group(4).strip().upper()
-            
-            # Clean callsign (remove anything after dash)
-            callsign = self._parse_callsign(callsign)
-            
-            return {
-                'network': network,
-                'state': state,
-                'city': city,
-                'callsign': callsign
-            }
-        return None
 
     def _parse_callsign(self, callsign):
         """Extract clean callsign, removing suffixes after dash."""
@@ -451,81 +472,103 @@ class Plugin:
         
         return callsign.upper()
 
-    def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None, known_channels=None, networks_data=None):
-        """Find matching streams for a channel based on name similarity."""
+    def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None, channels_data=None):
+        """Find matching streams for a channel using fuzzy matching when available."""
         if ignore_tags is None:
             ignore_tags = []
-        if known_channels is None:
-            known_channels = []
-        if networks_data is None:
-            networks_data = []
+        if channels_data is None:
+            channels_data = []
         
         channel_name = channel['name']
         
+        # Get channel info from JSON
+        channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
+        
         cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
-        #logger.info(f"  Cleaned channel name for matching: {cleaned_channel_name}")
+        
         if "24/7" in channel_name.lower():
-            logger.info(f"  Cleaned channel name for matching: {cleaned_channel_name}")
+            logger.info(f"[Stream-Mapparr]   Cleaned channel name for matching: {cleaned_channel_name}")
                 
-        # FIRST: Check if this is an OTA channel and try callsign matching
-        if self._is_ota_channel(channel_name):
-            logger.info(f"Matching OTA channel: {channel_name}")
+        # Check if this channel has a callsign (OTA broadcast channel)
+        if self._is_ota_channel(channel_info):
+            callsign = channel_info['callsign']
+            logger.info(f"[Stream-Mapparr] Matching OTA channel: {channel_name}")
+            logger.info(f"[Stream-Mapparr]   Using callsign: {callsign}")
             
-            # Extract callsign from channel name BEFORE cleaning
-            ota_info = self._extract_ota_info(channel_name)
-            if ota_info:
-                callsign = ota_info['callsign']
-                logger.info(f"  Extracted callsign: {callsign}")
+            # Search for streams containing the callsign
+            matching_streams = []
+            callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
+            
+            for stream in all_streams:
+                stream_name = stream['name']
                 
-                # Search for streams containing the callsign
+                # Check if stream contains the callsign
+                if re.search(callsign_pattern, stream_name, re.IGNORECASE):
+                    matching_streams.append(stream)
+                    logger.info(f"[Stream-Mapparr]   Found callsign match: {stream_name}")
+            
+            if matching_streams:
+                sorted_streams = self._sort_streams_by_quality(matching_streams)
+                logger.info(f"[Stream-Mapparr]   Sorted {len(sorted_streams)} streams by quality (callsign matching)")
+                
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+                match_reason = "Callsign match"
+                
+                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
+            else:
+                logger.info(f"[Stream-Mapparr]   No callsign matches found for {callsign}")
+                # Fall through to fuzzy matching
+        
+        # Use fuzzy matching if available
+        if self.fuzzy_matcher:
+            logger.info(f"[Stream-Mapparr] Using fuzzy matcher for channel: {channel_name}")
+            
+            # Get all stream names
+            stream_names = [stream['name'] for stream in all_streams]
+            
+            # Use fuzzy matcher to find best match
+            matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
+                channel_name,
+                stream_names,
+                ignore_tags
+            )
+            
+            if matched_stream_name:
+                # Find all streams that match this name (different qualities)
                 matching_streams = []
-                callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
+                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags)
                 
                 for stream in all_streams:
-                    stream_name = stream['name']
+                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags)
                     
-                    # Check if stream contains the callsign
-                    if re.search(callsign_pattern, stream_name, re.IGNORECASE):
+                    if cleaned_stream.lower() == cleaned_matched.lower():
                         matching_streams.append(stream)
-                        logger.info(f"  Found callsign match: {stream_name}")
                 
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
-                    logger.info(f"  Sorted {len(sorted_streams)} streams by quality (callsign matching)")
+                    logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
                     
                     cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
-                    match_reason = "Callsign match"
+                    match_reason = f"Fuzzy match ({match_type}, score: {score})"
                     
                     return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
-                else:
-                    logger.info(f"  No streams found with callsign {callsign}")
-                    # Try networks.json fallback
-                    logger.info(f"  Trying networks.json OTA matching as fallback")
-                    matched_streams = self._match_ota_streams(channel_name, all_streams, networks_data, logger)
-                    
-                    if matched_streams:
-                        sorted_streams = self._sort_streams_by_quality(matched_streams)
-                        logger.info(f"  Sorted {len(sorted_streams)} OTA streams by quality")
-                        
-                        cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
-                        match_reason = "OTA networks.json match"
-                        
-                        return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
-            else:
-                logger.info(f"  Could not extract OTA info from: {channel_name}")
+            
+            # No fuzzy match found
+            logger.info(f"[Stream-Mapparr]   No fuzzy match found for channel: {channel_name}")
+            return [], cleaned_channel_name, [], "No fuzzy match"
         
-        # SECOND: Regular channel matching logic (only if not OTA or OTA matching failed)
+        # Fallback to basic substring matching if fuzzy matcher unavailable
+        logger.info(f"[Stream-Mapparr] Using basic substring matching for channel: {channel_name}")
         matching_streams = []
-        match_reason = "No match"
         
-        # Debug: show first few stream names to verify we have streams
         if not all_streams:
-            logger.warning("No streams available for matching!")
+            logger.warning("[Stream-Mapparr] No streams available for matching!")
             return [], cleaned_channel_name, [], "No streams available"
         
-        # Check for exact match in known channels list
-        if cleaned_channel_name in known_channels:
-            logger.info(f"Found exact match for '{cleaned_channel_name}' in known channels list")
+        # Try exact channel name matching from JSON first
+        if channel_info and channel_info.get('channel_name'):
+            json_channel_name = channel_info['channel_name']
+            logger.info(f"[Stream-Mapparr] Found channel in JSON: {json_channel_name}")
             
             # Look for streams that match this channel name exactly
             for stream in all_streams:
@@ -536,14 +579,14 @@ class Plugin:
             
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
-                logger.info(f"  Found {len(sorted_streams)} streams matching exact known channel name")
+                logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching exact channel name")
                 
                 cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
-                match_reason = "Exact match (known channels)"
+                match_reason = "Exact match (channels.json)"
                 
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
-        # Fallback to fuzzy matching
+        # Fallback to basic substring matching
         for stream in all_streams:
             cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
             
@@ -553,81 +596,31 @@ class Plugin:
         
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
-            logger.info(f"  Found {len(sorted_streams)} streams matching via fuzzy match")
+            logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching via basic substring match")
             
             cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
-            match_reason = "Fuzzy match"
+            match_reason = "Basic substring match"
             
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
         # No match found
         return [], cleaned_channel_name, [], "No match"
 
-    def _load_networks_data(self, logger):
-        """Load networks.json file for OTA channel matching."""
-        networks_file = os.path.join(os.path.dirname(__file__), 'networks.json')
-        networks_data = []
+    def _get_channel_info_from_json(self, channel_name, channels_data, logger):
+        """Find channel info from channels.json by matching channel name."""
+        # Try exact match first
+        for entry in channels_data:
+            if entry.get('channel_name', '') == channel_name:
+                return entry
         
-        try:
-            if os.path.exists(networks_file):
-                with open(networks_file, 'r', encoding='utf-8') as f:
-                    networks_data = json.load(f)
-                logger.info(f"Loaded {len(networks_data)} networks from networks.json")
-            else:
-                logger.warning(f"networks.json not found at {networks_file}")
-        except Exception as e:
-            logger.error(f"Error loading networks.json: {e}")
+        # Try case-insensitive match
+        channel_name_lower = channel_name.lower()
+        for entry in channels_data:
+            if entry.get('channel_name', '').lower() == channel_name_lower:
+                return entry
         
-        return networks_data
+        return None
 
-    def _match_ota_streams(self, channel_name, all_streams, networks_data, logger):
-        """Match OTA channel using networks.json data."""
-        if not networks_data:
-            return []
-        
-        ota_info = self._extract_ota_info(channel_name)
-        if not ota_info:
-            return []
-        
-        network = ota_info['network']
-        state = ota_info['state']
-        city = ota_info['city']
-        
-        logger.info(f"  Searching networks.json for: {network} {state} {city}")
-        
-        # Find matching network entry
-        matching_entry = None
-        for entry in networks_data:
-            if (entry.get('network', '').upper() == network and 
-                entry.get('state', '').upper() == state and
-                entry.get('city', '').upper() == city):
-                matching_entry = entry
-                break
-        
-        if not matching_entry:
-            logger.info(f"  No networks.json entry found for {network} {state} {city}")
-            return []
-        
-        # Get stream names from the entry
-        stream_names = matching_entry.get('stream_names', [])
-        if not stream_names:
-            logger.info(f"  No stream names in networks.json entry")
-            return []
-        
-        logger.info(f"  Found {len(stream_names)} stream names in networks.json: {stream_names}")
-        
-        # Find streams matching these names
-        matching_streams = []
-        for stream in all_streams:
-            stream_name = stream['name']
-            for target_name in stream_names:
-                # Case-insensitive substring match
-                if target_name.lower() in stream_name.lower():
-                    matching_streams.append(stream)
-                    logger.info(f"  Matched stream: {stream_name}")
-                    break
-        
-        return matching_streams
 
     def run(self, action, settings, context=None):
         """Execute plugin action."""
@@ -638,6 +631,15 @@ class Plugin:
             if context and isinstance(context, dict) and not settings:
                 if 'settings' in context:
                     settings = context['settings']
+            
+            # Initialize fuzzy matcher with configured threshold
+            match_threshold = settings.get("fuzzy_match_threshold", 85)
+            try:
+                match_threshold = int(match_threshold)
+            except (ValueError, TypeError):
+                match_threshold = 85
+            
+            self._initialize_fuzzy_matcher(match_threshold)
             
             action_map = {
                 "load_process_channels": self.load_process_channels_action,
@@ -653,7 +655,7 @@ class Plugin:
             return action_map[action](settings, logger)
                 
         except Exception as e:
-            LOGGER.error(f"Error in plugin run: {str(e)}")
+            LOGGER.error(f"[Stream-Mapparr] Error in plugin run: {str(e)}")
             import traceback
             LOGGER.error(traceback.format_exc())
             return {"status": "error", "message": str(e)}
@@ -669,7 +671,8 @@ class Plugin:
             profile_name = settings.get("profile_name", "").strip()
             selected_groups_str = settings.get("selected_groups", "").strip()
             ignore_tags_str = settings.get("ignore_tags", "").strip()
-            visible_channel_limit = int(settings.get("visible_channel_limit", 1))
+            visible_channel_limit_str = settings.get("visible_channel_limit", "1")
+            visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else 1
             
             if not profile_name:
                 return {"status": "error", "message": "Profile Name must be configured in the plugin settings."}
@@ -681,10 +684,10 @@ class Plugin:
             ignore_tags = []
             if ignore_tags_str:
                 ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
-                logger.info(f"Ignore tags configured: {ignore_tags}")
+                logger.info(f"[Stream-Mapparr] Ignore tags configured: {ignore_tags}")
             
             # Get all profiles to find the specified one
-            logger.info("Fetching channel profiles...")
+            logger.info("[Stream-Mapparr] Fetching channel profiles...")
             profiles = self._get_api_data("/api/channels/profiles/", token, settings, logger)
             
             target_profile = None
@@ -701,10 +704,10 @@ class Plugin:
                 }
             
             profile_id = target_profile['id']
-            logger.info(f"Found profile: {profile_name} (ID: {profile_id})")
+            logger.info(f"[Stream-Mapparr] Found profile: {profile_name} (ID: {profile_id})")
             
             # Get all groups (handle pagination)
-            logger.info("Fetching channel groups...")
+            logger.info("[Stream-Mapparr] Fetching channel groups...")
             all_groups = []
             page = 1
             while True:
@@ -723,12 +726,12 @@ class Plugin:
                     break
             
             group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
-            logger.info(f"Loaded {len(group_name_to_id)} channel groups total")
+            logger.info(f"[Stream-Mapparr] Loaded {len(group_name_to_id)} channel groups total")
             
             # Get channels - API does not filter by profile automatically
-            logger.info(f"Fetching all channels...")
+            logger.info(f"[Stream-Mapparr] Fetching all channels...")
             all_channels = self._get_api_data("/api/channels/channels/", token, settings, logger)
-            logger.info(f"Retrieved {len(all_channels)} total channels")
+            logger.info(f"[Stream-Mapparr] Retrieved {len(all_channels)} total channels")
             
             # Filter channels by profile membership
             # Use Django ORM to check profile membership
@@ -745,11 +748,11 @@ class Plugin:
                 if is_in_profile:
                     channels_in_profile.append(channel)
             
-            logger.info(f"Found {len(channels_in_profile)} channels in profile '{profile_name}'")
+            logger.info(f"[Stream-Mapparr] Found {len(channels_in_profile)} channels in profile '{profile_name}'")
             
             # Filter by groups if specified
             if selected_groups_str:
-                logger.info(f"Filtering by groups: {selected_groups_str}")
+                logger.info(f"[Stream-Mapparr] Filtering by groups: {selected_groups_str}")
                 selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
                 valid_group_ids = [group_name_to_id[name] for name in selected_groups if name in group_name_to_id]
                 
@@ -767,7 +770,7 @@ class Plugin:
                         filtered_channels.append(ch)
                 
                 channels_in_profile = filtered_channels
-                logger.info(f"Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
+                logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
                 group_filter_info = f" in groups: {', '.join(selected_groups)}"
             else:
                 selected_groups = []
@@ -780,10 +783,10 @@ class Plugin:
                 }
             
             channels_to_process = channels_in_profile
-            logger.info(f"Processing {len(channels_to_process)} channels (including those with existing streams)")
+            logger.info(f"[Stream-Mapparr] Processing {len(channels_to_process)} channels (including those with existing streams)")
             
             # Get all streams - DO NOT filter by group, get all streams (handle pagination with NO LIMIT)
-            logger.info("Fetching all streams from all groups (unlimited)...")
+            logger.info("[Stream-Mapparr] Fetching all streams from all groups (unlimited)...")
             all_streams_data = []
             page = 1
 
@@ -795,35 +798,35 @@ class Plugin:
                 if isinstance(streams_response, dict) and 'results' in streams_response:
                     results = streams_response['results']
                     all_streams_data.extend(results)
-                    logger.info(f"Fetched page {page}: {len(results)} streams (total so far: {len(all_streams_data)})")
+                    logger.info(f"[Stream-Mapparr] Fetched page {page}: {len(results)} streams (total so far: {len(all_streams_data)})")
                     
                     # Stop if this page had fewer results than page_size (last page)
                     if len(results) < 100:
-                        logger.info("Reached last page of streams")
+                        logger.info("[Stream-Mapparr] Reached last page of streams")
                         break
                     
                     page += 1
                 elif isinstance(streams_response, list):
                     # List response - could still be paginated
                     all_streams_data.extend(streams_response)
-                    logger.info(f"Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams_data)})")
+                    logger.info(f"[Stream-Mapparr] Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams_data)})")
                     
                     # If we got exactly 100 results, there might be more pages
                     if len(streams_response) == 100:
                         page += 1
                     else:
-                        logger.info("Reached last page of streams")
+                        logger.info("[Stream-Mapparr] Reached last page of streams")
                         break
                 else:
-                    logger.warning("Unexpected streams response format")
+                    logger.warning("[Stream-Mapparr] Unexpected streams response format")
                     break
 
-            logger.info(f"Retrieved {len(all_streams_data)} total streams from all groups")
+            logger.info(f"[Stream-Mapparr] Retrieved {len(all_streams_data)} total streams from all groups")
             
             # Debug: Show sample stream names
             if all_streams_data:
                 sample_stream_names = [s.get('name', 'N/A') for s in all_streams_data[:10]]
-                logger.info(f"Sample stream names: {sample_stream_names}")
+                logger.info(f"[Stream-Mapparr] Sample stream names: {sample_stream_names}")
             
             # Store loaded data including ignore tags and visible channel limit
             self.loaded_channels = channels_to_process
@@ -844,7 +847,7 @@ class Plugin:
             with open(self.processed_data_file, 'w') as f:
                 json.dump(processed_data, f, indent=2)
             
-            logger.info("Channel and stream data loaded and saved successfully")
+            logger.info("[Stream-Mapparr] Channel and stream data loaded and saved successfully")
             
             return {
                 "status": "success",
@@ -852,7 +855,7 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error loading channels: {str(e)}")
+            logger.error(f"[Stream-Mapparr] Error loading channels: {str(e)}")
             return {"status": "error", "message": f"Error loading channels: {str(e)}"}
 
     def _sort_channels_by_priority(self, channels):
@@ -882,9 +885,8 @@ class Plugin:
             }
         
         try:
-            # Load known channel names for precise matching
-            known_channels = self._load_channel_list(logger)
-            networks_data = self._load_networks_data(logger)
+            # Load channel data from channels.json
+            channels_data = self._load_channels_data(logger)
             
             # Load processed data
             with open(self.processed_data_file, 'r') as f:
@@ -897,22 +899,21 @@ class Plugin:
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
-            logger.info(f"Previewing changes for {len(channels)} channels with {len(streams)} available streams")
-            logger.info(f"Visible channel limit: {visible_channel_limit}")
+            logger.info(f"[Stream-Mapparr] Previewing changes for {len(channels)} channels with {len(streams)} available streams")
+            logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             
             # Group channels by their cleaned name for matching
             channel_groups = {}
             ignore_tags = processed_data.get('ignore_tags', [])
             
             for channel in channels:
-                # Use ORIGINAL name for OTA channels, cleaned name for others
-                if self._is_ota_channel(channel['name']):
+                # Get channel info from JSON to determine if it has a callsign
+                channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
+                
+                if self._is_ota_channel(channel_info):
                     # For OTA channels, group by callsign
-                    ota_info = self._extract_ota_info(channel['name'])
-                    if ota_info:
-                        group_key = f"OTA_{ota_info['callsign']}"
-                    else:
-                        group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                    callsign = channel_info.get('callsign', '')
+                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
                 else:
                     group_key = self._clean_channel_name(channel['name'], ignore_tags)
                 
@@ -926,15 +927,21 @@ class Plugin:
             total_channels_without_matches = 0
             total_channels_to_update = 0
             
+            total_groups = len(channel_groups)
+            current_group = 0
+            
             for group_key, group_channels in channel_groups.items():
-                logger.info(f"Processing channel group: {group_key} ({len(group_channels)} channels)")
+                current_group += 1
+                progress_pct = int((current_group / total_groups) * 100)
+                
+                logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
                 
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 
                 # Match streams for this channel group (using first channel as representative)
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, known_channels, networks_data
+                    sorted_channels[0], streams, logger, ignore_tags, channels_data
                 )
                 
                 # Determine which channels will be updated based on limit
@@ -977,6 +984,8 @@ class Plugin:
                     }
                     all_matches.append(match_info)
             
+            logger.info(f"[Stream-Mapparr] [100%] Preview processing complete")
+            
             # Export to CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
@@ -1007,10 +1016,10 @@ class Plugin:
                         'channel_number': match.get('channel_number', 'N/A'),
                         'matched_streams': match['matched_streams'],
                         'match_reason': match['match_reason'],
-                        'stream_names': '; '.join(match['stream_names'][:5])  # Show first 5
+                        'stream_names': '; '.join(match['stream_names'])  # Show all streams
                     })
             
-            logger.info(f"Preview exported to {filepath}")
+            logger.info(f"[Stream-Mapparr] Preview exported to {filepath}")
             
             # Calculate summary
             channels_skipped = len([m for m in all_matches if not m['will_update']])
@@ -1044,7 +1053,7 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error previewing changes: {str(e)}")
+            logger.error(f"[Stream-Mapparr] Error previewing changes: {str(e)}")
             return {"status": "error", "message": f"Error previewing changes: {str(e)}"}
 
     def add_streams_to_channels_action(self, settings, logger):
@@ -1061,9 +1070,8 @@ class Plugin:
             if error:
                 return {"status": "error", "message": error}
             
-            # Load known channel names and networks data
-            known_channels = self._load_channel_list(logger)
-            networks_data = self._load_networks_data(logger)
+            # Load channel data from channels.json
+            channels_data = self._load_channels_data(logger)
             
             # Load processed data
             with open(self.processed_data_file, 'r') as f:
@@ -1078,20 +1086,19 @@ class Plugin:
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
-            logger.info(f"Adding streams to {len(channels)} channels")
-            logger.info(f"Visible channel limit: {visible_channel_limit}")
+            logger.info(f"[Stream-Mapparr] Adding streams to {len(channels)} channels")
+            logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             
             # Group channels by their cleaned name
             channel_groups = {}
             for channel in channels:
-                # Use ORIGINAL name for OTA channels, cleaned name for others
-                if self._is_ota_channel(channel['name']):
+                # Get channel info from JSON to determine if it has a callsign
+                channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
+                
+                if self._is_ota_channel(channel_info):
                     # For OTA channels, group by callsign
-                    ota_info = self._extract_ota_info(channel['name'])
-                    if ota_info:
-                        group_key = f"OTA_{ota_info['callsign']}"
-                    else:
-                        group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                    callsign = channel_info.get('callsign', '')
+                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
                 else:
                     group_key = self._clean_channel_name(channel['name'], ignore_tags)
                 
@@ -1104,17 +1111,24 @@ class Plugin:
             channels_skipped = 0
             channels_with_matches = 0
             channels_without_matches = 0
+            total_streams_added = 0
             update_details = []
             
+            total_groups = len(channel_groups)
+            current_group = 0
+            
             for group_key, group_channels in channel_groups.items():
-                logger.info(f"Processing channel group: {group_key} ({len(group_channels)} channels)")
+                current_group += 1
+                progress_pct = int((current_group / total_groups) * 100)
+                
+                logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
                 
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 
                 # Match streams for this channel group
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, known_channels, networks_data
+                    sorted_channels[0], streams, logger, ignore_tags, channels_data
                 )
                 
                 # Determine which channels to update based on limit
@@ -1128,55 +1142,52 @@ class Plugin:
                     
                     try:
                         if matched_streams:
-                            # Get the best stream (first in sorted list)
-                            best_stream = matched_streams[0]
-                            stream_id = best_stream['id']
-                            
-                            # Check if channel already has this stream assigned
-                            existing_stream = ChannelStream.objects.filter(
-                                channel_id=channel_id
-                            ).first()
-                            
-                            if existing_stream and existing_stream.stream_id == stream_id:
-                                logger.info(f"  Channel '{channel_name}' already has stream '{best_stream['name']}' - skipping")
-                                channels_skipped += 1
-                                continue
-                            
                             # Remove existing stream assignments
                             ChannelStream.objects.filter(channel_id=channel_id).delete()
                             
-                            # Add new stream assignment
-                            ChannelStream.objects.create(
-                                channel_id=channel_id,
-                                stream_id=stream_id
-                            )
+                            # Add ALL matched streams (already sorted by quality)
+                            streams_added_count = 0
+                            for stream in matched_streams:
+                                stream_id = stream['id']
+                                
+                                ChannelStream.objects.create(
+                                    channel_id=channel_id,
+                                    stream_id=stream_id
+                                )
+                                streams_added_count += 1
                             
                             channels_updated += 1
                             channels_with_matches += 1
+                            total_streams_added += streams_added_count
+                            
+                            # Create comma-separated list of stream names
+                            stream_names_list = '; '.join([s['name'] for s in matched_streams])
                             
                             update_details.append({
                                 'channel_name': channel_name,
-                                'stream_name': best_stream['name'],
+                                'stream_names': stream_names_list,
                                 'matched_streams': len(matched_streams)
                             })
                             
-                            logger.info(f"  Added stream '{best_stream['name']}' to channel '{channel_name}'")
+                            logger.info(f"[Stream-Mapparr]   Added {streams_added_count} stream(s) to channel '{channel_name}'")
                         else:
                             # No matches found - remove existing streams
                             existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
                             if existing_count > 0:
                                 ChannelStream.objects.filter(channel_id=channel_id).delete()
-                                logger.info(f"  Removed {existing_count} stream(s) from channel '{channel_name}' (no matches found)")
+                                logger.info(f"[Stream-Mapparr]   Removed {existing_count} stream(s) from channel '{channel_name}' (no matches found)")
                             
                             channels_without_matches += 1
                             
                     except Exception as e:
-                        logger.error(f"  Failed to update channel '{channel_name}': {e}")
+                        logger.error(f"[Stream-Mapparr]   Failed to update channel '{channel_name}': {e}")
                 
                 # Log skipped channels
                 for channel in channels_not_updated:
-                    logger.info(f"  Skipped channel '{channel['name']}' (exceeds limit of {visible_channel_limit})")
+                    logger.info(f"[Stream-Mapparr]   Skipped channel '{channel['name']}' (exceeds limit of {visible_channel_limit})")
                     channels_skipped += 1
+            
+            logger.info(f"[Stream-Mapparr] [100%] Processing complete")
             
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
@@ -1189,19 +1200,20 @@ class Plugin:
             os.makedirs("/data/exports", exist_ok=True)
             
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ['channel_name', 'stream_name', 'matched_streams']
+                fieldnames = ['channel_name', 'stream_names', 'matched_streams']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 
                 for detail in update_details:
                     writer.writerow(detail)
             
-            logger.info(f"Update report exported to {filepath}")
+            logger.info(f"[Stream-Mapparr] Update report exported to {filepath}")
             
             # Create summary message
             message_parts = [
                 f"Stream assignment completed:",
                 f"• Channels updated: {channels_updated}",
+                f"• Total streams added: {total_streams_added}",
                 f"• Channels skipped (exceeds limit): {channels_skipped}",
                 f"• Channels with matches: {channels_with_matches}",
                 f"• Channels without matches: {channels_without_matches}",
@@ -1213,7 +1225,7 @@ class Plugin:
             
             # Show first 10 updates
             for detail in update_details[:10]:
-                message_parts.append(f"• {detail['channel_name']}: {detail['stream_name']}")
+                message_parts.append(f"• {detail['channel_name']}: {detail['matched_streams']} stream(s)")
             
             if len(update_details) > 10:
                 message_parts.append(f"... and {len(update_details) - 10} more updates")
@@ -1227,7 +1239,7 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error adding streams to channels: {str(e)}")
+            logger.error(f"[Stream-Mapparr] Error adding streams to channels: {str(e)}")
             return {"status": "error", "message": f"Error adding streams to channels: {str(e)}"}
 
     def manage_channel_visibility_action(self, settings, logger):
@@ -1256,11 +1268,11 @@ class Plugin:
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
-            logger.info(f"Managing visibility for {len(channels)} channels")
-            logger.info(f"Visible channel limit: {visible_channel_limit}")
+            logger.info(f"[Stream-Mapparr] Managing visibility for {len(channels)} channels")
+            logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             
             # Step 1: Get stream counts for all channels
-            logger.info("Step 1: Counting streams for each channel...")
+            logger.info("[Stream-Mapparr] Step 1: Counting streams for each channel...")
             channel_stream_counts = {}
             
             for channel in channels:
@@ -1270,20 +1282,20 @@ class Plugin:
                     'name': channel['name'],
                     'stream_count': stream_count
                 }
-                logger.info(f"  Channel '{channel['name']}': {stream_count} stream(s)")
+                logger.info(f"[Stream-Mapparr]   Channel '{channel['name']}': {stream_count} stream(s)")
             
             # Step 2: Find channels that are attached to other channels
-            logger.info("Step 2: Identifying attached channels...")
+            logger.info("[Stream-Mapparr] Step 2: Identifying attached channels...")
             channels_attached_to_others = set()
             
             for channel in channels:
                 attached_channel_id = channel.get('attached_channel_id')
                 if attached_channel_id:
                     channels_attached_to_others.add(channel['id'])
-                    logger.info(f"  Channel '{channel['name']}' is attached to another channel")
+                    logger.info(f"[Stream-Mapparr]   Channel '{channel['name']}' is attached to another channel")
             
             # Step 3: Disable all channels first
-            logger.info(f"Step 3: Disabling all {len(channels)} channels...")
+            logger.info(f"[Stream-Mapparr] Step 3: Disabling all {len(channels)} channels...")
             try:
                 bulk_disable_payload = [
                     {"channel_id": channel['id'], "enabled": False}
@@ -1297,11 +1309,11 @@ class Plugin:
                     settings,
                     logger
                 )
-                logger.info(f"Successfully disabled all {len(channels)} channels")
+                logger.info(f"[Stream-Mapparr] Successfully disabled all {len(channels)} channels")
                 
             except Exception as e:
-                logger.error(f"Failed to bulk disable channels: {e}")
-                logger.info("Attempting to disable channels individually...")
+                logger.error(f"[Stream-Mapparr] Failed to bulk disable channels: {e}")
+                logger.info("[Stream-Mapparr] Attempting to disable channels individually...")
                 
                 # Fallback: disable one by one
                 for channel in channels:
@@ -1314,10 +1326,10 @@ class Plugin:
                             logger
                         )
                     except Exception as e2:
-                        logger.error(f"Failed to disable channel {channel['id']}: {e2}")
+                        logger.error(f"[Stream-Mapparr] Failed to disable channel {channel['id']}: {e2}")
             
             # Step 3.5: Group channels and apply visible channel limit
-            logger.info("Step 3.5: Grouping channels and applying visibility limit...")
+            logger.info("[Stream-Mapparr] Step 3.5: Grouping channels and applying visibility limit...")
             
             # Group channels by their cleaned name
             channel_groups = {}
@@ -1341,7 +1353,7 @@ class Plugin:
             channels_to_enable = []
             
             for group_key, group_channels in channel_groups.items():
-                logger.info(f"Processing channel group: {group_key} ({len(group_channels)} channels)")
+                logger.info(f"[Stream-Mapparr] Processing channel group: {group_key} ({len(group_channels)} channels)")
                 
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
@@ -1387,12 +1399,12 @@ class Plugin:
                     
                     if should_enable:
                         channels_to_enable.append(channel_id)
-                        logger.info(f"  Will enable: {channel_name} ({reason})")
+                        logger.info(f"[Stream-Mapparr]   Will enable: {channel_name} ({reason})")
                     else:
-                        logger.info(f"  Will keep disabled: {channel_name} ({reason})")
+                        logger.info(f"[Stream-Mapparr]   Will keep disabled: {channel_name} ({reason})")
             
             # Step 4: Enable selected channels
-            logger.info(f"Step 4: Enabling {len(channels_to_enable)} channels...")
+            logger.info(f"[Stream-Mapparr] Step 4: Enabling {len(channels_to_enable)} channels...")
             channels_enabled = 0
             
             if channels_to_enable:
@@ -1410,11 +1422,11 @@ class Plugin:
                         logger
                     )
                     channels_enabled = len(channels_to_enable)
-                    logger.info(f"Successfully enabled {channels_enabled} channels")
+                    logger.info(f"[Stream-Mapparr] Successfully enabled {channels_enabled} channels")
                     
                 except Exception as e:
-                    logger.error(f"Failed to bulk enable channels: {e}")
-                    logger.info("Attempting to enable channels individually...")
+                    logger.error(f"[Stream-Mapparr] Failed to bulk enable channels: {e}")
+                    logger.info("[Stream-Mapparr] Attempting to enable channels individually...")
                     
                     # Fallback: enable one by one
                     for channel_id in channels_to_enable:
@@ -1428,7 +1440,7 @@ class Plugin:
                             )
                             channels_enabled += 1
                         except Exception as e2:
-                            logger.error(f"Failed to enable channel {channel_id}: {e2}")
+                            logger.error(f"[Stream-Mapparr] Failed to enable channel {channel_id}: {e2}")
             
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
@@ -1460,7 +1472,7 @@ class Plugin:
                         'enabled': 'Yes' if channel_id in channels_to_enable else 'No'
                     })
             
-            logger.info(f"Visibility report exported to {filepath}")
+            logger.info(f"[Stream-Mapparr] Visibility report exported to {filepath}")
             
             # Count channels by category
             channels_with_0_streams = sum(1 for info in channel_stream_counts.values() if info.get('stream_count') == 0)
@@ -1507,7 +1519,7 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error managing channel visibility: {str(e)}")
+            logger.error(f"[Stream-Mapparr] Error managing channel visibility: {str(e)}")
             return {"status": "error", "message": f"Error managing channel visibility: {str(e)}"}
 
     def clear_csv_exports_action(self, settings, logger):
@@ -1532,9 +1544,9 @@ class Plugin:
                         os.remove(filepath)
                         deleted_count += 1
                         deleted_files.append(filename)
-                        logger.info(f"Deleted CSV file: {filename}")
+                        logger.info(f"[Stream-Mapparr] Deleted CSV file: {filename}")
                     except Exception as e:
-                        logger.warning(f"Failed to delete {filename}: {e}")
+                        logger.warning(f"[Stream-Mapparr] Failed to delete {filename}: {e}")
             
             if deleted_count == 0:
                 return {
@@ -1560,7 +1572,7 @@ class Plugin:
             }
             
         except Exception as e:
-            logger.error(f"Error clearing CSV exports: {e}")
+            logger.error(f"[Stream-Mapparr] Error clearing CSV exports: {e}")
             return {"status": "error", "message": f"Error clearing CSV exports: {e}"}
 
 
