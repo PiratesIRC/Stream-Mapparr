@@ -1411,9 +1411,17 @@ class Plugin:
                 for ch in group_channels:
                     channel_id = ch['id']
                     channel_name = ch['name']
-                    stream_count = ch['stream_count']
-                    is_attached = ch['attached']
-                    
+
+                    # Get stream count from the dictionary we built earlier
+                    if channel_id not in channel_stream_counts:
+                        logger.warning(f"[Stream-Mapparr] Channel {channel_id} ({channel_name}) not found in stream counts, skipping")
+                        continue
+
+                    stream_count = channel_stream_counts[channel_id]['stream_count']
+                    is_attached = channel_id in channels_attached_to_others
+
+                    logger.debug(f"[Stream-Mapparr]   Evaluating {channel_name}: stream_count={stream_count}, is_attached={is_attached}, enabled_in_group={enabled_in_group}")
+
                     # Determine reason for enabling/disabling
                     if is_attached:
                         reason = 'Attached to another channel'
@@ -1559,7 +1567,10 @@ class Plugin:
             }
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             logger.error(f"[Stream-Mapparr] Error managing channel visibility: {str(e)}")
+            logger.error(f"[Stream-Mapparr] Full traceback:\n{error_details}")
             return {"status": "error", "message": f"Error managing channel visibility: {str(e)}"}
 
     def clear_csv_exports_action(self, settings, logger):
