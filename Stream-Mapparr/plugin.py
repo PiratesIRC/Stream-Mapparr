@@ -31,11 +31,18 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
     
     name = "Stream-Mapparr"
-    version = "0.4"
+    version = "0.5.0a"
     description = "Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
     fields = [
+        {
+            "id": "overwrite_streams",
+            "label": "Overwrite Existing Streams",
+            "type": "boolean",
+            "default": True,
+            "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
+        },
         {
             "id": "fuzzy_match_threshold",
             "label": "Fuzzy Match Threshold",
@@ -1083,11 +1090,17 @@ class Plugin:
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
             
+            # Get overwrite_streams setting
+            overwrite_streams = settings.get('overwrite_streams', True)
+            if isinstance(overwrite_streams, str):
+                overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
+            
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
             logger.info(f"[Stream-Mapparr] Adding streams to {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
+            logger.info(f"[Stream-Mapparr] Overwrite existing streams: {overwrite_streams}")
             
             # Group channels by their cleaned name
             channel_groups = {}
@@ -1142,13 +1155,26 @@ class Plugin:
                     
                     try:
                         if matched_streams:
-                            # Remove existing stream assignments
-                            ChannelStream.objects.filter(channel_id=channel_id).delete()
+                            if overwrite_streams:
+                                # Remove existing stream assignments
+                                existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
+                                if existing_count > 0:
+                                    ChannelStream.objects.filter(channel_id=channel_id).delete()
+                                    logger.info(f"[Stream-Mapparr]   Removed {existing_count} existing stream(s) from channel '{channel_name}'")
+                            else:
+                                # Get existing stream IDs to avoid duplicates
+                                existing_stream_ids = set(
+                                    ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True)
+                                )
                             
                             # Add ALL matched streams (already sorted by quality)
                             streams_added_count = 0
                             for stream in matched_streams:
                                 stream_id = stream['id']
+                                
+                                # Skip if stream already exists and we're not overwriting
+                                if not overwrite_streams and stream_id in existing_stream_ids:
+                                    continue
                                 
                                 ChannelStream.objects.create(
                                     channel_id=channel_id,
@@ -1169,13 +1195,26 @@ class Plugin:
                                 'matched_streams': len(matched_streams)
                             })
                             
-                            logger.info(f"[Stream-Mapparr]   Added {streams_added_count} stream(s) to channel '{channel_name}'")
+                            if overwrite_streams:
+                                logger.info(f"[Stream-Mapparr]   Replaced streams with {streams_added_count} new stream(s) for channel '{channel_name}'")
+                            else:
+                                logger.info(f"[Stream-Mapparr]   Added {streams_added_count} new stream(s) to channel '{channel_name}'")
+                                if streams_added_count == 0:
+                                    logger.info(f"[Stream-Mapparr]   All matched streams already exist for channel '{channel_name}'")
                         else:
-                            # No matches found - remove existing streams
-                            existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
-                            if existing_count > 0:
-                                ChannelStream.objects.filter(channel_id=channel_id).delete()
-                                logger.info(f"[Stream-Mapparr]   Removed {existing_count} stream(s) from channel '{channel_name}' (no matches found)")
+                            # No matches found
+                            if overwrite_streams:
+                                # Remove existing streams only if overwrite is enabled
+                                existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
+                                if existing_count > 0:
+                                    ChannelStream.objects.filter(channel_id=channel_id).delete()
+                                    logger.info(f"[Stream-Mapparr]   Removed {existing_count} stream(s) from channel '{channel_name}' (no matches found)")
+                                else:
+                                    logger.info(f"[Stream-Mapparr]   No matches found for channel '{channel_name}'")
+                            else:
+                                # Keep existing streams
+                                existing_count = ChannelStream.objects.filter(channel_id=channel_id).count()
+                                logger.info(f"[Stream-Mapparr]   No matches found for channel '{channel_name}', keeping {existing_count} existing stream(s)")
                             
                             channels_without_matches += 1
                             
@@ -1210,8 +1249,9 @@ class Plugin:
             logger.info(f"[Stream-Mapparr] Update report exported to {filepath}")
             
             # Create summary message
+            mode_description = "Replaced existing streams" if overwrite_streams else "Added new streams (preserved existing)"
             message_parts = [
-                f"Stream assignment completed:",
+                f"Stream assignment completed ({mode_description}):",
                 f"• Channels updated: {channels_updated}",
                 f"• Total streams added: {total_streams_added}",
                 f"• Channels skipped (exceeds limit): {channels_skipped}",
