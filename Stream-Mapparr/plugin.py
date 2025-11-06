@@ -351,14 +351,19 @@ class Plugin:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
         return False
 
-    def _clean_channel_name(self, name, ignore_tags=None):
+    def _clean_channel_name(self, name, ignore_tags=None, remove_cinemax=False):
         """
         Remove brackets and their contents from channel name for matching, and remove ignore tags.
         Uses fuzzy matcher's normalization if available, otherwise falls back to basic cleaning.
+
+        Args:
+            name: Channel or stream name to clean
+            ignore_tags: List of tags to ignore
+            remove_cinemax: If True, remove "Cinemax" prefix (for streams when channel contains "max")
         """
         if self.fuzzy_matcher:
             # Use fuzzy matcher's normalization
-            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True)
+            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True, remove_cinemax=remove_cinemax)
         
         # Fallback to basic cleaning
         if ignore_tags is None:
@@ -488,12 +493,15 @@ class Plugin:
             ignore_tags = []
         if channels_data is None:
             channels_data = []
-        
+
         channel_name = channel['name']
-        
+
         # Get channel info from JSON
         channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
-        
+
+        # Check if channel name contains "max" (case insensitive) - used for Cinemax handling
+        channel_has_max = 'max' in channel_name.lower()
+
         cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
         
         if "24/7" in channel_name.lower():
@@ -520,10 +528,10 @@ class Plugin:
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Sorted {len(sorted_streams)} streams by quality (callsign matching)")
-                
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                 match_reason = "Callsign match"
-                
+
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
             else:
                 logger.info(f"[Stream-Mapparr]   No callsign matches found for {callsign}")
@@ -532,33 +540,35 @@ class Plugin:
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
             logger.info(f"[Stream-Mapparr] Using fuzzy matcher for channel: {channel_name}")
-            
+
             # Get all stream names
             stream_names = [stream['name'] for stream in all_streams]
-            
+
             # Use fuzzy matcher to find best match
+            # Pass remove_cinemax flag if channel contains "max"
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                 channel_name,
                 stream_names,
-                ignore_tags
+                ignore_tags,
+                remove_cinemax=channel_has_max
             )
             
             if matched_stream_name:
                 # Find all streams that match this name (different qualities)
                 matching_streams = []
-                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags)
-                
+                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags, remove_cinemax=channel_has_max)
+
                 for stream in all_streams:
-                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags)
-                    
+                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
                     if cleaned_stream.lower() == cleaned_matched.lower():
                         matching_streams.append(stream)
-                
+
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
-                    
-                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                     match_reason = f"Fuzzy match ({match_type}, score: {score})"
                     
                     return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
@@ -582,33 +592,33 @@ class Plugin:
             
             # Look for streams that match this channel name exactly
             for stream in all_streams:
-                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
-                
+                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
                 if cleaned_stream_name.lower() == cleaned_channel_name.lower():
                     matching_streams.append(stream)
-            
+
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching exact channel name")
-                
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                 match_reason = "Exact match (channels.json)"
                 
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
         # Fallback to basic substring matching
         for stream in all_streams:
-            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
-            
+            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
             # Simple case-insensitive substring matching
             if cleaned_channel_name.lower() in cleaned_stream_name.lower() or cleaned_stream_name.lower() in cleaned_channel_name.lower():
                 matching_streams.append(stream)
-        
+
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
             logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching via basic substring match")
-            
-            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
             match_reason = "Basic substring match"
             
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason

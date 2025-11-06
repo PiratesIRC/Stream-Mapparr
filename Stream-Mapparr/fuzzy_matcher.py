@@ -158,29 +158,34 @@ class FuzzyMatcher:
             callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
         return callsign
     
-    def normalize_name(self, name, user_ignored_tags=None, remove_quality_tags=True):
+    def normalize_name(self, name, user_ignored_tags=None, remove_quality_tags=True, remove_cinemax=False):
         """
         Normalize channel or stream name for matching by removing tags, prefixes, and other noise.
-        
+
         Args:
             name: Name to normalize
             user_ignored_tags: Additional user-configured tags to ignore (list of strings)
             remove_quality_tags: If True, remove hardcoded quality patterns (for matching only, not display)
-        
+            remove_cinemax: If True, remove "Cinemax" prefix (useful when channel name contains "max")
+
         Returns:
             Normalized name
         """
         if user_ignored_tags is None:
             user_ignored_tags = []
-        
+
         # Remove leading parenthetical prefixes like (SP2), (D1), etc.
         name = re.sub(r'^\([^\)]+\)\s*', '', name)
-        
+
+        # Remove "Cinemax" prefix if requested (for channels containing "max")
+        if remove_cinemax:
+            name = re.sub(r'\bCinemax\s+', '', name, flags=re.IGNORECASE)
+
         # Apply hardcoded ignore patterns only if remove_quality_tags is True
         if remove_quality_tags:
             for pattern in HARDCODED_IGNORE_PATTERNS:
                 name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-        
+
         # Apply user-configured ignored tags
         for tag in user_ignored_tags:
             escaped_tag = re.escape(tag)
@@ -315,25 +320,26 @@ class FuzzyMatcher:
         tokens = sorted([token for token in cleaned_s.split() if token])
         return " ".join(tokens)
     
-    def find_best_match(self, query_name, candidate_names, user_ignored_tags=None):
+    def find_best_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False):
         """
         Find the best fuzzy match for a name among a list of candidate names.
-        
+
         Args:
             query_name: Name to match
             candidate_names: List of candidate names to match against
             user_ignored_tags: User-configured tags to ignore
-        
+            remove_cinemax: If True, remove "Cinemax" from candidate names
+
         Returns:
             Tuple of (matched_name, score) or (None, 0) if no match found
         """
         if not candidate_names:
             return None, 0
-        
+
         if user_ignored_tags is None:
             user_ignored_tags = []
-        
-        # Normalize the query
+
+        # Normalize the query (channel name - don't remove Cinemax from it)
         normalized_query = self.normalize_name(query_name, user_ignored_tags)
         
         if not normalized_query:
@@ -341,12 +347,14 @@ class FuzzyMatcher:
         
         # Process query for token-sort matching
         processed_query = self.process_string_for_matching(normalized_query)
-        
+
         best_score = -1.0
         best_match = None
-        
+
         for candidate in candidate_names:
-            processed_candidate = self.process_string_for_matching(candidate)
+            # Normalize candidate (stream name) with Cinemax removal if requested
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+            processed_candidate = self.process_string_for_matching(candidate_normalized)
             score = self.calculate_similarity(processed_query, processed_candidate)
             
             if score > best_score:
@@ -361,26 +369,27 @@ class FuzzyMatcher:
         
         return None, 0
     
-    def fuzzy_match(self, query_name, candidate_names, user_ignored_tags=None):
+    def fuzzy_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False):
         """
         Generic fuzzy matching function that can match any name against a list of candidates.
         This is the main entry point for fuzzy matching.
-        
+
         Args:
-            query_name: Name to match
-            candidate_names: List of candidate names to match against
+            query_name: Name to match (channel name)
+            candidate_names: List of candidate names to match against (stream names)
             user_ignored_tags: User-configured tags to ignore
-        
+            remove_cinemax: If True, remove "Cinemax" from candidate names (for channels with "max")
+
         Returns:
             Tuple of (matched_name, score, match_type) or (None, 0, None) if no match found
         """
         if not candidate_names:
             return None, 0, None
-        
+
         if user_ignored_tags is None:
             user_ignored_tags = []
-        
-        # Normalize for matching
+
+        # Normalize query (channel name - don't remove Cinemax from it)
         normalized_query = self.normalize_name(query_name, user_ignored_tags)
         
         if not normalized_query:
@@ -393,31 +402,33 @@ class FuzzyMatcher:
         # Stage 1: Exact match (after normalization)
         normalized_query_lower = normalized_query.lower()
         normalized_query_nospace = re.sub(r'[\s&\-]+', '', normalized_query_lower)
-        
+
         for candidate in candidate_names:
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags)
+            # Normalize candidate (stream name) with Cinemax removal if requested
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
             candidate_lower = candidate_normalized.lower()
             candidate_nospace = re.sub(r'[\s&\-]+', '', candidate_lower)
-            
+
             # Exact match
             if normalized_query_nospace == candidate_nospace:
                 return candidate, 100, "exact"
-            
+
             # Very high similarity (97%+)
             ratio = self.calculate_similarity(normalized_query_lower, candidate_lower)
             if ratio >= 0.97 and ratio > best_ratio:
                 best_match = candidate
                 best_ratio = ratio
                 match_type = "exact"
-        
+
         if best_match:
             return best_match, int(best_ratio * 100), match_type
-        
+
         # Stage 2: Substring matching
         for candidate in candidate_names:
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags)
+            # Normalize candidate (stream name) with Cinemax removal if requested
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
             candidate_lower = candidate_normalized.lower()
-            
+
             # Check if one is a substring of the other
             if normalized_query_lower in candidate_lower or candidate_lower in normalized_query_lower:
                 # Calculate similarity score
@@ -426,12 +437,12 @@ class FuzzyMatcher:
                     best_match = candidate
                     best_ratio = ratio
                     match_type = "substring"
-        
+
         if best_match and int(best_ratio * 100) >= self.match_threshold:
             return best_match, int(best_ratio * 100), match_type
-        
+
         # Stage 3: Fuzzy matching with token sorting
-        fuzzy_match, score = self.find_best_match(query_name, candidate_names, user_ignored_tags)
+        fuzzy_match, score = self.find_best_match(query_name, candidate_names, user_ignored_tags, remove_cinemax=remove_cinemax)
         if fuzzy_match:
             return fuzzy_match, score, f"fuzzy ({score})"
         
