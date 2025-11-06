@@ -15,15 +15,15 @@ LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
 # Hardcoded regex patterns to ignore during fuzzy matching
 HARDCODED_IGNORE_PATTERNS = [
-    r'\[(4K|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
-    r'\[(?:4k|fhd|hd|sd|unknown|unk|slow|dead)\]',
+    r'\[(4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
+    r'\[(?:4k|uhd|fhd|hd|sd|unknown|unk|slow|dead)\]',
     r'\([A-Z]\)',
     r'\s[Ee][Aa][Ss][Tt]',
-    r'\s(?:SD|HD|FD)\s',
-    r'\s(?:SD|HD|FD)$',
-    r'\b(?:SD|HD|FD|FHD):?\s',
+    r'\s(?:UHD|FHD|SD|HD|FD)\s',
+    r'\s(?:UHD|FHD|SD|HD|FD)$',
+    r'\b(?:UHD|FHD|SD|HD|FD):?\s',
     r'\s\(CX\)',
-    r'\s\((SD|HD|FD|Backup)\)',
+    r'\s\((UHD|FHD|SD|HD|FD|Backup)\)',
     r'\bUSA?:\s',
     r'\bUS\s',
     r'\([bB]ackup\)',
