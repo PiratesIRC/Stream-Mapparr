@@ -32,27 +32,27 @@ class Plugin:
     
     name = "Stream-Mapparr"
     version = "0.5.0a"
-    description = "Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
+    description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
     fields = [
         {
             "id": "overwrite_streams",
-            "label": "Overwrite Existing Streams",
+            "label": "🔄 Overwrite Existing Streams",
             "type": "boolean",
             "default": True,
             "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
         },
         {
             "id": "fuzzy_match_threshold",
-            "label": "Fuzzy Match Threshold",
+            "label": "🎯 Fuzzy Match Threshold",
             "type": "number",
             "default": 85,
             "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
         },
         {
             "id": "dispatcharr_url",
-            "label": "Dispatcharr URL",
+            "label": "🌐 Dispatcharr URL",
             "type": "string",
             "default": "",
             "placeholder": "http://192.168.1.10:9191",
@@ -60,20 +60,20 @@ class Plugin:
         },
         {
             "id": "dispatcharr_username",
-            "label": "Dispatcharr Admin Username",
+            "label": "👤 Dispatcharr Admin Username",
             "type": "string",
             "help_text": "Your admin username for the Dispatcharr UI. Required for API access.",
         },
         {
             "id": "dispatcharr_password",
-            "label": "Dispatcharr Admin Password",
+            "label": "🔑 Dispatcharr Admin Password",
             "type": "string",
             "input_type": "password",
             "help_text": "Your admin password for the Dispatcharr UI. Required for API access.",
         },
         {
             "id": "profile_name",
-            "label": "Profile Name",
+            "label": "📋 Profile Name",
             "type": "string",
             "default": "",
             "placeholder": "Sports",
@@ -81,7 +81,7 @@ class Plugin:
         },
         {
             "id": "selected_groups",
-            "label": "Channel Groups (comma-separated)",
+            "label": "📁 Channel Groups (comma-separated)",
             "type": "string",
             "default": "",
             "placeholder": "Sports, News, Entertainment",
@@ -89,7 +89,7 @@ class Plugin:
         },
         {
             "id": "ignore_tags",
-            "label": "Ignore Tags (comma-separated)",
+            "label": "🏷️ Ignore Tags (comma-separated)",
             "type": "string",
             "default": "",
             "placeholder": "4K, [4K], [Dead]",
@@ -97,7 +97,7 @@ class Plugin:
         },
         {
             "id": "visible_channel_limit",
-            "label": "Visible Channel Limit",
+            "label": "👁️ Visible Channel Limit",
             "type": "number",
             "default": 1,
             "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
@@ -108,17 +108,17 @@ class Plugin:
     actions = [
         {
             "id": "load_process_channels",
-            "label": "Load/Process Channels",
+            "label": "📥 Load/Process Channels",
             "description": "Validate settings and load channels from the specified profile and groups",
         },
         {
             "id": "preview_changes",
-            "label": "Preview Changes (Dry Run)",
+            "label": "👀 Preview Changes (Dry Run)",
             "description": "Preview which streams will be added to channels without making changes",
         },
         {
             "id": "add_streams_to_channels",
-            "label": "Add Stream(s) to Channels",
+            "label": "✅ Add Stream(s) to Channels",
             "description": "Add matching streams to channels and replace existing stream assignments",
             "confirm": {
                 "required": True,
@@ -128,17 +128,17 @@ class Plugin:
         },
         {
             "id": "manage_channel_visibility",
-            "label": "Manage Channel Visibility",
-            "description": "Disable all channels, then enable only channels with 0 or 1 stream (excluding channels attached to others)",
+            "label": "👁️ Manage Channel Visibility",
+            "description": "Disable all channels, then enable only channels with 1 or more streams (excluding channels attached to others)",
             "confirm": {
                 "required": True,
                 "title": "Manage Channel Visibility?",
-                "message": "This will disable ALL channels in the profile, then enable only channels with 0 or 1 stream that are not attached to other channels. Continue?"
+                "message": "This will disable ALL channels in the profile, then enable only channels with 1 or more streams that are not attached to other channels. Continue?"
             }
         },
         {
             "id": "clear_csv_exports",
-            "label": "Clear CSV Exports",
+            "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
             "confirm": {
                 "required": True,
@@ -348,14 +348,19 @@ class Plugin:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
         return False
 
-    def _clean_channel_name(self, name, ignore_tags=None):
+    def _clean_channel_name(self, name, ignore_tags=None, remove_cinemax=False):
         """
         Remove brackets and their contents from channel name for matching, and remove ignore tags.
         Uses fuzzy matcher's normalization if available, otherwise falls back to basic cleaning.
+
+        Args:
+            name: Channel or stream name to clean
+            ignore_tags: List of tags to ignore
+            remove_cinemax: If True, remove "Cinemax" prefix (for streams when channel contains "max")
         """
         if self.fuzzy_matcher:
             # Use fuzzy matcher's normalization
-            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True)
+            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True, remove_cinemax=remove_cinemax)
         
         # Fallback to basic cleaning
         if ignore_tags is None:
@@ -485,12 +490,15 @@ class Plugin:
             ignore_tags = []
         if channels_data is None:
             channels_data = []
-        
+
         channel_name = channel['name']
-        
+
         # Get channel info from JSON
         channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
-        
+
+        # Check if channel name contains "max" (case insensitive) - used for Cinemax handling
+        channel_has_max = 'max' in channel_name.lower()
+
         cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
         
         if "24/7" in channel_name.lower():
@@ -517,10 +525,10 @@ class Plugin:
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Sorted {len(sorted_streams)} streams by quality (callsign matching)")
-                
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                 match_reason = "Callsign match"
-                
+
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
             else:
                 logger.info(f"[Stream-Mapparr]   No callsign matches found for {callsign}")
@@ -529,33 +537,35 @@ class Plugin:
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
             logger.info(f"[Stream-Mapparr] Using fuzzy matcher for channel: {channel_name}")
-            
+
             # Get all stream names
             stream_names = [stream['name'] for stream in all_streams]
-            
+
             # Use fuzzy matcher to find best match
+            # Pass remove_cinemax flag if channel contains "max"
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                 channel_name,
                 stream_names,
-                ignore_tags
+                ignore_tags,
+                remove_cinemax=channel_has_max
             )
             
             if matched_stream_name:
                 # Find all streams that match this name (different qualities)
                 matching_streams = []
-                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags)
-                
+                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags, remove_cinemax=channel_has_max)
+
                 for stream in all_streams:
-                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags)
-                    
+                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
                     if cleaned_stream.lower() == cleaned_matched.lower():
                         matching_streams.append(stream)
-                
+
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
-                    
-                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                     match_reason = f"Fuzzy match ({match_type}, score: {score})"
                     
                     return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
@@ -579,33 +589,33 @@ class Plugin:
             
             # Look for streams that match this channel name exactly
             for stream in all_streams:
-                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
-                
+                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
                 if cleaned_stream_name.lower() == cleaned_channel_name.lower():
                     matching_streams.append(stream)
-            
+
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching exact channel name")
-                
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
                 match_reason = "Exact match (channels.json)"
                 
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
         # Fallback to basic substring matching
         for stream in all_streams:
-            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags)
-            
+            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+
             # Simple case-insensitive substring matching
             if cleaned_channel_name.lower() in cleaned_stream_name.lower() or cleaned_stream_name.lower() in cleaned_channel_name.lower():
                 matching_streams.append(stream)
-        
+
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
             logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching via basic substring match")
-            
-            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags) for s in sorted_streams]
+
+            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
             match_reason = "Basic substring match"
             
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
@@ -908,7 +918,7 @@ class Plugin:
             
             logger.info(f"[Stream-Mapparr] Previewing changes for {len(channels)} channels with {len(streams)} available streams")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
-            
+
             # Group channels by their cleaned name for matching
             channel_groups = {}
             ignore_tags = processed_data.get('ignore_tags', [])
@@ -936,16 +946,16 @@ class Plugin:
             
             total_groups = len(channel_groups)
             current_group = 0
-            
+
             for group_key, group_channels in channel_groups.items():
                 current_group += 1
                 progress_pct = int((current_group / total_groups) * 100)
-                
+
                 logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
-                
+
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
-                
+
                 # Match streams for this channel group (using first channel as representative)
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, channels_data
@@ -992,7 +1002,7 @@ class Plugin:
                     all_matches.append(match_info)
             
             logger.info(f"[Stream-Mapparr] [100%] Preview processing complete")
-            
+
             # Export to CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
@@ -1101,7 +1111,7 @@ class Plugin:
             logger.info(f"[Stream-Mapparr] Adding streams to {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             logger.info(f"[Stream-Mapparr] Overwrite existing streams: {overwrite_streams}")
-            
+
             # Group channels by their cleaned name
             channel_groups = {}
             for channel in channels:
@@ -1133,12 +1143,12 @@ class Plugin:
             for group_key, group_channels in channel_groups.items():
                 current_group += 1
                 progress_pct = int((current_group / total_groups) * 100)
-                
+
                 logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
-                
+
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
-                
+
                 # Match streams for this channel group
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, channels_data
@@ -1227,7 +1237,7 @@ class Plugin:
                     channels_skipped += 1
             
             logger.info(f"[Stream-Mapparr] [100%] Processing complete")
-            
+
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
             
@@ -1310,7 +1320,7 @@ class Plugin:
             
             logger.info(f"[Stream-Mapparr] Managing visibility for {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
-            
+
             # Step 1: Get stream counts for all channels
             logger.info("[Stream-Mapparr] Step 1: Counting streams for each channel...")
             channel_stream_counts = {}
@@ -1370,7 +1380,7 @@ class Plugin:
             
             # Step 3.5: Group channels and apply visible channel limit
             logger.info("[Stream-Mapparr] Step 3.5: Grouping channels and applying visibility limit...")
-            
+
             # Group channels by their cleaned name
             channel_groups = {}
             for channel in channels:
@@ -1407,8 +1417,8 @@ class Plugin:
                 
                 # If there are eligible channels, enable only the highest priority one
                 enabled_in_group = False
-                
-                for ch in group_channels:
+
+                for ch in sorted_channels:
                     channel_id = ch['id']
                     channel_name = ch['name']
 
@@ -1426,17 +1436,18 @@ class Plugin:
                     if is_attached:
                         reason = 'Attached to another channel'
                         should_enable = False
-                    elif stream_count >= 2:
-                        reason = f'{stream_count} streams (too many)'
-                        should_enable = False
-                    elif not enabled_in_group and (stream_count == 0 or stream_count == 1):
-                        # This is the highest priority channel with 0-1 streams
-                        reason = f'{stream_count} stream{"" if stream_count == 1 else "s"}'
+                    elif not enabled_in_group and stream_count >= 1:
+                        # This is the highest priority, non-attached channel WITH streams
+                        reason = f'{stream_count} stream{"s" if stream_count != 1 else ""}'
                         should_enable = True
                         enabled_in_group = True
+                    elif stream_count == 0:
+                        # This channel has no streams
+                        reason = 'No streams found'
+                        should_enable = False
                     else:
-                        # Another channel in this group is already enabled
-                        reason = 'Duplicate - higher priority channel in group already enabled'
+                        # This is a duplicate (a lower-priority channel in the group)
+                        reason = 'Duplicate - higher priority channel enabled'
                         should_enable = False
                     
                     channel_stream_counts[channel_id] = {
@@ -1492,7 +1503,7 @@ class Plugin:
             
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
-            
+
             # Generate visibility report CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_visibility_{timestamp}.csv"
