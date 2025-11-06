@@ -10,6 +10,9 @@ import json
 import logging
 from glob import glob
 
+# Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
+__version__ = "25.310.1806"
+
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
