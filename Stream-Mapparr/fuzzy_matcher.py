@@ -179,7 +179,7 @@ class FuzzyMatcher:
 
         # Remove "Cinemax" prefix if requested (for channels containing "max")
         if remove_cinemax:
-            name = re.sub(r'\bCinemax\s+', '', name, flags=re.IGNORECASE)
+            name = re.sub(r'\bCinemax\b\s*', '', name, flags=re.IGNORECASE)
 
         # Apply hardcoded ignore patterns only if remove_quality_tags is True
         if remove_quality_tags:
