@@ -18,6 +18,9 @@ from apps.channels.models import Channel, Stream, ChannelStream, ChannelProfileM
 # Import fuzzy matcher
 from .fuzzy_matcher import FuzzyMatcher
 
+# Import WebSocket update function
+from core.utils import send_websocket_update
+
 # Setup logging using Dispatcharr's format
 LOGGER = logging.getLogger("plugins.stream_mapparr")
 if not LOGGER.handlers:
@@ -32,27 +35,27 @@ class Plugin:
     
     name = "Stream-Mapparr"
     version = "0.5.0a"
-    description = "Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
+    description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
     fields = [
         {
             "id": "overwrite_streams",
-            "label": "Overwrite Existing Streams",
+            "label": "🔄 Overwrite Existing Streams",
             "type": "boolean",
             "default": True,
             "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
         },
         {
             "id": "fuzzy_match_threshold",
-            "label": "Fuzzy Match Threshold",
+            "label": "🎯 Fuzzy Match Threshold",
             "type": "number",
             "default": 85,
             "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
         },
         {
             "id": "dispatcharr_url",
-            "label": "Dispatcharr URL",
+            "label": "🌐 Dispatcharr URL",
             "type": "string",
             "default": "",
             "placeholder": "http://192.168.1.10:9191",
@@ -60,20 +63,20 @@ class Plugin:
         },
         {
             "id": "dispatcharr_username",
-            "label": "Dispatcharr Admin Username",
+            "label": "👤 Dispatcharr Admin Username",
             "type": "string",
             "help_text": "Your admin username for the Dispatcharr UI. Required for API access.",
         },
         {
             "id": "dispatcharr_password",
-            "label": "Dispatcharr Admin Password",
+            "label": "🔑 Dispatcharr Admin Password",
             "type": "string",
             "input_type": "password",
             "help_text": "Your admin password for the Dispatcharr UI. Required for API access.",
         },
         {
             "id": "profile_name",
-            "label": "Profile Name",
+            "label": "📋 Profile Name",
             "type": "string",
             "default": "",
             "placeholder": "Sports",
@@ -81,7 +84,7 @@ class Plugin:
         },
         {
             "id": "selected_groups",
-            "label": "Channel Groups (comma-separated)",
+            "label": "📁 Channel Groups (comma-separated)",
             "type": "string",
             "default": "",
             "placeholder": "Sports, News, Entertainment",
@@ -89,7 +92,7 @@ class Plugin:
         },
         {
             "id": "ignore_tags",
-            "label": "Ignore Tags (comma-separated)",
+            "label": "🏷️ Ignore Tags (comma-separated)",
             "type": "string",
             "default": "",
             "placeholder": "4K, [4K], [Dead]",
@@ -97,7 +100,7 @@ class Plugin:
         },
         {
             "id": "visible_channel_limit",
-            "label": "Visible Channel Limit",
+            "label": "👁️ Visible Channel Limit",
             "type": "number",
             "default": 1,
             "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
@@ -108,17 +111,17 @@ class Plugin:
     actions = [
         {
             "id": "load_process_channels",
-            "label": "Load/Process Channels",
+            "label": "📥 Load/Process Channels",
             "description": "Validate settings and load channels from the specified profile and groups",
         },
         {
             "id": "preview_changes",
-            "label": "Preview Changes (Dry Run)",
+            "label": "👀 Preview Changes (Dry Run)",
             "description": "Preview which streams will be added to channels without making changes",
         },
         {
             "id": "add_streams_to_channels",
-            "label": "Add Stream(s) to Channels",
+            "label": "✅ Add Stream(s) to Channels",
             "description": "Add matching streams to channels and replace existing stream assignments",
             "confirm": {
                 "required": True,
@@ -128,17 +131,17 @@ class Plugin:
         },
         {
             "id": "manage_channel_visibility",
-            "label": "Manage Channel Visibility",
-            "description": "Disable all channels, then enable only channels with 0 or 1 stream (excluding channels attached to others)",
+            "label": "👁️ Manage Channel Visibility",
+            "description": "Disable all channels, then enable only channels with 1 or more streams (excluding channels attached to others)",
             "confirm": {
                 "required": True,
                 "title": "Manage Channel Visibility?",
-                "message": "This will disable ALL channels in the profile, then enable only channels with 0 or 1 stream that are not attached to other channels. Continue?"
+                "message": "This will disable ALL channels in the profile, then enable only channels with 1 or more streams that are not attached to other channels. Continue?"
             }
         },
         {
             "id": "clear_csv_exports",
-            "label": "Clear CSV Exports",
+            "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
             "confirm": {
                 "required": True,
@@ -908,7 +911,17 @@ class Plugin:
             
             logger.info(f"[Stream-Mapparr] Previewing changes for {len(channels)} channels with {len(streams)} available streams")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
-            
+
+            # Send initial WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_preview',
+                'stage': 'starting',
+                'total': len(channels),
+                'matched': 0,
+                'progress_percent': 0,
+                'message': f'Starting preview for {len(channels)} channels...'
+            })
+
             # Group channels by their cleaned name for matching
             channel_groups = {}
             ignore_tags = processed_data.get('ignore_tags', [])
@@ -936,16 +949,28 @@ class Plugin:
             
             total_groups = len(channel_groups)
             current_group = 0
-            
+
             for group_key, group_channels in channel_groups.items():
                 current_group += 1
                 progress_pct = int((current_group / total_groups) * 100)
-                
+
                 logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
-                
+
+                # Send progress WebSocket notification
+                send_websocket_update('updates', 'update', {
+                    'type': 'stream_mapparr_preview',
+                    'stage': 'matching',
+                    'total': total_groups,
+                    'current': current_group,
+                    'matched': total_channels_with_matches,
+                    'progress_percent': progress_pct,
+                    'current_group': group_key,
+                    'message': f'Processing {current_group}/{total_groups} channel groups ({progress_pct}%)...'
+                })
+
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
-                
+
                 # Match streams for this channel group (using first channel as representative)
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, channels_data
@@ -992,7 +1017,17 @@ class Plugin:
                     all_matches.append(match_info)
             
             logger.info(f"[Stream-Mapparr] [100%] Preview processing complete")
-            
+
+            # Send completion WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_preview',
+                'stage': 'completed',
+                'total': len(channels),
+                'matched': total_channels_with_matches,
+                'progress_percent': 100,
+                'message': f'Preview complete: {total_channels_with_matches} channels matched'
+            })
+
             # Export to CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
@@ -1101,7 +1136,17 @@ class Plugin:
             logger.info(f"[Stream-Mapparr] Adding streams to {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             logger.info(f"[Stream-Mapparr] Overwrite existing streams: {overwrite_streams}")
-            
+
+            # Send initial WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_add',
+                'stage': 'starting',
+                'total': len(channels),
+                'updated': 0,
+                'progress_percent': 0,
+                'message': f'Starting to add streams to {len(channels)} channels...'
+            })
+
             # Group channels by their cleaned name
             channel_groups = {}
             for channel in channels:
@@ -1133,12 +1178,24 @@ class Plugin:
             for group_key, group_channels in channel_groups.items():
                 current_group += 1
                 progress_pct = int((current_group / total_groups) * 100)
-                
+
                 logger.info(f"[Stream-Mapparr] [{progress_pct}%] Processing channel group: {group_key} ({len(group_channels)} channels)")
-                
+
+                # Send progress WebSocket notification
+                send_websocket_update('updates', 'update', {
+                    'type': 'stream_mapparr_add',
+                    'stage': 'processing',
+                    'total': total_groups,
+                    'current': current_group,
+                    'updated': channels_updated,
+                    'progress_percent': progress_pct,
+                    'current_group': group_key,
+                    'message': f'Processing {current_group}/{total_groups} channel groups ({progress_pct}%)...'
+                })
+
                 # Sort channels in this group by priority
                 sorted_channels = self._sort_channels_by_priority(group_channels)
-                
+
                 # Match streams for this channel group
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, channels_data
@@ -1227,7 +1284,18 @@ class Plugin:
                     channels_skipped += 1
             
             logger.info(f"[Stream-Mapparr] [100%] Processing complete")
-            
+
+            # Send completion WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_add',
+                'stage': 'completed',
+                'total': len(channels),
+                'updated': channels_updated,
+                'streams_added': total_streams_added,
+                'progress_percent': 100,
+                'message': f'Complete: {channels_updated} channels updated with {total_streams_added} streams'
+            })
+
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
             
@@ -1310,9 +1378,25 @@ class Plugin:
             
             logger.info(f"[Stream-Mapparr] Managing visibility for {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
-            
+
+            # Send initial WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'starting',
+                'total': len(channels),
+                'progress_percent': 0,
+                'message': f'Starting visibility management for {len(channels)} channels...'
+            })
+
             # Step 1: Get stream counts for all channels
             logger.info("[Stream-Mapparr] Step 1: Counting streams for each channel...")
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'counting',
+                'total': len(channels),
+                'progress_percent': 10,
+                'message': 'Counting streams for each channel...'
+            })
             channel_stream_counts = {}
             
             for channel in channels:
@@ -1326,6 +1410,13 @@ class Plugin:
             
             # Step 2: Find channels that are attached to other channels
             logger.info("[Stream-Mapparr] Step 2: Identifying attached channels...")
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'identifying',
+                'total': len(channels),
+                'progress_percent': 25,
+                'message': 'Identifying attached channels...'
+            })
             channels_attached_to_others = set()
             
             for channel in channels:
@@ -1336,6 +1427,13 @@ class Plugin:
             
             # Step 3: Disable all channels first
             logger.info(f"[Stream-Mapparr] Step 3: Disabling all {len(channels)} channels...")
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'disabling',
+                'total': len(channels),
+                'progress_percent': 40,
+                'message': f'Disabling all {len(channels)} channels...'
+            })
             try:
                 bulk_disable_payload = [
                     {"channel_id": channel['id'], "enabled": False}
@@ -1370,7 +1468,14 @@ class Plugin:
             
             # Step 3.5: Group channels and apply visible channel limit
             logger.info("[Stream-Mapparr] Step 3.5: Grouping channels and applying visibility limit...")
-            
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'grouping',
+                'total': len(channels),
+                'progress_percent': 60,
+                'message': 'Grouping channels and applying visibility rules...'
+            })
+
             # Group channels by their cleaned name
             channel_groups = {}
             for channel in channels:
@@ -1407,8 +1512,8 @@ class Plugin:
                 
                 # If there are eligible channels, enable only the highest priority one
                 enabled_in_group = False
-                
-                for ch in group_channels:
+
+                for ch in sorted_channels:
                     channel_id = ch['id']
                     channel_name = ch['name']
 
@@ -1426,17 +1531,18 @@ class Plugin:
                     if is_attached:
                         reason = 'Attached to another channel'
                         should_enable = False
-                    elif stream_count >= 2:
-                        reason = f'{stream_count} streams (too many)'
-                        should_enable = False
-                    elif not enabled_in_group and (stream_count == 0 or stream_count == 1):
-                        # This is the highest priority channel with 0-1 streams
-                        reason = f'{stream_count} stream{"" if stream_count == 1 else "s"}'
+                    elif not enabled_in_group and stream_count >= 1:
+                        # This is the highest priority, non-attached channel WITH streams
+                        reason = f'{stream_count} stream{"s" if stream_count != 1 else ""}'
                         should_enable = True
                         enabled_in_group = True
+                    elif stream_count == 0:
+                        # This channel has no streams
+                        reason = 'No streams found'
+                        should_enable = False
                     else:
-                        # Another channel in this group is already enabled
-                        reason = 'Duplicate - higher priority channel in group already enabled'
+                        # This is a duplicate (a lower-priority channel in the group)
+                        reason = 'Duplicate - higher priority channel enabled'
                         should_enable = False
                     
                     channel_stream_counts[channel_id] = {
@@ -1453,6 +1559,14 @@ class Plugin:
             
             # Step 4: Enable selected channels
             logger.info(f"[Stream-Mapparr] Step 4: Enabling {len(channels_to_enable)} channels...")
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'enabling',
+                'total': len(channels),
+                'to_enable': len(channels_to_enable),
+                'progress_percent': 80,
+                'message': f'Enabling {len(channels_to_enable)} channels...'
+            })
             channels_enabled = 0
             
             if channels_to_enable:
@@ -1490,9 +1604,20 @@ class Plugin:
                         except Exception as e2:
                             logger.error(f"[Stream-Mapparr] Failed to enable channel {channel_id}: {e2}")
             
+            # Send completion WebSocket notification
+            send_websocket_update('updates', 'update', {
+                'type': 'stream_mapparr_visibility',
+                'stage': 'completed',
+                'total': len(channels),
+                'enabled': channels_enabled,
+                'disabled': len(channels) - channels_enabled,
+                'progress_percent': 100,
+                'message': f'Complete: {channels_enabled} channels enabled, {len(channels) - channels_enabled} disabled'
+            })
+
             # Trigger frontend refresh
             self._trigger_frontend_refresh(settings, logger)
-            
+
             # Generate visibility report CSV
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_visibility_{timestamp}.csv"
