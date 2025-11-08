@@ -10,22 +10,45 @@ import json
 import logging
 from glob import glob
 
+# Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
+__version__ = "25.310.1806"
+
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
 # Hardcoded regex patterns to ignore during fuzzy matching
+# Note: All patterns are applied with re.IGNORECASE flag in normalize_name()
 HARDCODED_IGNORE_PATTERNS = [
-    r'\[(4K|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
-    r'\[(?:4k|fhd|hd|sd|unknown|unk|slow|dead)\]',
+    # Bracketed quality tags: [4K], [UHD], [FHD], [HD], [SD], [Unknown], [Unk], [Slow], [Dead]
+    r'\[(4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
+    r'\[(?:4k|uhd|fhd|hd|sd|unknown|unk|slow|dead)\]',
+
+    # Single letter tags in parentheses: (A), (B), (C), etc.
     r'\([A-Z]\)',
+
+    # Regional: " East" or " east"
     r'\s[Ee][Aa][Ss][Tt]',
-    r'\s(?:SD|HD|FD)\s',
-    r'\s(?:SD|HD|FD)$',
-    r'\b(?:SD|HD|FD|FHD):?\s',
-    r'\s\(CX\)',
-    r'\s\((SD|HD|FD|Backup)\)',
-    r'\bUSA?:\s',
-    r'\bUS\s',
+
+    # Unbracketed quality tags in middle: " 4K ", " UHD ", " FHD ", " HD ", " SD ", etc.
+    r'\s(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD)\s',
+
+    # Unbracketed quality tags at end: " 4K", " UHD", " FHD", " HD", " SD", etc.
+    r'\s(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD)$',
+
+    # Word boundary quality tags with optional colon: "4K:", "UHD:", "FHD:", "HD:", etc.
+    r'\b(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD):?\s',
+
+    # Special tags
+    r'\s\(CX\)',  # Cinemax tag
+
+    # Parenthesized quality tags: (4K), (UHD), (FHD), (HD), (SD), (Unknown), (Unk), (Slow), (Dead), (Backup)
+    r'\s\((4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD|Backup)\)',
+
+    # Geographic prefixes
+    r'\bUSA?:\s',  # "US:" or "USA:"
+    r'\bUS\s',     # "US " at word boundary
+
+    # Backup tags
     r'\([bB]ackup\)',
 ]
 
