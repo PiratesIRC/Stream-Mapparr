@@ -76,8 +76,8 @@ class Plugin:
             "label": "📋 Profile Name",
             "type": "string",
             "default": "",
-            "placeholder": "Sports",
-            "help_text": "*** Required Field *** - The name of an existing Channel Profile to process channels from.",
+            "placeholder": "Sports, Movies, News",
+            "help_text": "*** Required Field *** - The name(s) of existing Channel Profile(s) to process channels from. Multiple profiles can be specified separated by commas.",
         },
         {
             "id": "selected_groups",
@@ -106,6 +106,11 @@ class Plugin:
     
     # Actions for Dispatcharr UI
     actions = [
+        {
+            "id": "validate_settings",
+            "label": "✅ Validate Settings",
+            "description": "Validate all plugin settings (profiles, groups, API connection, etc.)",
+        },
         {
             "id": "load_process_channels",
             "label": "📥 Load/Process Channels",
@@ -659,6 +664,7 @@ class Plugin:
             self._initialize_fuzzy_matcher(match_threshold)
             
             action_map = {
+                "validate_settings": self.validate_settings_action,
                 "load_process_channels": self.load_process_channels_action,
                 "preview_changes": self.preview_changes_action,
                 "add_streams_to_channels": self.add_streams_to_channels_action,
@@ -677,6 +683,178 @@ class Plugin:
             LOGGER.error(traceback.format_exc())
             return {"status": "error", "message": str(e)}
 
+    def validate_settings_action(self, settings, logger):
+        """Validate all plugin settings including profiles, groups, and API connection."""
+        validation_results = []
+        has_errors = False
+
+        try:
+            # 1. Validate API Connection
+            logger.info("[Stream-Mapparr] Validating API connection...")
+            token, error = self._get_api_token(settings, logger)
+            if error:
+                validation_results.append(f"❌ API Connection: FAILED - {error}")
+                has_errors = True
+                # Cannot continue without API access
+                return {
+                    "status": "error",
+                    "message": "Validation failed:\n\n" + "\n".join(validation_results)
+                }
+            else:
+                validation_results.append("✅ API Connection: SUCCESS")
+
+            # 2. Validate Profile Names
+            logger.info("[Stream-Mapparr] Validating profile names...")
+            profile_names_str = settings.get("profile_name", "").strip()
+
+            if not profile_names_str:
+                validation_results.append("❌ Profile Name: FAILED - No profile name configured")
+                has_errors = True
+            else:
+                profile_names = [name.strip() for name in profile_names_str.split(',') if name.strip()]
+                profiles = self._get_api_data("/api/channels/profiles/", token, settings, logger)
+                available_profile_names = [p.get('name') for p in profiles if 'name' in p]
+
+                # Check each profile
+                missing_profiles = []
+                found_profiles = []
+                for profile_name in profile_names:
+                    found = False
+                    for profile in profiles:
+                        if profile.get('name', '').lower() == profile_name.lower():
+                            found = True
+                            found_profiles.append(profile_name)
+                            break
+                    if not found:
+                        missing_profiles.append(profile_name)
+
+                if missing_profiles:
+                    validation_results.append(f"❌ Profile Name: FAILED - The following profiles were not found: {', '.join(missing_profiles)}")
+                    validation_results.append(f"   Available profiles: {', '.join(available_profile_names)}")
+                    has_errors = True
+                else:
+                    validation_results.append(f"✅ Profile Name: SUCCESS - Found {len(found_profiles)} profile(s): {', '.join(found_profiles)}")
+
+            # 3. Validate Channel Groups
+            logger.info("[Stream-Mapparr] Validating channel groups...")
+            selected_groups_str = settings.get("selected_groups", "").strip()
+
+            if selected_groups_str:
+                selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
+
+                # Get all groups
+                all_groups = []
+                page = 1
+                while True:
+                    api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger)
+
+                    if isinstance(api_groups, dict) and 'results' in api_groups:
+                        all_groups.extend(api_groups['results'])
+                        if not api_groups.get('next'):
+                            break
+                        page += 1
+                    elif isinstance(api_groups, list):
+                        all_groups.extend(api_groups)
+                        break
+                    else:
+                        break
+
+                available_group_names = [g['name'] for g in all_groups if 'name' in g]
+
+                # Check each group
+                missing_groups = []
+                found_groups = []
+                for group_name in selected_groups:
+                    if group_name in available_group_names:
+                        found_groups.append(group_name)
+                    else:
+                        missing_groups.append(group_name)
+
+                if missing_groups:
+                    validation_results.append(f"❌ Channel Groups: FAILED - The following groups were not found: {', '.join(missing_groups)}")
+                    validation_results.append(f"   Available groups: {', '.join(available_group_names[:20])}" + ("..." if len(available_group_names) > 20 else ""))
+                    has_errors = True
+                else:
+                    validation_results.append(f"✅ Channel Groups: SUCCESS - Found {len(found_groups)} group(s): {', '.join(found_groups)}")
+            else:
+                validation_results.append("✅ Channel Groups: Not specified (will use all groups)")
+
+            # 4. Validate Fuzzy Match Threshold
+            logger.info("[Stream-Mapparr] Validating fuzzy match threshold...")
+            match_threshold = settings.get("fuzzy_match_threshold", 85)
+            try:
+                match_threshold = int(match_threshold)
+                if 0 <= match_threshold <= 100:
+                    validation_results.append(f"✅ Fuzzy Match Threshold: SUCCESS - Set to {match_threshold}")
+                else:
+                    validation_results.append(f"❌ Fuzzy Match Threshold: WARNING - Value {match_threshold} is outside recommended range (0-100)")
+                    has_errors = True
+            except (ValueError, TypeError):
+                validation_results.append(f"❌ Fuzzy Match Threshold: FAILED - Invalid value: {match_threshold}")
+                has_errors = True
+
+            # 5. Validate Visible Channel Limit
+            logger.info("[Stream-Mapparr] Validating visible channel limit...")
+            visible_channel_limit_str = settings.get("visible_channel_limit", "1")
+            try:
+                visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else 1
+                if visible_channel_limit >= 1:
+                    validation_results.append(f"✅ Visible Channel Limit: SUCCESS - Set to {visible_channel_limit}")
+                else:
+                    validation_results.append(f"❌ Visible Channel Limit: FAILED - Must be at least 1")
+                    has_errors = True
+            except (ValueError, TypeError):
+                validation_results.append(f"❌ Visible Channel Limit: FAILED - Invalid value: {visible_channel_limit_str}")
+                has_errors = True
+
+            # 6. Validate Fuzzy Matcher Initialization
+            logger.info("[Stream-Mapparr] Validating fuzzy matcher...")
+            try:
+                match_threshold = settings.get("fuzzy_match_threshold", 85)
+                try:
+                    match_threshold = int(match_threshold)
+                except (ValueError, TypeError):
+                    match_threshold = 85
+
+                self._initialize_fuzzy_matcher(match_threshold)
+                if self.fuzzy_matcher:
+                    validation_results.append(f"✅ Fuzzy Matcher: SUCCESS - Initialized with threshold {match_threshold}")
+                else:
+                    validation_results.append("⚠️ Fuzzy Matcher: WARNING - Could not initialize (will use fallback matching)")
+            except Exception as e:
+                validation_results.append(f"⚠️ Fuzzy Matcher: WARNING - {str(e)} (will use fallback matching)")
+
+            # 7. Check other settings
+            overwrite_streams = settings.get('overwrite_streams', True)
+            if isinstance(overwrite_streams, str):
+                overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
+            validation_results.append(f"ℹ️ Overwrite Existing Streams: {'Enabled' if overwrite_streams else 'Disabled'}")
+
+            ignore_tags_str = settings.get("ignore_tags", "").strip()
+            if ignore_tags_str:
+                ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
+                validation_results.append(f"ℹ️ Ignore Tags: {len(ignore_tags)} tag(s) configured: {', '.join(ignore_tags)}")
+            else:
+                validation_results.append("ℹ️ Ignore Tags: None configured")
+
+            # Build summary message
+            if has_errors:
+                message = "Validation completed with errors:\n\n" + "\n".join(validation_results)
+                message += "\n\nPlease fix the errors above before proceeding."
+                return {"status": "error", "message": message}
+            else:
+                message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
+                message += "\n\nYou can now proceed with 'Load/Process Channels'."
+                return {"status": "success", "message": message}
+
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error validating settings: {str(e)}")
+            validation_results.append(f"❌ Unexpected error during validation: {str(e)}")
+            return {
+                "status": "error",
+                "message": "Validation failed:\n\n" + "\n".join(validation_results)
+            }
+
     def load_process_channels_action(self, settings, logger):
         """Load and process channels from specified profile and groups."""
         try:
@@ -685,43 +863,55 @@ class Plugin:
             if error:
                 return {"status": "error", "message": error}
             
-            profile_name = settings.get("profile_name", "").strip()
+            profile_names_str = settings.get("profile_name", "").strip()
             selected_groups_str = settings.get("selected_groups", "").strip()
             ignore_tags_str = settings.get("ignore_tags", "").strip()
             visible_channel_limit_str = settings.get("visible_channel_limit", "1")
             visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else 1
-            
-            if not profile_name:
+
+            if not profile_names_str:
                 return {"status": "error", "message": "Profile Name must be configured in the plugin settings."}
-            
+
             if visible_channel_limit < 1:
                 return {"status": "error", "message": "Visible Channel Limit must be at least 1."}
-            
+
+            # Parse profile names (support comma-separated list)
+            profile_names = [name.strip() for name in profile_names_str.split(',') if name.strip()]
+            logger.info(f"[Stream-Mapparr] Profile names configured: {profile_names}")
+
             # Parse ignore tags
             ignore_tags = []
             if ignore_tags_str:
                 ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
                 logger.info(f"[Stream-Mapparr] Ignore tags configured: {ignore_tags}")
-            
-            # Get all profiles to find the specified one
+
+            # Get all profiles to find the specified ones
             logger.info("[Stream-Mapparr] Fetching channel profiles...")
             profiles = self._get_api_data("/api/channels/profiles/", token, settings, logger)
-            
-            target_profile = None
-            for profile in profiles:
-                if profile.get('name', '').lower() == profile_name.lower():
-                    target_profile = profile
-                    break
-            
-            if not target_profile:
-                available_profiles = [p.get('name') for p in profiles if 'name' in p]
-                return {
-                    "status": "error",
-                    "message": f"Profile '{profile_name}' not found. Available profiles: {', '.join(available_profiles)}"
-                }
-            
-            profile_id = target_profile['id']
-            logger.info(f"[Stream-Mapparr] Found profile: {profile_name} (ID: {profile_id})")
+
+            # Find all target profiles
+            target_profiles = []
+            profile_ids = []
+            for profile_name in profile_names:
+                found_profile = None
+                for profile in profiles:
+                    if profile.get('name', '').lower() == profile_name.lower():
+                        found_profile = profile
+                        break
+
+                if not found_profile:
+                    available_profiles = [p.get('name') for p in profiles if 'name' in p]
+                    return {
+                        "status": "error",
+                        "message": f"Profile '{profile_name}' not found. Available profiles: {', '.join(available_profiles)}"
+                    }
+
+                target_profiles.append(found_profile)
+                profile_ids.append(found_profile['id'])
+                logger.info(f"[Stream-Mapparr] Found profile: {profile_name} (ID: {found_profile['id']})")
+
+            # For backward compatibility, use first profile ID
+            profile_id = profile_ids[0]
             
             # Get all groups (handle pagination)
             logger.info("[Stream-Mapparr] Fetching channel groups...")
@@ -750,22 +940,22 @@ class Plugin:
             all_channels = self._get_api_data("/api/channels/channels/", token, settings, logger)
             logger.info(f"[Stream-Mapparr] Retrieved {len(all_channels)} total channels")
             
-            # Filter channels by profile membership
+            # Filter channels by profile membership (check all target profiles)
             # Use Django ORM to check profile membership
             channels_in_profile = []
             for channel in all_channels:
                 channel_id = channel['id']
-                # Check if this channel is enabled in the target profile
+                # Check if this channel is enabled in any of the target profiles
                 is_in_profile = ChannelProfileMembership.objects.filter(
                     channel_id=channel_id,
-                    channel_profile_id=profile_id,
+                    channel_profile_id__in=profile_ids,
                     enabled=True
                 ).exists()
-                
+
                 if is_in_profile:
                     channels_in_profile.append(channel)
-            
-            logger.info(f"[Stream-Mapparr] Found {len(channels_in_profile)} channels in profile '{profile_name}'")
+
+            logger.info(f"[Stream-Mapparr] Found {len(channels_in_profile)} channels in profile(s): {', '.join(profile_names)}")
             
             # Filter by groups if specified
             if selected_groups_str:
@@ -852,28 +1042,68 @@ class Plugin:
             # Save to file
             processed_data = {
                 "loaded_at": datetime.now().isoformat(),
-                "profile_name": profile_name,
-                "profile_id": profile_id,
+                "profile_name": profile_names_str,  # Store original comma-separated string
+                "profile_names": profile_names,  # Store parsed list
+                "profile_id": profile_id,  # First profile ID for backward compatibility
+                "profile_ids": profile_ids,  # All profile IDs
                 "selected_groups": selected_groups,
                 "ignore_tags": ignore_tags,
                 "visible_channel_limit": visible_channel_limit,
                 "channels": channels_to_process,
                 "streams": all_streams_data
             }
-            
+
             with open(self.processed_data_file, 'w') as f:
                 json.dump(processed_data, f, indent=2)
-            
+
             logger.info("[Stream-Mapparr] Channel and stream data loaded and saved successfully")
-            
+
+            profile_display = ', '.join(profile_names)
             return {
                 "status": "success",
-                "message": f"Successfully loaded {len(channels_to_process)} channels from profile '{profile_name}'{group_filter_info}\n\nFound {len(all_streams_data)} streams available for matching.\n\nVisible channel limit set to: {visible_channel_limit}\n\nYou can now run 'Preview Changes' or 'Add Streams to Channels'."
+                "message": f"Successfully loaded {len(channels_to_process)} channels from profile(s): {profile_display}{group_filter_info}\n\nFound {len(all_streams_data)} streams available for matching.\n\nVisible channel limit set to: {visible_channel_limit}\n\nYou can now run 'Preview Changes' or 'Add Streams to Channels'."
             }
             
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error loading channels: {str(e)}")
             return {"status": "error", "message": f"Error loading channels: {str(e)}"}
+
+    def _generate_csv_header_comment(self, settings, processed_data, total_visible_channels=0, total_matched_streams=0):
+        """Generate CSV comment header with plugin version and settings info."""
+        profile_name = processed_data.get('profile_name', 'N/A')
+        selected_groups = processed_data.get('selected_groups', [])
+        ignore_tags = processed_data.get('ignore_tags', [])
+        visible_channel_limit = processed_data.get('visible_channel_limit', 1)
+        total_streams = len(processed_data.get('streams', []))
+
+        # Get settings
+        overwrite_streams = settings.get('overwrite_streams', True)
+        if isinstance(overwrite_streams, str):
+            overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
+        fuzzy_match_threshold = settings.get('fuzzy_match_threshold', 85)
+
+        # Build header lines
+        header_lines = [
+            f"# Stream-Mapparr Export",
+            f"# Plugin Version: {self.version}",
+            f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"#",
+            f"# Settings:",
+            f"#   Overwrite Existing Streams: {'Yes' if overwrite_streams else 'No'}",
+            f"#   Fuzzy Match Threshold: {fuzzy_match_threshold}",
+            f"#   Profile Name: {profile_name}",
+            f"#   Channel Groups: {', '.join(selected_groups) if selected_groups else 'All groups'}",
+            f"#   Ignore Tags: {', '.join(ignore_tags) if ignore_tags else 'None'}",
+            f"#   Visible Channel Limit: {visible_channel_limit}",
+            f"#",
+            f"# Statistics:",
+            f"#   Total Visible Channels: {total_visible_channels}",
+            f"#   Total Streams Available: {total_streams}",
+            f"#   Total Matched Streams: {total_matched_streams}",
+            f"#",
+        ]
+
+        return '\n'.join(header_lines) + '\n'
 
     def _sort_channels_by_priority(self, channels):
         """Sort channels by quality tag priority, then by channel number."""
@@ -883,14 +1113,14 @@ class Plugin:
                 quality_index = self.CHANNEL_QUALITY_TAG_ORDER.index(quality_tag)
             except ValueError:
                 quality_index = len(self.CHANNEL_QUALITY_TAG_ORDER)
-            
+
             # Get channel number, default to 999999 if not available
             channel_number = channel.get('channel_number', 999999)
             if channel_number is None:
                 channel_number = 999999
-            
+
             return (quality_index, channel_number)
-        
+
         return sorted(channels, key=get_priority_key)
 
     def preview_changes_action(self, settings, logger):
@@ -1007,10 +1237,24 @@ class Plugin:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
             filepath = os.path.join("/data/exports", filename)
-            
+
             os.makedirs("/data/exports", exist_ok=True)
-            
+
+            # Calculate total matched streams
+            total_matched = sum(1 for m in all_matches if m['matched_streams'] > 0 and m['will_update'])
+
+            # Write CSV with header comment
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                # Write comment header
+                header_comment = self._generate_csv_header_comment(
+                    settings,
+                    processed_data,
+                    total_visible_channels=total_channels_to_update,
+                    total_matched_streams=total_matched
+                )
+                csvfile.write(header_comment)
+
+                # Write CSV data
                 fieldnames = [
                     'will_update',
                     'channel_id',
@@ -1245,10 +1489,24 @@ class Plugin:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_update_{timestamp}.csv"
             filepath = os.path.join("/data/exports", filename)
-            
+
             os.makedirs("/data/exports", exist_ok=True)
-            
+
+            # Calculate total matched streams
+            total_matched = sum(1 for detail in update_details if detail['matched_streams'] > 0)
+
+            # Write CSV with header comment
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                # Write comment header
+                header_comment = self._generate_csv_header_comment(
+                    settings,
+                    processed_data,
+                    total_visible_channels=channels_updated,
+                    total_matched_streams=total_matched
+                )
+                csvfile.write(header_comment)
+
+                # Write CSV data
                 fieldnames = ['channel_name', 'stream_names', 'matched_streams']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
@@ -1508,10 +1766,24 @@ class Plugin:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_visibility_{timestamp}.csv"
             filepath = os.path.join("/data/exports", filename)
-            
+
             os.makedirs("/data/exports", exist_ok=True)
-            
+
+            # Calculate total matched streams (channels with at least 1 stream that are enabled)
+            total_matched = sum(1 for ch_id in channels_to_enable if channel_stream_counts.get(ch_id, {}).get('stream_count', 0) > 0)
+
+            # Write CSV with header comment
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                # Write comment header
+                header_comment = self._generate_csv_header_comment(
+                    settings,
+                    processed_data,
+                    total_visible_channels=channels_enabled,
+                    total_matched_streams=total_matched
+                )
+                csvfile.write(header_comment)
+
+                # Write CSV data
                 fieldnames = [
                     'channel_id',
                     'channel_name',
