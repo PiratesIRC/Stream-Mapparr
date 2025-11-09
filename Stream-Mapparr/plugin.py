@@ -92,8 +92,8 @@ class Plugin:
             "label": "🏷️ Ignore Tags (comma-separated)",
             "type": "string",
             "default": "",
-            "placeholder": "4K, [4K], [Dead]",
-            "help_text": "Tags to ignore when matching streams. Space-separated in channel names unless they contain brackets/parentheses.",
+            "placeholder": "4K, [4K], \" East\", \"[Dead]\"",
+            "help_text": "Tags to ignore when matching streams. Use quotes to preserve spaces/special chars (e.g., \" East\" for tags with leading space).",
         },
         {
             "id": "ignore_quality_tags",
@@ -380,6 +380,69 @@ class Plugin:
         except Exception as e:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
         return False
+
+    @staticmethod
+    def _parse_tags(tags_str):
+        """
+        Parse comma-separated tags with support for quoted strings.
+
+        Supports both single and double quotes to preserve spaces and special characters.
+        Examples:
+            "4K, HD, FHD" -> ["4K", "HD", "FHD"]
+            "4K, \" East\", \"[Dead]\"" -> ["4K", " East", "[Dead]"]
+            "4K, ' West', \"(Backup)\"" -> ["4K", " West", "(Backup)"]
+
+        Args:
+            tags_str: String containing comma-separated tags (with optional quotes)
+
+        Returns:
+            List of parsed tags
+        """
+        if not tags_str or not tags_str.strip():
+            return []
+
+        tags = []
+        current_tag = []
+        in_quote = None  # None, '"', or "'"
+        i = 0
+
+        while i < len(tags_str):
+            char = tags_str[i]
+
+            # Handle quote start/end
+            if char in ('"', "'") and (in_quote is None or in_quote == char):
+                if in_quote is None:
+                    in_quote = char  # Start quote
+                else:
+                    in_quote = None  # End quote
+                i += 1
+                continue
+
+            # Handle comma (separator) outside of quotes
+            if char == ',' and in_quote is None:
+                tag = ''.join(current_tag)
+                # Only strip if tag wasn't quoted
+                tag = tag.strip()
+                if tag:
+                    tags.append(tag)
+                current_tag = []
+                i += 1
+                continue
+
+            # Regular character
+            current_tag.append(char)
+            i += 1
+
+        # Add final tag
+        if current_tag or in_quote is not None:
+            tag = ''.join(current_tag)
+            # Only strip if tag wasn't quoted
+            if in_quote is None:
+                tag = tag.strip()
+            if tag:
+                tags.append(tag)
+
+        return tags
 
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
                             ignore_geographic=True, ignore_misc=True, remove_cinemax=False):
@@ -904,8 +967,8 @@ class Plugin:
 
             ignore_tags_str = settings.get("ignore_tags", "").strip()
             if ignore_tags_str:
-                ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
-                validation_results.append(f"ℹ️ Ignore Tags: {len(ignore_tags)} tag(s) configured: {', '.join(ignore_tags)}")
+                ignore_tags = self._parse_tags(ignore_tags_str)
+                validation_results.append(f"ℹ️ Ignore Tags: {len(ignore_tags)} tag(s) configured: {', '.join(repr(tag) for tag in ignore_tags)}")
             else:
                 validation_results.append("ℹ️ Ignore Tags: None configured")
 
@@ -981,7 +1044,7 @@ class Plugin:
             # Parse ignore tags
             ignore_tags = []
             if ignore_tags_str:
-                ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
+                ignore_tags = self._parse_tags(ignore_tags_str)
                 logger.info(f"[Stream-Mapparr] Ignore tags configured: {ignore_tags}")
 
             # Log category settings
