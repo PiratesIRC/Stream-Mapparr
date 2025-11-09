@@ -31,7 +31,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
     
     name = "Stream-Mapparr"
-    version = "0.5.0b"
+    version = "0.5.0d"
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
@@ -94,6 +94,34 @@ class Plugin:
             "default": "",
             "placeholder": "4K, [4K], [Dead]",
             "help_text": "Tags to ignore when matching streams. Space-separated in channel names unless they contain brackets/parentheses.",
+        },
+        {
+            "id": "ignore_quality_tags",
+            "label": "🎬 Ignore Quality Tags",
+            "type": "boolean",
+            "default": True,
+            "help_text": "If enabled, hardcoded quality tags like [4K], [HD], (UHD), etc., will be ignored during matching.",
+        },
+        {
+            "id": "ignore_regional_tags",
+            "label": "🌍 Ignore Regional Tags",
+            "type": "boolean",
+            "default": True,
+            "help_text": "If enabled, hardcoded regional tags like 'East' will be ignored during matching.",
+        },
+        {
+            "id": "ignore_geographic_tags",
+            "label": "🗺️ Ignore Geographic Tags",
+            "type": "boolean",
+            "default": True,
+            "help_text": "If enabled, hardcoded geographic prefixes like 'US:', 'USA:' will be ignored during matching.",
+        },
+        {
+            "id": "ignore_misc_tags",
+            "label": "🏷️ Ignore Miscellaneous Tags",
+            "type": "boolean",
+            "default": True,
+            "help_text": "If enabled, miscellaneous tags like (CX), (Backup), and single-letter tags will be ignored during matching.",
         },
         {
             "id": "visible_channel_limit",
@@ -353,7 +381,8 @@ class Plugin:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
         return False
 
-    def _clean_channel_name(self, name, ignore_tags=None, remove_cinemax=False):
+    def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
+                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False):
         """
         Remove brackets and their contents from channel name for matching, and remove ignore tags.
         Uses fuzzy matcher's normalization if available, otherwise falls back to basic cleaning.
@@ -361,11 +390,22 @@ class Plugin:
         Args:
             name: Channel or stream name to clean
             ignore_tags: List of tags to ignore
+            ignore_quality: If True, remove quality-related patterns (e.g., [4K], HD, (SD))
+            ignore_regional: If True, remove regional indicator patterns (e.g., East)
+            ignore_geographic: If True, remove geographic prefix patterns (e.g., US:, USA)
+            ignore_misc: If True, remove miscellaneous patterns (e.g., (CX), (Backup), single-letter tags)
             remove_cinemax: If True, remove "Cinemax" prefix (for streams when channel contains "max")
         """
         if self.fuzzy_matcher:
             # Use fuzzy matcher's normalization
-            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True, remove_cinemax=remove_cinemax)
+            return self.fuzzy_matcher.normalize_name(
+                name, ignore_tags,
+                ignore_quality=ignore_quality,
+                ignore_regional=ignore_regional,
+                ignore_geographic=ignore_geographic,
+                ignore_misc=ignore_misc,
+                remove_cinemax=remove_cinemax
+            )
         
         # Fallback to basic cleaning
         if ignore_tags is None:
@@ -489,7 +529,9 @@ class Plugin:
         
         return callsign.upper()
 
-    def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None, channels_data=None):
+    def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None,
+                                   ignore_quality=True, ignore_regional=True, ignore_geographic=True,
+                                   ignore_misc=True, channels_data=None):
         """Find matching streams for a channel using fuzzy matching when available."""
         if ignore_tags is None:
             ignore_tags = []
@@ -504,7 +546,10 @@ class Plugin:
         # Check if channel name contains "max" (case insensitive) - used for Cinemax handling
         channel_has_max = 'max' in channel_name.lower()
 
-        cleaned_channel_name = self._clean_channel_name(channel_name, ignore_tags)
+        cleaned_channel_name = self._clean_channel_name(
+            channel_name, ignore_tags, ignore_quality, ignore_regional,
+            ignore_geographic, ignore_misc
+        )
         
         if "24/7" in channel_name.lower():
             logger.info(f"[Stream-Mapparr]   Cleaned channel name for matching: {cleaned_channel_name}")
@@ -531,7 +576,10 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Sorted {len(sorted_streams)} streams by quality (callsign matching)")
 
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
+                cleaned_stream_names = [self._clean_channel_name(
+                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                ) for s in sorted_streams]
                 match_reason = "Callsign match"
 
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
@@ -558,10 +606,16 @@ class Plugin:
             if matched_stream_name:
                 # Find all streams that match this name (different qualities)
                 matching_streams = []
-                cleaned_matched = self._clean_channel_name(matched_stream_name, ignore_tags, remove_cinemax=channel_has_max)
+                cleaned_matched = self._clean_channel_name(
+                    matched_stream_name, ignore_tags, ignore_quality, ignore_regional,
+                    ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                )
 
                 for stream in all_streams:
-                    cleaned_stream = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+                    cleaned_stream = self._clean_channel_name(
+                        stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                    )
 
                     if cleaned_stream.lower() == cleaned_matched.lower():
                         matching_streams.append(stream)
@@ -570,9 +624,12 @@ class Plugin:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
 
-                    cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
+                    cleaned_stream_names = [self._clean_channel_name(
+                        s['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                    ) for s in sorted_streams]
                     match_reason = f"Fuzzy match ({match_type}, score: {score})"
-                    
+
                     return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
             
             # No fuzzy match found
@@ -594,7 +651,10 @@ class Plugin:
             
             # Look for streams that match this channel name exactly
             for stream in all_streams:
-                cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+                cleaned_stream_name = self._clean_channel_name(
+                    stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                    ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                )
 
                 if cleaned_stream_name.lower() == cleaned_channel_name.lower():
                     matching_streams.append(stream)
@@ -603,14 +663,20 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching exact channel name")
 
-                cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
+                cleaned_stream_names = [self._clean_channel_name(
+                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+                ) for s in sorted_streams]
                 match_reason = "Exact match (channels.json)"
-                
+
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
         # Fallback to basic substring matching
         for stream in all_streams:
-            cleaned_stream_name = self._clean_channel_name(stream['name'], ignore_tags, remove_cinemax=channel_has_max)
+            cleaned_stream_name = self._clean_channel_name(
+                stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+            )
 
             # Simple case-insensitive substring matching
             if cleaned_channel_name.lower() in cleaned_stream_name.lower() or cleaned_stream_name.lower() in cleaned_channel_name.lower():
@@ -620,9 +686,12 @@ class Plugin:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
             logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams matching via basic substring match")
 
-            cleaned_stream_names = [self._clean_channel_name(s['name'], ignore_tags, remove_cinemax=channel_has_max) for s in sorted_streams]
+            cleaned_stream_names = [self._clean_channel_name(
+                s['name'], ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
+            ) for s in sorted_streams]
             match_reason = "Basic substring match"
-            
+
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
         
         # No match found
@@ -683,10 +752,16 @@ class Plugin:
             LOGGER.error(traceback.format_exc())
             return {"status": "error", "message": str(e)}
 
-    def validate_settings_action(self, settings, logger):
-        """Validate all plugin settings including profiles, groups, and API connection."""
+    def _validate_plugin_settings(self, settings, logger):
+        """
+        Helper method to validate plugin settings.
+
+        Returns:
+            Tuple of (has_errors: bool, validation_results: list, token: str or None)
+        """
         validation_results = []
         has_errors = False
+        token = None
 
         try:
             # 1. Validate API Connection
@@ -696,10 +771,7 @@ class Plugin:
                 validation_results.append(f"❌ API Connection: FAILED - {error}")
                 has_errors = True
                 # Cannot continue without API access
-                return {
-                    "status": "error",
-                    "message": "Validation failed:\n\n" + "\n".join(validation_results)
-                }
+                return has_errors, validation_results, token
             else:
                 validation_results.append("✅ API Connection: SUCCESS")
 
@@ -837,37 +909,64 @@ class Plugin:
             else:
                 validation_results.append("ℹ️ Ignore Tags: None configured")
 
-            # Build summary message
-            if has_errors:
-                message = "Validation completed with errors:\n\n" + "\n".join(validation_results)
-                message += "\n\nPlease fix the errors above before proceeding."
-                return {"status": "error", "message": message}
-            else:
-                message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
-                message += "\n\nYou can now proceed with 'Load/Process Channels'."
-                return {"status": "success", "message": message}
+            # Return validation results
+            return has_errors, validation_results, token
 
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error validating settings: {str(e)}")
             validation_results.append(f"❌ Unexpected error during validation: {str(e)}")
-            return {
-                "status": "error",
-                "message": "Validation failed:\n\n" + "\n".join(validation_results)
-            }
+            has_errors = True
+            return has_errors, validation_results, token
+
+    def validate_settings_action(self, settings, logger):
+        """Validate all plugin settings including profiles, groups, and API connection."""
+        has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+        # Build summary message
+        if has_errors:
+            message = "Validation completed with errors:\n\n" + "\n".join(validation_results)
+            message += "\n\nPlease fix the errors above before proceeding."
+            return {"status": "error", "message": message}
+        else:
+            message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
+            message += "\n\nYou can now proceed with 'Load/Process Channels'."
+            return {"status": "success", "message": message}
 
     def load_process_channels_action(self, settings, logger):
         """Load and process channels from specified profile and groups."""
         try:
-            # Get API token
-            token, error = self._get_api_token(settings, logger)
-            if error:
-                return {"status": "error", "message": error}
-            
+            # Validate settings before proceeding
+            logger.info("[Stream-Mapparr] Validating settings before loading channels...")
+            has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+            if has_errors:
+                message = "Cannot load channels - validation failed:\n\n" + "\n".join(validation_results)
+                message += "\n\nPlease fix the errors above before proceeding."
+                return {"status": "error", "message": message}
+
+            logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with channel load...")
+
             profile_names_str = settings.get("profile_name", "").strip()
             selected_groups_str = settings.get("selected_groups", "").strip()
             ignore_tags_str = settings.get("ignore_tags", "").strip()
             visible_channel_limit_str = settings.get("visible_channel_limit", "1")
             visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else 1
+
+            # Get category ignore settings
+            ignore_quality = settings.get("ignore_quality_tags", True)
+            ignore_regional = settings.get("ignore_regional_tags", True)
+            ignore_geographic = settings.get("ignore_geographic_tags", True)
+            ignore_misc = settings.get("ignore_misc_tags", True)
+
+            # Convert string values to boolean if needed
+            if isinstance(ignore_quality, str):
+                ignore_quality = ignore_quality.lower() in ('true', 'yes', '1')
+            if isinstance(ignore_regional, str):
+                ignore_regional = ignore_regional.lower() in ('true', 'yes', '1')
+            if isinstance(ignore_geographic, str):
+                ignore_geographic = ignore_geographic.lower() in ('true', 'yes', '1')
+            if isinstance(ignore_misc, str):
+                ignore_misc = ignore_misc.lower() in ('true', 'yes', '1')
 
             if not profile_names_str:
                 return {"status": "error", "message": "Profile Name must be configured in the plugin settings."}
@@ -884,6 +983,9 @@ class Plugin:
             if ignore_tags_str:
                 ignore_tags = [tag.strip() for tag in ignore_tags_str.split(',') if tag.strip()]
                 logger.info(f"[Stream-Mapparr] Ignore tags configured: {ignore_tags}")
+
+            # Log category settings
+            logger.info(f"[Stream-Mapparr] Pattern categories - Quality: {ignore_quality}, Regional: {ignore_regional}, Geographic: {ignore_geographic}, Misc: {ignore_misc}")
 
             # Get all profiles to find the specified ones
             logger.info("[Stream-Mapparr] Fetching channel profiles...")
@@ -1049,6 +1151,10 @@ class Plugin:
                 "selected_groups": selected_groups,
                 "ignore_tags": ignore_tags,
                 "visible_channel_limit": visible_channel_limit,
+                "ignore_quality": ignore_quality,
+                "ignore_regional": ignore_regional,
+                "ignore_geographic": ignore_geographic,
+                "ignore_misc": ignore_misc,
                 "channels": channels_to_process,
                 "streams": all_streams_data
             }
@@ -1130,8 +1236,19 @@ class Plugin:
                 "status": "error",
                 "message": "No processed data found. Please run 'Load/Process Channels' first."
             }
-        
+
         try:
+            # Validate settings before previewing
+            logger.info("[Stream-Mapparr] Validating settings before previewing changes...")
+            has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+            if has_errors:
+                message = "Cannot preview changes - validation failed:\n\n" + "\n".join(validation_results)
+                message += "\n\nPlease fix the errors above before proceeding."
+                return {"status": "error", "message": message}
+
+            logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with preview...")
+
             # Load channel data from channels.json
             channels_data = self._load_channels_data(logger)
             
@@ -1152,17 +1269,27 @@ class Plugin:
             # Group channels by their cleaned name for matching
             channel_groups = {}
             ignore_tags = processed_data.get('ignore_tags', [])
-            
+            ignore_quality = processed_data.get('ignore_quality', True)
+            ignore_regional = processed_data.get('ignore_regional', True)
+            ignore_geographic = processed_data.get('ignore_geographic', True)
+            ignore_misc = processed_data.get('ignore_misc', True)
+
             for channel in channels:
                 # Get channel info from JSON to determine if it has a callsign
                 channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-                
+
                 if self._is_ota_channel(channel_info):
                     # For OTA channels, group by callsign
                     callsign = channel_info.get('callsign', '')
-                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
+                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(
+                        channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc
+                    )
                 else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                    group_key = self._clean_channel_name(
+                        channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc
+                    )
                 
                 if group_key not in channel_groups:
                     channel_groups[group_key] = []
@@ -1188,7 +1315,9 @@ class Plugin:
 
                 # Match streams for this channel group (using first channel as representative)
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, channels_data
+                    sorted_channels[0], streams, logger, ignore_tags,
+                    ignore_quality, ignore_regional, ignore_geographic, ignore_misc,
+                    channels_data
                 )
                 
                 # Determine which channels will be updated based on limit
@@ -1343,15 +1472,19 @@ class Plugin:
             streams = processed_data.get('streams', [])
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
-            
+            ignore_quality = processed_data.get('ignore_quality', True)
+            ignore_regional = processed_data.get('ignore_regional', True)
+            ignore_geographic = processed_data.get('ignore_geographic', True)
+            ignore_misc = processed_data.get('ignore_misc', True)
+
             # Get overwrite_streams setting
             overwrite_streams = settings.get('overwrite_streams', True)
             if isinstance(overwrite_streams, str):
                 overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
-            
+
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
-            
+
             logger.info(f"[Stream-Mapparr] Adding streams to {len(channels)} channels")
             logger.info(f"[Stream-Mapparr] Visible channel limit: {visible_channel_limit}")
             logger.info(f"[Stream-Mapparr] Overwrite existing streams: {overwrite_streams}")
@@ -1361,13 +1494,19 @@ class Plugin:
             for channel in channels:
                 # Get channel info from JSON to determine if it has a callsign
                 channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-                
+
                 if self._is_ota_channel(channel_info):
                     # For OTA channels, group by callsign
                     callsign = channel_info.get('callsign', '')
-                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
+                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(
+                        channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc
+                    )
                 else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                    group_key = self._clean_channel_name(
+                        channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc
+                    )
                 
                 if group_key not in channel_groups:
                     channel_groups[group_key] = []
@@ -1395,7 +1534,9 @@ class Plugin:
 
                 # Match streams for this channel group
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, channels_data
+                    sorted_channels[0], streams, logger, ignore_tags,
+                    ignore_quality, ignore_regional, ignore_geographic, ignore_misc,
+                    channels_data
                 )
                 
                 # Determine which channels to update based on limit
@@ -1572,7 +1713,11 @@ class Plugin:
             channels = processed_data.get('channels', [])
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
-            
+            ignore_quality = processed_data.get('ignore_quality', True)
+            ignore_regional = processed_data.get('ignore_regional', True)
+            ignore_geographic = processed_data.get('ignore_geographic', True)
+            ignore_misc = processed_data.get('ignore_misc', True)
+
             if not channels:
                 return {"status": "error", "message": "No channels found in processed data."}
             
@@ -1649,9 +1794,15 @@ class Plugin:
                     if ota_info:
                         group_key = f"OTA_{ota_info['callsign']}"
                     else:
-                        group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                        group_key = self._clean_channel_name(
+                            channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                            ignore_geographic, ignore_misc
+                        )
                 else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags)
+                    group_key = self._clean_channel_name(
+                        channel['name'], ignore_tags, ignore_quality, ignore_regional,
+                        ignore_geographic, ignore_misc
+                    )
                 
                 if group_key not in channel_groups:
                     channel_groups[group_key] = []
