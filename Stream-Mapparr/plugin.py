@@ -31,7 +31,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
     
     name = "Stream-Mapparr"
-    version = "0.5.0b"
+    version = "0.5.0d"
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
     
     # Settings rendered by UI
@@ -752,10 +752,16 @@ class Plugin:
             LOGGER.error(traceback.format_exc())
             return {"status": "error", "message": str(e)}
 
-    def validate_settings_action(self, settings, logger):
-        """Validate all plugin settings including profiles, groups, and API connection."""
+    def _validate_plugin_settings(self, settings, logger):
+        """
+        Helper method to validate plugin settings.
+
+        Returns:
+            Tuple of (has_errors: bool, validation_results: list, token: str or None)
+        """
         validation_results = []
         has_errors = False
+        token = None
 
         try:
             # 1. Validate API Connection
@@ -765,10 +771,7 @@ class Plugin:
                 validation_results.append(f"❌ API Connection: FAILED - {error}")
                 has_errors = True
                 # Cannot continue without API access
-                return {
-                    "status": "error",
-                    "message": "Validation failed:\n\n" + "\n".join(validation_results)
-                }
+                return has_errors, validation_results, token
             else:
                 validation_results.append("✅ API Connection: SUCCESS")
 
@@ -906,32 +909,43 @@ class Plugin:
             else:
                 validation_results.append("ℹ️ Ignore Tags: None configured")
 
-            # Build summary message
-            if has_errors:
-                message = "Validation completed with errors:\n\n" + "\n".join(validation_results)
-                message += "\n\nPlease fix the errors above before proceeding."
-                return {"status": "error", "message": message}
-            else:
-                message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
-                message += "\n\nYou can now proceed with 'Load/Process Channels'."
-                return {"status": "success", "message": message}
+            # Return validation results
+            return has_errors, validation_results, token
 
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error validating settings: {str(e)}")
             validation_results.append(f"❌ Unexpected error during validation: {str(e)}")
-            return {
-                "status": "error",
-                "message": "Validation failed:\n\n" + "\n".join(validation_results)
-            }
+            has_errors = True
+            return has_errors, validation_results, token
+
+    def validate_settings_action(self, settings, logger):
+        """Validate all plugin settings including profiles, groups, and API connection."""
+        has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+        # Build summary message
+        if has_errors:
+            message = "Validation completed with errors:\n\n" + "\n".join(validation_results)
+            message += "\n\nPlease fix the errors above before proceeding."
+            return {"status": "error", "message": message}
+        else:
+            message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
+            message += "\n\nYou can now proceed with 'Load/Process Channels'."
+            return {"status": "success", "message": message}
 
     def load_process_channels_action(self, settings, logger):
         """Load and process channels from specified profile and groups."""
         try:
-            # Get API token
-            token, error = self._get_api_token(settings, logger)
-            if error:
-                return {"status": "error", "message": error}
-            
+            # Validate settings before proceeding
+            logger.info("[Stream-Mapparr] Validating settings before loading channels...")
+            has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+            if has_errors:
+                message = "Cannot load channels - validation failed:\n\n" + "\n".join(validation_results)
+                message += "\n\nPlease fix the errors above before proceeding."
+                return {"status": "error", "message": message}
+
+            logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with channel load...")
+
             profile_names_str = settings.get("profile_name", "").strip()
             selected_groups_str = settings.get("selected_groups", "").strip()
             ignore_tags_str = settings.get("ignore_tags", "").strip()
@@ -1222,8 +1236,19 @@ class Plugin:
                 "status": "error",
                 "message": "No processed data found. Please run 'Load/Process Channels' first."
             }
-        
+
         try:
+            # Validate settings before previewing
+            logger.info("[Stream-Mapparr] Validating settings before previewing changes...")
+            has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
+
+            if has_errors:
+                message = "Cannot preview changes - validation failed:\n\n" + "\n".join(validation_results)
+                message += "\n\nPlease fix the errors above before proceeding."
+                return {"status": "error", "message": message}
+
+            logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with preview...")
+
             # Load channel data from channels.json
             channels_data = self._load_channels_data(logger)
             
