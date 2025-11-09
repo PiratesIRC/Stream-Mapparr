@@ -11,23 +11,19 @@ import logging
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.310.1806"
+__version__ = "25.313.1157"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
-# Hardcoded regex patterns to ignore during fuzzy matching
+# Categorized regex patterns for granular control during fuzzy matching
 # Note: All patterns are applied with re.IGNORECASE flag in normalize_name()
-HARDCODED_IGNORE_PATTERNS = [
+
+# Quality-related patterns: [4K], HD, (SD), etc.
+QUALITY_PATTERNS = [
     # Bracketed quality tags: [4K], [UHD], [FHD], [HD], [SD], [Unknown], [Unk], [Slow], [Dead]
     r'\[(4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
     r'\[(?:4k|uhd|fhd|hd|sd|unknown|unk|slow|dead)\]',
-
-    # Single letter tags in parentheses: (A), (B), (C), etc.
-    r'\([A-Z]\)',
-
-    # Regional: " East" or " east"
-    r'\s[Ee][Aa][Ss][Tt]',
 
     # Unbracketed quality tags in middle: " 4K ", " UHD ", " FHD ", " HD ", " SD ", etc.
     r'\s(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD)\s',
@@ -38,15 +34,30 @@ HARDCODED_IGNORE_PATTERNS = [
     # Word boundary quality tags with optional colon: "4K:", "UHD:", "FHD:", "HD:", etc.
     r'\b(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD):?\s',
 
-    # Special tags
-    r'\s\(CX\)',  # Cinemax tag
-
     # Parenthesized quality tags: (4K), (UHD), (FHD), (HD), (SD), (Unknown), (Unk), (Slow), (Dead), (Backup)
     r'\s\((4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD|Backup)\)',
+]
 
+# Regional indicator patterns: East, West, etc.
+REGIONAL_PATTERNS = [
+    # Regional: " East" or " east"
+    r'\s[Ee][Aa][Ss][Tt]',
+]
+
+# Geographic prefix patterns: US:, USA:, etc.
+GEOGRAPHIC_PATTERNS = [
     # Geographic prefixes
     r'\bUSA?:\s',  # "US:" or "USA:"
     r'\bUS\s',     # "US " at word boundary
+]
+
+# Miscellaneous patterns: (CX), (Backup), single-letter tags, etc.
+MISC_PATTERNS = [
+    # Single letter tags in parentheses: (A), (B), (C), etc.
+    r'\([A-Z]\)',
+
+    # Special tags
+    r'\s\(CX\)',  # Cinemax tag
 
     # Backup tags
     r'\([bB]ackup\)',
@@ -181,14 +192,18 @@ class FuzzyMatcher:
             callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
         return callsign
     
-    def normalize_name(self, name, user_ignored_tags=None, remove_quality_tags=True, remove_cinemax=False):
+    def normalize_name(self, name, user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
+                       ignore_geographic=True, ignore_misc=True, remove_cinemax=False):
         """
         Normalize channel or stream name for matching by removing tags, prefixes, and other noise.
 
         Args:
             name: Name to normalize
             user_ignored_tags: Additional user-configured tags to ignore (list of strings)
-            remove_quality_tags: If True, remove hardcoded quality patterns (for matching only, not display)
+            ignore_quality: If True, remove quality-related patterns (e.g., [4K], HD, (SD))
+            ignore_regional: If True, remove regional indicator patterns (e.g., East)
+            ignore_geographic: If True, remove geographic prefix patterns (e.g., US:, USA)
+            ignore_misc: If True, remove miscellaneous patterns (e.g., (CX), (Backup), single-letter tags)
             remove_cinemax: If True, remove "Cinemax" prefix (useful when channel name contains "max")
 
         Returns:
@@ -204,15 +219,37 @@ class FuzzyMatcher:
         if remove_cinemax:
             name = re.sub(r'\bCinemax\b\s*', '', name, flags=re.IGNORECASE)
 
-        # Apply hardcoded ignore patterns only if remove_quality_tags is True
-        if remove_quality_tags:
-            for pattern in HARDCODED_IGNORE_PATTERNS:
-                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+        # Build list of patterns to apply based on category flags
+        patterns_to_apply = []
 
-        # Apply user-configured ignored tags
+        if ignore_quality:
+            patterns_to_apply.extend(QUALITY_PATTERNS)
+
+        if ignore_regional:
+            patterns_to_apply.extend(REGIONAL_PATTERNS)
+
+        if ignore_geographic:
+            patterns_to_apply.extend(GEOGRAPHIC_PATTERNS)
+
+        if ignore_misc:
+            patterns_to_apply.extend(MISC_PATTERNS)
+
+        # Apply selected hardcoded patterns
+        for pattern in patterns_to_apply:
+            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+        # Apply user-configured ignored tags with improved handling
         for tag in user_ignored_tags:
-            escaped_tag = re.escape(tag)
-            name = re.sub(escaped_tag, '', name, flags=re.IGNORECASE)
+            # Check if tag contains brackets or parentheses - if so, match literally
+            if '[' in tag or ']' in tag or '(' in tag or ')' in tag:
+                # Literal match for bracketed/parenthesized tags
+                escaped_tag = re.escape(tag)
+                name = re.sub(escaped_tag, '', name, flags=re.IGNORECASE)
+            else:
+                # Word boundary match for simple word tags to avoid partial matches
+                # e.g., "East" won't match the "east" in "Feast"
+                escaped_tag = re.escape(tag)
+                name = re.sub(r'\b' + escaped_tag + r'\b', '', name, flags=re.IGNORECASE)
         
         # Remove callsigns in parentheses
         name = re.sub(r'\([KW][A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)

@@ -365,7 +365,7 @@ class Plugin:
         """
         if self.fuzzy_matcher:
             # Use fuzzy matcher's normalization
-            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_quality_tags=True, remove_cinemax=remove_cinemax)
+            return self.fuzzy_matcher.normalize_name(name, ignore_tags, remove_cinemax=remove_cinemax)
         
         # Fallback to basic cleaning
         if ignore_tags is None:
