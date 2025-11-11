@@ -766,7 +766,11 @@ class Plugin:
     def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None,
                                    ignore_quality=True, ignore_regional=True, ignore_geographic=True,
                                    ignore_misc=True, channels_data=None):
-        """Find matching streams for a channel using fuzzy matching when available."""
+        """Find matching streams for a channel using fuzzy matching when available.
+
+        Returns:
+            tuple: (matching_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used)
+        """
         if ignore_tags is None:
             ignore_tags = []
         if channels_data is None:
@@ -776,6 +780,9 @@ class Plugin:
 
         # Get channel info from JSON
         channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
+
+        # Determine which database was used (if any)
+        database_used = channel_info.get('_country_code', 'N/A') if channel_info else 'N/A'
 
         # Check if channel name contains "max" (case insensitive) - used for Cinemax handling
         channel_has_max = 'max' in channel_name.lower()
@@ -816,7 +823,7 @@ class Plugin:
                 ) for s in sorted_streams]
                 match_reason = "Callsign match"
 
-                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
+                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used
             else:
                 logger.info(f"[Stream-Mapparr]   No callsign matches found for {callsign}")
                 # Fall through to fuzzy matching
@@ -864,11 +871,11 @@ class Plugin:
                     ) for s in sorted_streams]
                     match_reason = f"Fuzzy match ({match_type}, score: {score})"
 
-                    return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
-            
+                    return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used
+
             # No fuzzy match found
             logger.info(f"[Stream-Mapparr]   No fuzzy match found for channel: {channel_name}")
-            return [], cleaned_channel_name, [], "No fuzzy match"
+            return [], cleaned_channel_name, [], "No fuzzy match", database_used
         
         # Fallback to basic substring matching if fuzzy matcher unavailable
         logger.info(f"[Stream-Mapparr] Using basic substring matching for channel: {channel_name}")
@@ -876,7 +883,7 @@ class Plugin:
         
         if not all_streams:
             logger.warning("[Stream-Mapparr] No streams available for matching!")
-            return [], cleaned_channel_name, [], "No streams available"
+            return [], cleaned_channel_name, [], "No streams available", database_used
         
         # Try exact channel name matching from JSON first
         if channel_info and channel_info.get('channel_name'):
@@ -903,7 +910,7 @@ class Plugin:
                 ) for s in sorted_streams]
                 match_reason = "Exact match (channels.json)"
 
-                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
+                return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used
         
         # Fallback to basic substring matching
         for stream in all_streams:
@@ -926,10 +933,10 @@ class Plugin:
             ) for s in sorted_streams]
             match_reason = "Basic substring match"
 
-            return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason
-        
+            return sorted_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used
+
         # No match found
-        return [], cleaned_channel_name, [], "No match"
+        return [], cleaned_channel_name, [], "No match", database_used
 
     def _get_channel_info_from_json(self, channel_name, channels_data, logger):
         """Find channel info from channels.json by matching channel name."""
@@ -1124,24 +1131,75 @@ class Plugin:
 
                 self._initialize_fuzzy_matcher(match_threshold)
                 if self.fuzzy_matcher:
-                    validation_results.append(f"✅ Fuzzy Matcher: SUCCESS - Initialized with threshold {match_threshold}")
+                    validation_results.append(f"✅ Fuzzy Matcher: Initialized (threshold: {match_threshold})")
                 else:
                     validation_results.append("⚠️ Fuzzy Matcher: WARNING - Could not initialize (will use fallback matching)")
             except Exception as e:
                 validation_results.append(f"⚠️ Fuzzy Matcher: WARNING - {str(e)} (will use fallback matching)")
 
-            # 7. Check other settings
+            # 7. Validate Channel Databases
+            logger.info("[Stream-Mapparr] Validating channel databases...")
+            try:
+                databases = self._get_channel_databases()
+
+                if not databases:
+                    validation_results.append("❌ Channel Databases: FAILED - No *_channels.json files found in plugin directory")
+                    has_errors = True
+                else:
+                    # Check which databases are enabled
+                    enabled_databases = []
+                    invalid_databases = []
+
+                    for db_info in databases:
+                        db_id = db_info['id']
+                        setting_key = f"db_enabled_{db_id}"
+                        is_enabled = settings.get(setting_key, db_info['default'])
+
+                        if is_enabled:
+                            # Validate JSON format
+                            try:
+                                with open(db_info['file_path'], 'r', encoding='utf-8') as f:
+                                    file_data = json.load(f)
+
+                                # Check format
+                                if isinstance(file_data, dict):
+                                    if 'channels' not in file_data:
+                                        invalid_databases.append(f"{db_info['label']} (missing 'channels' key)")
+                                    elif not isinstance(file_data['channels'], list):
+                                        invalid_databases.append(f"{db_info['label']} ('channels' must be an array)")
+                                    else:
+                                        enabled_databases.append(db_info['label'])
+                                elif isinstance(file_data, list):
+                                    enabled_databases.append(db_info['label'])
+                                else:
+                                    invalid_databases.append(f"{db_info['label']} (invalid format)")
+                            except json.JSONDecodeError as e:
+                                invalid_databases.append(f"{db_info['label']} (JSON error: {str(e)[:50]})")
+                            except Exception as e:
+                                invalid_databases.append(f"{db_info['label']} (error: {str(e)[:50]})")
+
+                    if invalid_databases:
+                        validation_results.append(f"❌ Channel Databases: FAILED - Invalid database(s): {', '.join(invalid_databases)}")
+                        has_errors = True
+                    elif not enabled_databases:
+                        validation_results.append("❌ Channel Databases: FAILED - No databases enabled. Enable at least one database in settings.")
+                        has_errors = True
+                    else:
+                        validation_results.append(f"✅ Channel Databases: {len(enabled_databases)} enabled")
+
+            except Exception as e:
+                validation_results.append(f"❌ Channel Databases: FAILED - {str(e)}")
+                has_errors = True
+
+            # 8. Check other settings
             overwrite_streams = settings.get('overwrite_streams', True)
             if isinstance(overwrite_streams, str):
                 overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
-            validation_results.append(f"ℹ️ Overwrite Existing Streams: {'Enabled' if overwrite_streams else 'Disabled'}")
 
             ignore_tags_str = settings.get("ignore_tags", "").strip()
             if ignore_tags_str:
                 ignore_tags = self._parse_tags(ignore_tags_str)
-                validation_results.append(f"ℹ️ Ignore Tags: {len(ignore_tags)} tag(s) configured: {', '.join(repr(tag) for tag in ignore_tags)}")
-            else:
-                validation_results.append("ℹ️ Ignore Tags: None configured")
+                validation_results.append(f"ℹ️ {len(ignore_tags)} ignore tag(s) configured")
 
             # Return validation results
             return has_errors, validation_results, token
@@ -1162,8 +1220,14 @@ class Plugin:
             message += "\n\nPlease fix the errors above before proceeding."
             return {"status": "error", "message": message}
         else:
-            message = "All settings validated successfully!\n\n" + "\n".join(validation_results)
-            message += "\n\nYou can now proceed with 'Load/Process Channels'."
+            # Condensed success message - only show key items
+            success_items = [item for item in validation_results if item.startswith("✅")]
+            info_items = [item for item in validation_results if item.startswith("ℹ️")]
+
+            message = "Settings validated! " + " | ".join(success_items)
+            if info_items:
+                message += "\n" + " | ".join(info_items)
+            message += "\n\nReady to proceed with 'Load/Process Channels'."
             return {"status": "success", "message": message}
 
     def load_process_channels_action(self, settings, logger):
@@ -1422,6 +1486,21 @@ class Plugin:
             overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
         fuzzy_match_threshold = settings.get('fuzzy_match_threshold', 85)
 
+        # Get enabled databases
+        try:
+            databases = self._get_channel_databases()
+            enabled_dbs = []
+            for db_info in databases:
+                db_id = db_info['id']
+                setting_key = f"db_enabled_{db_id}"
+                is_enabled = settings.get(setting_key, db_info['default'])
+                if is_enabled:
+                    enabled_dbs.append(db_info['label'])
+
+            db_info_str = ', '.join(enabled_dbs) if enabled_dbs else 'None'
+        except Exception:
+            db_info_str = 'Unknown'
+
         # Build header lines
         header_lines = [
             f"# Stream-Mapparr Export",
@@ -1435,6 +1514,7 @@ class Plugin:
             f"#   Channel Groups: {', '.join(selected_groups) if selected_groups else 'All groups'}",
             f"#   Ignore Tags: {', '.join(ignore_tags) if ignore_tags else 'None'}",
             f"#   Visible Channel Limit: {visible_channel_limit}",
+            f"#   Channel Databases Loaded: {db_info_str}",
             f"#",
             f"# Statistics:",
             f"#   Total Visible Channels: {total_visible_channels}",
@@ -1548,16 +1628,16 @@ class Plugin:
                 sorted_channels = self._sort_channels_by_priority(group_channels)
 
                 # Match streams for this channel group (using first channel as representative)
-                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
+                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags,
                     ignore_quality, ignore_regional, ignore_geographic, ignore_misc,
                     channels_data
                 )
-                
+
                 # Determine which channels will be updated based on limit
                 channels_to_update = sorted_channels[:visible_channel_limit]
                 channels_not_updated = sorted_channels[visible_channel_limit:]
-                
+
                 # Add match info for channels that will be updated
                 for channel in channels_to_update:
                     match_info = {
@@ -1569,16 +1649,17 @@ class Plugin:
                         "stream_names": [s['name'] for s in matched_streams],
                         "stream_names_cleaned": cleaned_stream_names,
                         "match_reason": match_reason,
+                        "database_used": database_used,
                         "will_update": True
                     }
                     all_matches.append(match_info)
-                    
+
                     if matched_streams:
                         total_channels_with_matches += 1
                     else:
                         total_channels_without_matches += 1
                     total_channels_to_update += 1
-                
+
                 # Add match info for channels that will NOT be updated (exceeds limit)
                 for channel in channels_not_updated:
                     match_info = {
@@ -1590,6 +1671,7 @@ class Plugin:
                         "stream_names": [s['name'] for s in matched_streams],
                         "stream_names_cleaned": cleaned_stream_names,
                         "match_reason": f"Skipped (exceeds limit of {visible_channel_limit})",
+                        "database_used": database_used,
                         "will_update": False
                     }
                     all_matches.append(match_info)
@@ -1626,11 +1708,12 @@ class Plugin:
                     'channel_number',
                     'matched_streams',
                     'match_reason',
+                    'database_used',
                     'stream_names'
                 ]
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-                
+
                 for match in all_matches:
                     writer.writerow({
                         'will_update': 'Yes' if match['will_update'] else 'No',
@@ -1640,6 +1723,7 @@ class Plugin:
                         'channel_number': match.get('channel_number', 'N/A'),
                         'matched_streams': match['matched_streams'],
                         'match_reason': match['match_reason'],
+                        'database_used': match['database_used'],
                         'stream_names': '; '.join(match['stream_names'])  # Show all streams
                     })
             
@@ -1767,7 +1851,7 @@ class Plugin:
                 sorted_channels = self._sort_channels_by_priority(group_channels)
 
                 # Match streams for this channel group
-                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason = self._match_streams_to_channel(
+                matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags,
                     ignore_quality, ignore_regional, ignore_geographic, ignore_misc,
                     channels_data
@@ -1821,7 +1905,8 @@ class Plugin:
                             update_details.append({
                                 'channel_name': channel_name,
                                 'stream_names': stream_names_list,
-                                'matched_streams': len(matched_streams)
+                                'matched_streams': len(matched_streams),
+                                'database_used': database_used
                             })
                             
                             if overwrite_streams:
@@ -1882,10 +1967,10 @@ class Plugin:
                 csvfile.write(header_comment)
 
                 # Write CSV data
-                fieldnames = ['channel_name', 'stream_names', 'matched_streams']
+                fieldnames = ['channel_name', 'stream_names', 'matched_streams', 'database_used']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-                
+
                 for detail in update_details:
                     writer.writerow(detail)
             
