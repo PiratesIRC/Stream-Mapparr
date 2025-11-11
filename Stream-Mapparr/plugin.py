@@ -551,7 +551,7 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
         
         try:
-            logger.info(f"[Stream-Mapparr] Making API request to: {endpoint}")
+            logger.debug(f"[Stream-Mapparr] Making API request to: {endpoint}")
             response = requests.get(url, headers=headers, timeout=30)
             
             if response.status_code == 401:
@@ -997,7 +997,7 @@ class Plugin:
         
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
-            logger.info(f"[Stream-Mapparr] Using fuzzy matcher for channel: {channel_name}")
+            logger.debug(f"[Stream-Mapparr] Using fuzzy matcher for channel: {channel_name}")
 
             # Get all stream names
             stream_names = [stream['name'] for stream in all_streams]
@@ -1030,7 +1030,7 @@ class Plugin:
 
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
-                    logger.info(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
+                    logger.debug(f"[Stream-Mapparr]   Found {len(sorted_streams)} streams via fuzzy match (score: {score}, type: {match_type})")
 
                     cleaned_stream_names = [self._clean_channel_name(
                         s['name'], ignore_tags, ignore_quality, ignore_regional,
@@ -1572,7 +1572,7 @@ class Plugin:
                 if isinstance(streams_response, dict) and 'results' in streams_response:
                     results = streams_response['results']
                     all_streams_data.extend(results)
-                    logger.info(f"[Stream-Mapparr] Fetched page {page}: {len(results)} streams (total so far: {len(all_streams_data)})")
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(results)} streams (total so far: {len(all_streams_data)})")
                     
                     # Stop if this page had fewer results than page_size (last page)
                     if len(results) < 100:
@@ -1583,7 +1583,7 @@ class Plugin:
                 elif isinstance(streams_response, list):
                     # List response - could still be paginated
                     all_streams_data.extend(streams_response)
-                    logger.info(f"[Stream-Mapparr] Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams_data)})")
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams_data)})")
                     
                     # If we got exactly 100 results, there might be more pages
                     if len(streams_response) == 100:
