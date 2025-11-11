@@ -15,8 +15,8 @@ Before installing or using this plugin, it is **highly recommended** that you cr
 * **Advanced Fuzzy Matching**: Automatically finds and assigns streams to channels using an advanced fuzzy-matching engine (`fuzzy_matcher.py`).
 * **Unlimited Stream Support**: Fetches and processes ALL available streams regardless of quantity (no 10,000 stream limit).
 * **Enhanced OTA Callsign Matching**: Uses a robust `*_channels.json` database for superior callsign extraction and matching for Over-The-Air broadcast channels.
-* **Selectable Channel Databases** *(NEW v0.6.0)*: Enable or disable specific channel databases through the GUI settings.
-* **Multi-Country Support** *(NEW v0.6.0)*: Support for multiple country databases with automatic country code prefix handling (e.g., `CA:`, `UK `).
+* **Selectable Channel Databases** *(NEW v0.5.0a)*: Enable or disable specific channel databases through the GUI settings.
+* **Multi-Country Support** *(NEW v0.5.0a)*: Support for multiple country databases with automatic country code prefix handling (e.g., `CA:`, `UK `).
 * **Multi-Stream Assignment**: Assigns **all** matching streams to each channel (e.g., 4K, FHD, HD versions), sorted by quality.
 * **Quality Prioritization**: Sorts matched streams by quality (4K → FHD → HD → (H) → (F) → (D) → SD → Slow).
 * **Channel Visibility Management**: Automatically enables/disables channels based on stream assignments and duplicate detection.
@@ -46,13 +46,13 @@ Before installing or using this plugin, it is **highly recommended** that you cr
 
 Stream-Mapparr uses `*_channels.json` files to improve OTA (Over-The-Air) and cable channel matching. The plugin includes `US_channels.json` by default, but you can create additional database files for other countries or regions.
 
-**NEW in v0.6.0**: Channel databases are now **selectable within the GUI**! You can enable or disable specific databases in the plugin settings.
+**NEW in v0.5.0a**: Channel databases are now **selectable within the GUI**! You can enable or disable specific databases in the plugin settings.
 
 ### Database File Format
 
 Channel database files follow the naming pattern: `[COUNTRY_CODE]_channels.json` (e.g., `US_channels.json`, `CA_channels.json`, `UK_channels.json`)
 
-#### Recommended Format (v0.6.0+)
+#### Recommended Format (v0.5.0a+)
 
 The recommended format includes metadata at the top level:
 
@@ -195,7 +195,7 @@ The legacy format is still supported and uses a direct array:
 
 ### Managing Channel Databases in the GUI
 
-**NEW in v0.6.0**: All channel databases are now manageable through the plugin settings!
+**NEW in v0.5.0a**: All channel databases are now manageable through the plugin settings!
 
 1. **Viewing Available Databases**
    * Navigate to **Plugins** → **Stream-Mapparr** → **Settings**
@@ -247,7 +247,7 @@ The legacy format is still supported and uses a direct array:
 | **Ignore Geographic Tags** | `boolean` | True | Remove geographic prefixes like US:, CA:, UK: during matching |
 | **Ignore Miscellaneous Tags** | `boolean` | True | Remove miscellaneous tags like (CX), (Backup) during matching |
 | **Visible Channel Limit** | `number` | 1 | Number of channels per matching group that will be visible and have streams added |
-| **Enable [Database]** *(v0.6.0)* | `boolean` | US: True, Others: False | Enable or disable specific channel databases for matching |
+| **Enable [Database]** *(v0.5.0a)* | `boolean` | US: True, Others: False | Enable or disable specific channel databases for matching |
 
 ## Usage Guide
 

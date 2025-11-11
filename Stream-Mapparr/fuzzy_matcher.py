@@ -11,7 +11,7 @@ import logging
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.313.1157"
+__version__ = "25.314.1907"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")

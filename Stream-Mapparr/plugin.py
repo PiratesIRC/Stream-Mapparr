@@ -31,7 +31,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
 
     name = "Stream-Mapparr"
-    version = "0.6.0"
+    version = "0.5.0a"
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
 
     @property
