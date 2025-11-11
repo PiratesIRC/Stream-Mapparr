@@ -550,7 +550,7 @@ class Plugin:
         return tags
 
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
-                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False):
+                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=True):
         """
         Remove brackets and their contents from channel name for matching, and remove ignore tags.
         Uses fuzzy matcher's normalization if available, otherwise falls back to basic cleaning.
@@ -563,6 +563,7 @@ class Plugin:
             ignore_geographic: If True, remove geographic prefix patterns (e.g., US:, USA)
             ignore_misc: If True, remove miscellaneous patterns (e.g., (CX), (Backup), single-letter tags)
             remove_cinemax: If True, remove "Cinemax" prefix (for streams when channel contains "max")
+            remove_country_prefix: If True, remove country code prefixes (e.g., CA:, UK ) from start of name
         """
         if self.fuzzy_matcher:
             # Use fuzzy matcher's normalization
@@ -572,22 +573,34 @@ class Plugin:
                 ignore_regional=ignore_regional,
                 ignore_geographic=ignore_geographic,
                 ignore_misc=ignore_misc,
-                remove_cinemax=remove_cinemax
+                remove_cinemax=remove_cinemax,
+                remove_country_prefix=remove_country_prefix
             )
         
         # Fallback to basic cleaning
         if ignore_tags is None:
             ignore_tags = []
-        
+
+        cleaned = name
+
+        # Remove country code prefix if requested
+        if remove_country_prefix:
+            quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
+            prefix_match = re.match(r'^([A-Z]{2,3})[:|\s]\s*', cleaned)
+            if prefix_match:
+                prefix = prefix_match.group(1).upper()
+                if prefix not in quality_tags:
+                    cleaned = cleaned[len(prefix_match.group(0)):]
+
         # Remove anything in square brackets or parentheses at the end
-        cleaned = re.sub(r'\s*[\[\(][^\[\]\(\)]*[\]\)]\s*$', '', name)
+        cleaned = re.sub(r'\s*[\[\(][^\[\]\(\)]*[\]\)]\s*$', '', cleaned)
         # Keep removing until no more brackets at the end
         while True:
             new_cleaned = re.sub(r'\s*[\[\(][^\[\]\(\)]*[\]\)]\s*$', '', cleaned)
             if new_cleaned == cleaned:
                 break
             cleaned = new_cleaned
-        
+
         # Remove ignore tags
         for tag in ignore_tags:
             # If tag has brackets/parentheses, match exactly

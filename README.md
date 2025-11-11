@@ -215,9 +215,10 @@ The legacy format is still supported and uses a direct array:
    * Example: `UK_channels.json`
 
 4. **Country Code Prefix Handling**
-   * Stream names may be prefixed with country codes (e.g., `CA: CBC`, `UK BBC One`)
+   * Stream names may be prefixed with country codes (e.g., `CA: CBC`, `UK BBC One`, `USA News`)
    * The plugin automatically removes these prefixes during matching
-   * Supported formats: `CC:`, `CC `, `CCC:`, or `CCC ` (where C = letter)
+   * Supported formats: `CC:` or `CC ` (2-letter codes), `CCC:` or `CCC ` (3-letter codes)
+   * Smart detection avoids removing quality tags like HD, SD, UHD, FHD
 
 ### Tips for Better Matching
 
