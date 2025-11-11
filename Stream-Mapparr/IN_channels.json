@@ -1,0 +1,362 @@
+{
+  "country_code": "IN",
+  "country_name": "India",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "Star Plus",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Bharat",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Gold",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Gold Select",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Movies",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star World",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hungama TV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zee TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "&TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zee Cinema",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "&pictures",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zee Bollywood",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zee Café",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "&flix",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zing",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Entertainment Television",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SET",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony SAB",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Pal",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Max 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Pix",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony YAY!",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony BBC Earth",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Colors",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Colors Rishtey",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Colors Cineplex",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV Beats",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick Jr",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sonic",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "VH1",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "DD National",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "DD News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "DD Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DD Bharati",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Aaj Tak",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "India TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Republic Bharat",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zee News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABP News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "News18 India",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Times Now",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Republic TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "India Today",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN-News18",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NDTV 24x7",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "WION",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Sports 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Sports 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Star Sports Select 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Sports Ten 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Sports Ten 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Sports Ten 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sports18 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sun TV",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Star Maa",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Telugu",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Star Vijay",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Tamil",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Asianet",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Keralam",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Kannada",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Colors Kannada",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony Marathi",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Marathi",
+      "category": "Entertainment",
+      "type": "Regional"
+    }
+  ]
+}
