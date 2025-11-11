@@ -40,6 +40,119 @@ Before installing or using this plugin, it is **highly recommended** that you cr
 3.  Click **Import Plugin** and upload the plugin zip file
 4.  Enable the plugin after installation
 
+## Creating Channel Databases for Other Countries
+
+Stream-Mapparr uses `*_channels.json` files to improve OTA (Over-The-Air) and cable channel matching. The plugin includes `US_channels.json` by default, but you can create additional database files for other countries or regions.
+
+### Database File Format
+
+Channel database files follow the naming pattern: `[COUNTRY_CODE]_channels.json` (e.g., `US_channels.json`, `CA_channels.json`, `UK_channels.json`)
+
+Each file contains a JSON array of channel objects with three required fields:
+
+```json
+[
+  {
+    "channel_name": "CBC",
+    "category": "News",
+    "type": "National"
+  },
+  {
+    "channel_name": "CTV",
+    "category": "Entertainment",
+    "type": "National"
+  },
+  {
+    "channel_name": "Global",
+    "category": "Entertainment",
+    "type": "National"
+  }
+]
+```
+
+### Field Descriptions
+
+| Field | Required | Description | Examples |
+|:---|:---|:---|:---|
+| **channel_name** | Yes | The channel name or callsign | `CBC`, `BBC One`, `WSBT`, `Sky Sports` |
+| **category** | Yes | The channel category | `News`, `Sports`, `Entertainment`, `Religious`, `Kids` |
+| **type** | Yes | Geographic scope of the channel | `National`, `Regional`, `Local` |
+
+### Creating a New Database
+
+1.  **Research Your Channels**
+    * Compile a list of channels available in your country/region
+    * Include OTA broadcast stations, cable channels, and streaming services
+    * Note callsigns for OTA stations (e.g., `WSBT`, `WABC`)
+    * Identify common channel names used by your IPTV provider
+
+2.  **Create the JSON File**
+    * Name the file using your country code: `[CODE]_channels.json`
+    * Examples: `CA_channels.json` (Canada), `UK_channels.json` (United Kingdom), `AU_channels.json` (Australia)
+    * Use a text editor to create the file with proper JSON formatting
+    * Include all channels you want the plugin to recognize
+
+3.  **Populate Channel Data**
+    * Add each channel as a JSON object with all three required fields
+    * Use consistent naming that matches your IPTV stream names
+    * Common categories: `News`, `Sports`, `Entertainment`, `Movies`, `Kids`, `Religious`, `Shopping`, `Documentary`
+    * Common types: `National` (country-wide), `Regional` (multi-state/province), `Local` (city-specific)
+
+4.  **Install the Database**
+    * Place the file in the plugin directory: `/data/plugins/stream_mapparr/`
+    * Use Docker command:
+        ```bash
+        docker cp [CODE]_channels.json dispatcharr:/data/plugins/stream_mapparr/
+        ```
+    * Or add the file to the plugin zip before installation
+
+5.  **Verify Installation**
+    * Check that the file exists:
+        ```bash
+        docker exec dispatcharr ls -la /data/plugins/stream_mapparr/*_channels.json
+        ```
+    * The plugin will automatically detect and use all `*_channels.json` files in the directory
+
+### Example: Creating UK_channels.json
+
+```json
+[
+  {
+    "channel_name": "BBC One",
+    "category": "Entertainment",
+    "type": "National"
+  },
+  {
+    "channel_name": "BBC Two",
+    "category": "Entertainment",
+    "type": "National"
+  },
+  {
+    "channel_name": "ITV",
+    "category": "Entertainment",
+    "type": "National"
+  },
+  {
+    "channel_name": "Channel 4",
+    "category": "Entertainment",
+    "type": "National"
+  },
+  {
+    "channel_name": "Sky Sports",
+    "category": "Sports",
+    "type": "National"
+  }
+]
+```
+
+### Tips for Better Matching
+
+* Include all variations of channel names (e.g., `BBC 1`, `BBC One`, `BBC1`)
+* Add both full names and abbreviations (e.g., `The Sports Network`, `TSN`)
+* Include regional variants if applicable (e.g., `BBC One London`, `BBC One Scotland`)
+* Use the exact callsigns for OTA broadcast stations
+* Test your database by running the plugin and checking the logs for matching activity
+
 ## Settings Reference
 
 | Setting | Type | Default | Description |
