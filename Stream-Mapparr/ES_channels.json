@@ -1,0 +1,187 @@
+{
+  "country_code": "ES",
+  "country_name": "Spain",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "La 1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVE La 1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "La 2",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVE La 2",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "24h",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVE 24h",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Teledeporte",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TDP",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Clan",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "laSexta",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Neox",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nova",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mega",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Atreseries",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecinco",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cuatro",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "FDF",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Boing",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Divinity",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Energy",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Be Mad",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Trece",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Real Madrid TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV3",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Sur",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 1",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 2",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemadrid",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN LaLiga",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN 1",
+      "category": "Sports",
+      "type": "National"
+    }
+  ]
+}

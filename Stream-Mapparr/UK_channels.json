@@ -1,0 +1,347 @@
+{
+  "country_code": "UK",
+  "country_name": "United Kingdom",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "BBC One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC One London",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC One Scotland",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC One Wales",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC One NI",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC Two",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Three",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Four",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC4",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "CBBC",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "CBeebies",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Parliament",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Alba",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "S4C",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ITV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ITV1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ITV1 London",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ITV1 Granada",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ITV1 Wales",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STV",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "UTV",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ITV2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ITV3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ITV4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ITVBe",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Channel 4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "E4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "More4",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Film4",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "4seven",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Channel 5",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5STAR",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5USA",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5Action",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5Select",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Showcase",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Max",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Atlantic",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Witness",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Comedy",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Documentaries",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Nature",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Arts",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Main Event",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Premier League",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Football",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Cricket",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports F1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Golf",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Sports 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Sports 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Sports 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dave",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gold",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "W",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alibi",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Yesterday",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eden",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "GB News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Talk",
+      "category": "News",
+      "type": "National"
+    }
+  ]
+}

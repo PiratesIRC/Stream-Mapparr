@@ -1,0 +1,242 @@
+{
+  "country_code": "BR",
+  "country_name": "Brazil",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "Globo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Globo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Record",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RecordTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBT",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Band",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Rede Bandeirantes",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RedeTV!",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Cultura",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Brasil",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "GloboNews",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN Brasil",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Record News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "BandNews TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Jovem Pan News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "SporTV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "SporTV 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "SporTV 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "BandSports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Combate",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Multishow",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "GNT",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Viva",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Brasil",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Futura",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecine Premium",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecine Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecine Pipoca",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecine Fun",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecine Cult",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gloob",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gloobinho",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Arte 1",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Terra Viva",
+      "category": "Lifestyle",
+      "type": "National"
+    }
+  ]
+}

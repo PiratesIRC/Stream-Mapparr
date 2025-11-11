@@ -1,0 +1,132 @@
+{
+  "country_code": "MX",
+  "country_name": "Mexico",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "Las Estrellas",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal 5",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nueve",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nu9ve",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "N+ Foro",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Foro TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TUDN",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Azteca Uno",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Azteca 7",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ADN 40",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "adn Noticias",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "a+",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A Más",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Imagen Televisión",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Excélsior TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Once",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal 22",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Catorce",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV UNAM",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal del Congreso",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal 6",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Multimedios",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Distrito Comedia",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tlnovelas",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "De Película",
+      "category": "Movies",
+      "type": "National"
+    }
+  ]
+}
