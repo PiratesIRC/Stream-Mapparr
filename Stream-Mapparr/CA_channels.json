@@ -1,0 +1,107 @@
+{
+  "country_code": "CA",
+  "country_name": "Canada",
+  "version": "2025-11-11",
+  "channels": [
+    {
+      "channel_name": "CBC",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CBC News Network",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CTV News Channel",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Global",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Citytv",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Sports Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVA",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ici Radio-Canada",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CTV Comedy Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CTV Drama Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Food Network Canada",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV Canada",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "W Network",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showcase",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Entertainment",
+      "type": "National"
+    }
+  ]
+}

@@ -44,11 +44,14 @@ REGIONAL_PATTERNS = [
     r'\s[Ee][Aa][Ss][Tt]',
 ]
 
-# Geographic prefix patterns: US:, USA:, etc.
+# Geographic prefix patterns: US:, USA:, CA:, UK:, etc.
 GEOGRAPHIC_PATTERNS = [
-    # Geographic prefixes
-    r'\bUSA?:\s',  # "US:" or "USA:"
-    r'\bUS\s',     # "US " at word boundary
+    # Geographic prefixes at start with colon: "US:", "CA:", "UK:", etc. (any 2-3 letter code followed by colon)
+    r'^[A-Z]{2,3}:\s*',
+    # Geographic prefixes at start with space: "US ", "CA ", "UK ", etc. (any 2-3 letter code followed by space)
+    r'^[A-Z]{2,3}\s+',
+    # Legacy USA pattern for backward compatibility
+    r'\bUSA?:\s',
 ]
 
 # Miscellaneous patterns: (CX), (Backup), single-letter tags, etc.

@@ -29,108 +29,151 @@ LOGGER.setLevel(logging.INFO)
 
 class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
-    
+
     name = "Stream-Mapparr"
-    version = "0.5.0d"
+    version = "0.6.0"
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
-    
-    # Settings rendered by UI
-    fields = [
-        {
-            "id": "overwrite_streams",
-            "label": "🔄 Overwrite Existing Streams",
-            "type": "boolean",
-            "default": True,
-            "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
-        },
-        {
-            "id": "fuzzy_match_threshold",
-            "label": "🎯 Fuzzy Match Threshold",
-            "type": "number",
-            "default": 85,
-            "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
-        },
-        {
-            "id": "dispatcharr_url",
-            "label": "🌐 Dispatcharr URL",
-            "type": "string",
-            "default": "",
-            "placeholder": "http://192.168.1.10:9191",
-            "help_text": "URL of your Dispatcharr instance (from your browser address bar). Example: http://127.0.0.1:9191",
-        },
-        {
-            "id": "dispatcharr_username",
-            "label": "👤 Dispatcharr Admin Username",
-            "type": "string",
-            "help_text": "Your admin username for the Dispatcharr UI. Required for API access.",
-        },
-        {
-            "id": "dispatcharr_password",
-            "label": "🔑 Dispatcharr Admin Password",
-            "type": "string",
-            "input_type": "password",
-            "help_text": "Your admin password for the Dispatcharr UI. Required for API access.",
-        },
-        {
-            "id": "profile_name",
-            "label": "📋 Profile Name",
-            "type": "string",
-            "default": "",
-            "placeholder": "Sports, Movies, News",
-            "help_text": "*** Required Field *** - The name(s) of existing Channel Profile(s) to process channels from. Multiple profiles can be specified separated by commas.",
-        },
-        {
-            "id": "selected_groups",
-            "label": "📁 Channel Groups (comma-separated)",
-            "type": "string",
-            "default": "",
-            "placeholder": "Sports, News, Entertainment",
-            "help_text": "Specific channel groups to process, or leave empty for all groups.",
-        },
-        {
-            "id": "ignore_tags",
-            "label": "🏷️ Ignore Tags (comma-separated)",
-            "type": "string",
-            "default": "",
-            "placeholder": "4K, [4K], \" East\", \"[Dead]\"",
-            "help_text": "Tags to ignore when matching streams. Use quotes to preserve spaces/special chars (e.g., \" East\" for tags with leading space).",
-        },
-        {
-            "id": "ignore_quality_tags",
-            "label": "🎬 Ignore Quality Tags",
-            "type": "boolean",
-            "default": True,
-            "help_text": "If enabled, hardcoded quality tags like [4K], [HD], (UHD), etc., will be ignored during matching.",
-        },
-        {
-            "id": "ignore_regional_tags",
-            "label": "🌍 Ignore Regional Tags",
-            "type": "boolean",
-            "default": True,
-            "help_text": "If enabled, hardcoded regional tags like 'East' will be ignored during matching.",
-        },
-        {
-            "id": "ignore_geographic_tags",
-            "label": "🗺️ Ignore Geographic Tags",
-            "type": "boolean",
-            "default": True,
-            "help_text": "If enabled, hardcoded geographic prefixes like 'US:', 'USA:' will be ignored during matching.",
-        },
-        {
-            "id": "ignore_misc_tags",
-            "label": "🏷️ Ignore Miscellaneous Tags",
-            "type": "boolean",
-            "default": True,
-            "help_text": "If enabled, miscellaneous tags like (CX), (Backup), and single-letter tags will be ignored during matching.",
-        },
-        {
-            "id": "visible_channel_limit",
-            "label": "👁️ Visible Channel Limit",
-            "type": "number",
-            "default": 1,
-            "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
-        },
-    ]
+
+    @property
+    def fields(self):
+        """Dynamically generate settings fields including channel database selection."""
+        # Static fields that are always present
+        static_fields = [
+            {
+                "id": "overwrite_streams",
+                "label": "🔄 Overwrite Existing Streams",
+                "type": "boolean",
+                "default": True,
+                "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
+            },
+            {
+                "id": "fuzzy_match_threshold",
+                "label": "🎯 Fuzzy Match Threshold",
+                "type": "number",
+                "default": 85,
+                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
+            },
+            {
+                "id": "dispatcharr_url",
+                "label": "🌐 Dispatcharr URL",
+                "type": "string",
+                "default": "",
+                "placeholder": "http://192.168.1.10:9191",
+                "help_text": "URL of your Dispatcharr instance (from your browser address bar). Example: http://127.0.0.1:9191",
+            },
+            {
+                "id": "dispatcharr_username",
+                "label": "👤 Dispatcharr Admin Username",
+                "type": "string",
+                "help_text": "Your admin username for the Dispatcharr UI. Required for API access.",
+            },
+            {
+                "id": "dispatcharr_password",
+                "label": "🔑 Dispatcharr Admin Password",
+                "type": "string",
+                "input_type": "password",
+                "help_text": "Your admin password for the Dispatcharr UI. Required for API access.",
+            },
+            {
+                "id": "profile_name",
+                "label": "📋 Profile Name",
+                "type": "string",
+                "default": "",
+                "placeholder": "Sports, Movies, News",
+                "help_text": "*** Required Field *** - The name(s) of existing Channel Profile(s) to process channels from. Multiple profiles can be specified separated by commas.",
+            },
+            {
+                "id": "selected_groups",
+                "label": "📁 Channel Groups (comma-separated)",
+                "type": "string",
+                "default": "",
+                "placeholder": "Sports, News, Entertainment",
+                "help_text": "Specific channel groups to process, or leave empty for all groups.",
+            },
+            {
+                "id": "ignore_tags",
+                "label": "🏷️ Ignore Tags (comma-separated)",
+                "type": "string",
+                "default": "",
+                "placeholder": "4K, [4K], \" East\", \"[Dead]\"",
+                "help_text": "Tags to ignore when matching streams. Use quotes to preserve spaces/special chars (e.g., \" East\" for tags with leading space).",
+            },
+            {
+                "id": "ignore_quality_tags",
+                "label": "🎬 Ignore Quality Tags",
+                "type": "boolean",
+                "default": True,
+                "help_text": "If enabled, hardcoded quality tags like [4K], [HD], (UHD), etc., will be ignored during matching.",
+            },
+            {
+                "id": "ignore_regional_tags",
+                "label": "🌍 Ignore Regional Tags",
+                "type": "boolean",
+                "default": True,
+                "help_text": "If enabled, hardcoded regional tags like 'East' will be ignored during matching.",
+            },
+            {
+                "id": "ignore_geographic_tags",
+                "label": "🗺️ Ignore Geographic Tags",
+                "type": "boolean",
+                "default": True,
+                "help_text": "If enabled, hardcoded geographic prefixes like 'US:', 'USA:' will be ignored during matching.",
+            },
+            {
+                "id": "ignore_misc_tags",
+                "label": "🏷️ Ignore Miscellaneous Tags",
+                "type": "boolean",
+                "default": True,
+                "help_text": "If enabled, miscellaneous tags like (CX), (Backup), and single-letter tags will be ignored during matching.",
+            },
+            {
+                "id": "visible_channel_limit",
+                "label": "👁️ Visible Channel Limit",
+                "type": "number",
+                "default": 1,
+                "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
+            },
+        ]
+
+        # Add channel database section header
+        static_fields.append({
+            "id": "channel_databases_header",
+            "type": "info",
+            "label": "📚 Channel Databases",
+        })
+
+        # Dynamically add channel database enable/disable fields
+        try:
+            databases = self._get_channel_databases()
+
+            if databases:
+                for db_info in databases:
+                    db_id = db_info['id']
+                    db_label = db_info['label']
+                    db_default = db_info['default']
+
+                    static_fields.append({
+                        "id": f"db_enabled_{db_id}",
+                        "type": "boolean",
+                        "label": f"Enable {db_label}",
+                        "help_text": f"Enable or disable the {db_label} channel database for matching.",
+                        "default": db_default
+                    })
+            else:
+                static_fields.append({
+                    "id": "no_databases_found",
+                    "type": "info",
+                    "label": "⚠️ No channel databases found. Place XX_channels.json files in the plugin directory.",
+                })
+        except Exception as e:
+            LOGGER.error(f"[Stream-Mapparr] Error loading channel databases for settings: {e}")
+            static_fields.append({
+                "id": "database_error",
+                "type": "info",
+                "label": f"⚠️ Error loading channel databases: {e}",
+            })
+
+        return static_fields
     
     # Actions for Dispatcharr UI
     actions = [
@@ -201,8 +244,70 @@ class Plugin:
         self.loaded_streams = []
         self.channel_stream_matches = []
         self.fuzzy_matcher = None
-        
+
         LOGGER.info(f"[Stream-Mapparr] {self.name} Plugin v{self.version} initialized")
+
+    def _get_channel_databases(self):
+        """
+        Scan for channel database files and return metadata for each.
+
+        Returns:
+            List of dicts with 'id', 'label', 'default', and 'file_path' keys
+        """
+        plugin_dir = os.path.dirname(__file__)
+        databases = []
+
+        try:
+            from glob import glob
+            pattern = os.path.join(plugin_dir, '*_channels.json')
+            channel_files = sorted(glob(pattern))
+
+            for channel_file in channel_files:
+                try:
+                    filename = os.path.basename(channel_file)
+                    # Extract country code from filename (e.g., "US" from "US_channels.json")
+                    country_code = filename.split('_')[0].upper()
+
+                    # Try to read the file and extract metadata
+                    with open(channel_file, 'r', encoding='utf-8') as f:
+                        file_data = json.load(f)
+
+                    # Check if it's the new format with metadata
+                    if isinstance(file_data, dict) and 'country_code' in file_data:
+                        country_name = file_data.get('country_name', filename)
+                        version = file_data.get('version', '')
+                        if version:
+                            label = f"{country_name} (v{version})"
+                        else:
+                            label = country_name
+                    else:
+                        # Old format or missing metadata - use filename
+                        label = filename
+
+                    # Determine default value: US enabled by default, or if only one database, enable it
+                    # We'll check the count later
+                    default = (country_code == 'US')
+
+                    databases.append({
+                        'id': country_code,
+                        'label': label,
+                        'default': default,
+                        'file_path': channel_file,
+                        'filename': filename
+                    })
+
+                except Exception as e:
+                    LOGGER.warning(f"[Stream-Mapparr] Error reading database file {channel_file}: {e}")
+                    continue
+
+            # If only one database exists, enable it by default
+            if len(databases) == 1:
+                databases[0]['default'] = True
+
+        except Exception as e:
+            LOGGER.error(f"[Stream-Mapparr] Error scanning for channel databases: {e}")
+
+        return databases
 
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
@@ -545,33 +650,86 @@ class Plugin:
         
         return sorted(streams, key=get_quality_index)
 
-    def _load_channels_data(self, logger):
-        """Load channel data from *_channels.json files."""
+    def _load_channels_data(self, logger, settings=None):
+        """
+        Load channel data from enabled *_channels.json files.
+
+        Args:
+            logger: Logger instance
+            settings: Plugin settings dict (optional, for filtering by enabled databases)
+
+        Returns:
+            List of channel data from enabled databases
+        """
         plugin_dir = os.path.dirname(__file__)
         channels_data = []
-        
+
         try:
-            # Find all *_channels.json files
-            from glob import glob
-            pattern = os.path.join(plugin_dir, '*_channels.json')
-            channel_files = glob(pattern)
-            
-            if channel_files:
-                for channel_file in channel_files:
-                    try:
-                        with open(channel_file, 'r', encoding='utf-8') as f:
-                            file_data = json.load(f)
-                            channels_data.extend(file_data)
-                        logger.info(f"[Stream-Mapparr] Loaded {len(file_data)} channels from {os.path.basename(channel_file)}")
-                    except Exception as e:
-                        logger.error(f"[Stream-Mapparr] Error loading {channel_file}: {e}")
-                
-                logger.info(f"[Stream-Mapparr] Loaded total of {len(channels_data)} channels from {len(channel_files)} file(s)")
-            else:
+            # Get all available databases
+            databases = self._get_channel_databases()
+
+            if not databases:
                 logger.warning(f"[Stream-Mapparr] No *_channels.json files found in {plugin_dir}")
+                return channels_data
+
+            # Filter to only enabled databases
+            enabled_databases = []
+            for db_info in databases:
+                db_id = db_info['id']
+                setting_key = f"db_enabled_{db_id}"
+
+                # Check if this database is enabled in settings
+                if settings:
+                    is_enabled = settings.get(setting_key, db_info['default'])
+                else:
+                    # No settings provided, use default
+                    is_enabled = db_info['default']
+
+                if is_enabled:
+                    enabled_databases.append(db_info)
+
+            if not enabled_databases:
+                logger.warning("[Stream-Mapparr] No channel databases are enabled. Please enable at least one database in settings.")
+                return channels_data
+
+            # Load data from enabled databases
+            for db_info in enabled_databases:
+                channel_file = db_info['file_path']
+                db_label = db_info['label']
+                country_code = db_info['id']
+
+                try:
+                    with open(channel_file, 'r', encoding='utf-8') as f:
+                        file_data = json.load(f)
+
+                    # Handle both old and new format
+                    if isinstance(file_data, dict) and 'channels' in file_data:
+                        # New format with metadata
+                        channels_list = file_data['channels']
+                        # Add country_code to each channel for prefix handling
+                        for channel in channels_list:
+                            channel['_country_code'] = country_code
+                    elif isinstance(file_data, list):
+                        # Old format - direct array
+                        channels_list = file_data
+                        # Add country_code to each channel for prefix handling
+                        for channel in channels_list:
+                            channel['_country_code'] = country_code
+                    else:
+                        logger.error(f"[Stream-Mapparr] Invalid format in {channel_file}")
+                        continue
+
+                    channels_data.extend(channels_list)
+                    logger.info(f"[Stream-Mapparr] Loaded {len(channels_list)} channels from {db_label}")
+
+                except Exception as e:
+                    logger.error(f"[Stream-Mapparr] Error loading {channel_file}: {e}")
+
+            logger.info(f"[Stream-Mapparr] Loaded total of {len(channels_data)} channels from {len(enabled_databases)} enabled database(s)")
+
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error loading channel data files: {e}")
-        
+
         return channels_data
 
     def _is_ota_channel(self, channel_info):
@@ -1313,7 +1471,7 @@ class Plugin:
             logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with preview...")
 
             # Load channel data from channels.json
-            channels_data = self._load_channels_data(logger)
+            channels_data = self._load_channels_data(logger, settings)
             
             # Load processed data
             with open(self.processed_data_file, 'r') as f:
@@ -1522,9 +1680,9 @@ class Plugin:
             token, error = self._get_api_token(settings, logger)
             if error:
                 return {"status": "error", "message": error}
-            
+
             # Load channel data from channels.json
-            channels_data = self._load_channels_data(logger)
+            channels_data = self._load_channels_data(logger, settings)
             
             # Load processed data
             with open(self.processed_data_file, 'r') as f:
