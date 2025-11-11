@@ -1,0 +1,257 @@
+{
+  "country_code": "AU",
+  "country_name": "Australia",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "ABC TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC TV Plus",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Family",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Entertains",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Me",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS Viceland",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS World Movies",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS Food",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "NITV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS WorldWatch",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Seven",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "7",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "7 Sydney",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "7 Melbourne",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "7two",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "7mate",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "7flix",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "7Bravo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nine",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "9",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "9 Sydney",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "9 Melbourne",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "9Gem",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "9Go!",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "9Life",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "9Rush",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "10",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Network 10",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "10 Peach",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "10 Bold",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "10 Shake",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports News",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Cricket",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox League",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Footy",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "beIN Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News Australia",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Racing.com",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Lifestyle",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Arena",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Earth",
+      "category": "Documentary",
+      "type": "National"
+    }
+  ]
+}

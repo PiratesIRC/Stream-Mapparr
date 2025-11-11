@@ -9,7 +9,9 @@ import csv
 import os
 import re
 import requests
-from datetime import datetime
+import urllib.request
+import urllib.error
+from datetime import datetime, timedelta
 from django.utils import timezone
 
 # Django model imports
@@ -37,8 +39,20 @@ class Plugin:
     @property
     def fields(self):
         """Dynamically generate settings fields including channel database selection."""
+        # Check for version updates (with caching)
+        version_info = {'message': f"Current version: {self.version}", 'status': 'unknown'}
+        try:
+            version_info = self._check_version_update()
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Error checking version update: {e}")
+
         # Static fields that are always present
         static_fields = [
+            {
+                "id": "version_status",
+                "type": "info",
+                "label": version_info['message'],
+            },
             {
                 "id": "overwrite_streams",
                 "label": "🔄 Overwrite Existing Streams",
@@ -240,12 +254,165 @@ class Plugin:
     
     def __init__(self):
         self.processed_data_file = "/data/stream_mapparr_processed.json"
+        self.version_check_cache_file = "/data/stream_mapparr_version_check.json"
         self.loaded_channels = []
         self.loaded_streams = []
         self.channel_stream_matches = []
         self.fuzzy_matcher = None
 
         LOGGER.info(f"[Stream-Mapparr] {self.name} Plugin v{self.version} initialized")
+
+    def _get_latest_version(self, owner, repo):
+        """
+        Fetches the latest release tag name from GitHub using only Python's standard library.
+
+        Args:
+            owner (str): GitHub repository owner
+            repo (str): GitHub repository name
+
+        Returns:
+            str: Latest version tag or error message
+        """
+        url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
+        # Add a user-agent to avoid potential 403 Forbidden errors
+        headers = {
+            'User-Agent': 'Dispatcharr-Plugin-Version-Checker'
+        }
+
+        try:
+            # Create a request object with headers
+            req = urllib.request.Request(url, headers=headers)
+
+            # Make the request and open the URL with a timeout
+            with urllib.request.urlopen(req, timeout=5) as response:
+                # Read the response and decode it as UTF-8
+                data = response.read().decode('utf-8')
+
+                # Parse the JSON string
+                json_data = json.loads(data)
+
+                # Get the tag name
+                latest_version = json_data.get("tag_name")
+
+                if latest_version:
+                    return latest_version
+                else:
+                    return None
+
+        except urllib.error.HTTPError as http_err:
+            if http_err.code == 404:
+                LOGGER.debug(f"[Stream-Mapparr] GitHub repo not found or has no releases: {http_err}")
+                return None
+            else:
+                LOGGER.debug(f"[Stream-Mapparr] HTTP error checking version: {http_err.code}")
+                return None
+        except Exception as e:
+            # Catch other errors like timeouts
+            LOGGER.debug(f"[Stream-Mapparr] Error checking version: {str(e)}")
+            return None
+
+    def _check_version_update(self):
+        """
+        Check if a new version is available on GitHub.
+        Uses caching to limit checks to once per day or when the plugin version changes.
+
+        Returns:
+            dict: Contains 'message' and 'status' keys for display
+        """
+        current_version = self.version
+        github_owner = "PiratesIRC"
+        github_repo = "Stream-Mapparr"
+
+        # Default response
+        result = {
+            'message': f"Current version: {current_version}",
+            'status': 'unknown'
+        }
+
+        try:
+            # Load cache if it exists
+            cache_data = {}
+            should_check = True
+
+            if os.path.exists(self.version_check_cache_file):
+                try:
+                    with open(self.version_check_cache_file, 'r', encoding='utf-8') as f:
+                        cache_data = json.load(f)
+
+                    # Check if we need to recheck:
+                    # 1. Plugin version changed (upgrade/downgrade)
+                    # 2. More than 24 hours since last check
+                    cached_plugin_version = cache_data.get('plugin_version')
+                    last_check_str = cache_data.get('last_check')
+
+                    if cached_plugin_version == current_version and last_check_str:
+                        # Parse the last check time
+                        last_check = datetime.fromisoformat(last_check_str)
+                        time_diff = datetime.now() - last_check
+
+                        # If less than 24 hours, use cached data
+                        if time_diff < timedelta(hours=24):
+                            should_check = False
+                            latest_version = cache_data.get('latest_version')
+
+                            # Compare versions
+                            if latest_version and latest_version != current_version:
+                                result = {
+                                    'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}",
+                                    'status': 'update_available'
+                                }
+                            else:
+                                result = {
+                                    'message': f"✅ You are up to date (v{current_version})",
+                                    'status': 'up_to_date'
+                                }
+                except Exception as e:
+                    LOGGER.debug(f"[Stream-Mapparr] Error reading version cache: {e}")
+                    should_check = True
+
+            # Perform the check if needed
+            if should_check:
+                latest_version = self._get_latest_version(github_owner, github_repo)
+
+                # Update cache
+                cache_data = {
+                    'plugin_version': current_version,
+                    'latest_version': latest_version,
+                    'last_check': datetime.now().isoformat()
+                }
+
+                try:
+                    with open(self.version_check_cache_file, 'w', encoding='utf-8') as f:
+                        json.dump(cache_data, f, indent=2)
+                except Exception as e:
+                    LOGGER.debug(f"[Stream-Mapparr] Error writing version cache: {e}")
+
+                # Compare versions
+                if latest_version and latest_version != current_version:
+                    result = {
+                        'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}",
+                        'status': 'update_available'
+                    }
+                elif latest_version:
+                    result = {
+                        'message': f"✅ You are up to date (v{current_version})",
+                        'status': 'up_to_date'
+                    }
+                else:
+                    result = {
+                        'message': f"Current version: {current_version} (unable to check for updates)",
+                        'status': 'error'
+                    }
+
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Error in version check: {e}")
+            result = {
+                'message': f"Current version: {current_version} (update check failed)",
+                'status': 'error'
+            }
+
+        return result
 
     def _get_channel_databases(self):
         """

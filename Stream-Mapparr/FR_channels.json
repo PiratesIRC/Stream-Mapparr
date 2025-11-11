@@ -1,0 +1,202 @@
+{
+  "country_code": "FR",
+  "country_name": "France",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "TF1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 3 Paris",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Lyon",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal+",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 5",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "M6",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Arte",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "C8",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "W9",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TMC",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TFX",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRJ 12",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "LCP",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 4",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "BFMTV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNews",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CStar",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gulli",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "TF1 Séries Films",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "L'Équipe",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "6ter",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RMC Story",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "RMC Découverte",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Chérie 25",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "LCI",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Franceinfo",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Sport",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Cinéma",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "beIN Sports 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "beIN Sports 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "RMC Sport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "RMC Sport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV5 Monde",
+      "category": "Entertainment",
+      "type": "National"
+    }
+  ]
+}

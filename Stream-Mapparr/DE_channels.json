@@ -1,0 +1,252 @@
+{
+  "country_code": "DE",
+  "country_name": "Germany",
+  "version": "2025-11-10",
+  "channels": [
+    {
+      "channel_name": "Das Erste",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ARD",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ZDF",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Arte",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "3sat",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "KiKA",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Phoenix",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tagesschau24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ZDFneo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ZDFinfo",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "BR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "hr-fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Radio Bremen TV",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "rbb Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Fernsehen",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RTL Zwei",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vox",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super RTL",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "n-tv",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nitro",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RTLup",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "VOXup",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kabel Eins",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sixx",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ProSieben Maxx",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sat.1 Gold",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kabel Eins Doku",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Welt",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "N24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sport1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Bundesliga",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sport DE",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tele 5",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Servus TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Deluxe Music",
+      "category": "Music",
+      "type": "National"
+    }
+  ]
+}
