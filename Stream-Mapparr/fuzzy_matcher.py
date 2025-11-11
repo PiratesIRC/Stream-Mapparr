@@ -11,7 +11,7 @@ import logging
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.313.1157"
+__version__ = "25.314.1907"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -193,7 +193,7 @@ class FuzzyMatcher:
         return callsign
     
     def normalize_name(self, name, user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
-                       ignore_geographic=True, ignore_misc=True, remove_cinemax=False):
+                       ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
         """
         Normalize channel or stream name for matching by removing tags, prefixes, and other noise.
 
@@ -205,6 +205,7 @@ class FuzzyMatcher:
             ignore_geographic: If True, remove geographic prefix patterns (e.g., US:, USA)
             ignore_misc: If True, remove miscellaneous patterns (e.g., (CX), (Backup), single-letter tags)
             remove_cinemax: If True, remove "Cinemax" prefix (useful when channel name contains "max")
+            remove_country_prefix: If True, remove country code prefixes (e.g., CA:, UK , DE: ) from start of name
 
         Returns:
             Normalized name
@@ -214,6 +215,20 @@ class FuzzyMatcher:
 
         # Remove leading parenthetical prefixes like (SP2), (D1), etc.
         name = re.sub(r'^\([^\)]+\)\s*', '', name)
+
+        # Remove country code prefix if requested (e.g., "CA:", "UK ", "USA: ")
+        # This handles multi-country databases where streams may be prefixed with country codes
+        if remove_country_prefix:
+            # Known quality tags that should NOT be removed (to avoid false positives)
+            quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
+
+            # Check for 2-3 letter prefix with colon or space at start
+            prefix_match = re.match(r'^([A-Z]{2,3})[:|\s]\s*', name)
+            if prefix_match:
+                prefix = prefix_match.group(1).upper()
+                # Only remove if it's NOT a quality tag
+                if prefix not in quality_tags:
+                    name = name[len(prefix_match.group(0)):]
 
         # Remove "Cinemax" prefix if requested (for channels containing "max")
         if remove_cinemax:
