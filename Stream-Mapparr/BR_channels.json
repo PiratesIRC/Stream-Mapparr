@@ -1,25 +1,30 @@
 {
   "country_code": "BR",
   "country_name": "Brazil",
-  "version": "2025-11-10",
+  "version": "2025-11-11",
   "channels": [
-    {
-      "channel_name": "Globo",
-      "category": "Entertainment",
-      "type": "National"
-    },
     {
       "channel_name": "TV Globo",
       "category": "Entertainment",
       "type": "National"
     },
     {
-      "channel_name": "Record",
+      "channel_name": "TV Globo São Paulo",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Regional"
     },
     {
-      "channel_name": "RecordTV",
+      "channel_name": "TV Tribuna (Santos)",
+      "category": "Entertainment",
+      "type": "Local"
+    },
+    {
+      "channel_name": "TV Globo Rio de Janeiro",
+      "category": "Entertainment",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record",
       "category": "Entertainment",
       "type": "National"
     },
@@ -29,12 +34,12 @@
       "type": "National"
     },
     {
-      "channel_name": "Band",
+      "channel_name": "TV Gazeta",
       "category": "Entertainment",
       "type": "National"
     },
     {
-      "channel_name": "Rede Bandeirantes",
+      "channel_name": "Band",
       "category": "Entertainment",
       "type": "National"
     },
@@ -54,12 +59,32 @@
       "type": "National"
     },
     {
+      "channel_name": "Warner Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "USA Network",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Woohoo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
       "channel_name": "GloboNews",
       "category": "News",
       "type": "National"
     },
     {
       "channel_name": "CNN Brasil",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN Brasil Money",
       "category": "News",
       "type": "National"
     },
@@ -76,6 +101,11 @@
     {
       "channel_name": "Jovem Pan News",
       "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cazé TV",
+      "category": "Sports",
       "type": "National"
     },
     {
@@ -114,12 +144,62 @@
       "type": "National"
     },
     {
+      "channel_name": "ESPN 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN 6",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "OFF",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
       "channel_name": "BandSports",
       "category": "Sports",
       "type": "National"
     },
     {
-      "channel_name": "Premiere",
+      "channel_name": "Premiere Clubes",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 6",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 7",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Premiere 8",
       "category": "Sports",
       "type": "National"
     },
@@ -135,6 +215,21 @@
     },
     {
       "channel_name": "GNT",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Modo Viagem",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Lifetime",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV",
       "category": "Lifestyle",
       "type": "National"
     },
@@ -179,7 +274,22 @@
       "type": "National"
     },
     {
+      "channel_name": "Telecine Touch",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
       "channel_name": "Gloob",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tooncast",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "DumDum",
       "category": "Kids",
       "type": "National"
     },
@@ -190,6 +300,11 @@
     },
     {
       "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoonito",
       "category": "Kids",
       "type": "National"
     },
@@ -219,6 +334,41 @@
       "type": "National"
     },
     {
+      "channel_name": "Discovery World",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Turbo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Theater",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "ID",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery H&H",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
       "channel_name": "National Geographic",
       "category": "Documentary",
       "type": "National"
@@ -234,8 +384,228 @@
       "type": "National"
     },
     {
+      "channel_name": "Prime Box Brazil",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
       "channel_name": "Terra Viva",
       "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Travel Box Brazil",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV Live",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV 00s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music Box Brazil",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bis",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Syfy",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Novelas",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Globoplay Novelas",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Universal TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Studio Universal",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cinemax ",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Plus",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Family",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Signature",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Pop",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Mundi",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Xtreme",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "A&E",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sony Channel",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AXN",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "E!",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fish TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Food Network",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Series",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Megapix",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "AgroMais",
+      "category": "Agro",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Rural",
+      "category": "Agro",
+      "type": "National"
+    },
+    {
+      "channel_name": "Curta!",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 1",
+      "category": "Reality",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 2",
+      "category": "Reality",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 3",
+      "category": "Reality",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 4",
+      "category": "Reality",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 5",
+      "category": "Reality",
+      "type": "National"
+    },
+    {
+      "channel_name": "A Fazenda 6",
+      "category": "Reality",
       "type": "National"
     }
   ]
