@@ -11,7 +11,7 @@ import logging
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.317.1200"
+__version__ = "25.317.1900"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -70,7 +70,7 @@ class FuzzyMatcher:
     def __init__(self, plugin_dir=None, match_threshold=85, logger=None):
         """
         Initialize the fuzzy matcher.
-        
+
         Args:
             plugin_dir: Directory where the plugin and channel JSON files are located (optional)
             match_threshold: Minimum similarity score (0-100) for a match to be accepted
@@ -79,13 +79,14 @@ class FuzzyMatcher:
         self.plugin_dir = plugin_dir or os.path.dirname(__file__)
         self.match_threshold = match_threshold
         self.logger = logger or LOGGER
-        
+
         # Channel data storage
         self.broadcast_channels = []  # Channels with callsigns
         self.premium_channels = []  # Channel names only (for fuzzy matching)
         self.premium_channels_full = []  # Full channel objects with category
         self.channel_lookup = {}  # Callsign -> channel data mapping
-        
+        self.country_codes = None  # Track which country databases are currently loaded
+
         # Load all channel databases if plugin_dir is provided
         if self.plugin_dir:
             self._load_channel_databases()
@@ -107,11 +108,13 @@ class FuzzyMatcher:
         for channel_file in channel_files:
             try:
                 with open(channel_file, 'r', encoding='utf-8') as f:
-                    channels_list = json.load(f)
-                
+                    data = json.load(f)
+                    # Extract the channels array from the JSON structure
+                    channels_list = data.get('channels', []) if isinstance(data, dict) else data
+
                 file_broadcast = 0
                 file_premium = 0
-                
+
                 for channel in channels_list:
                     channel_type = channel.get('type', '').lower()
                     
@@ -147,7 +150,97 @@ class FuzzyMatcher:
         
         self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
         return True
-    
+
+    def reload_databases(self, country_codes=None):
+        """
+        Reload channel databases with specific country codes.
+
+        Args:
+            country_codes: List of country codes to load (e.g., ['US', 'UK', 'CA'])
+                          If None, loads all available databases.
+
+        Returns:
+            bool: True if databases were loaded successfully, False otherwise
+        """
+        # Clear existing channel data
+        self.broadcast_channels = []
+        self.premium_channels = []
+        self.premium_channels_full = []
+        self.channel_lookup = {}
+
+        # Update country_codes tracking
+        self.country_codes = country_codes
+
+        # Determine which files to load
+        if country_codes:
+            # Load only specified country databases
+            channel_files = []
+            for code in country_codes:
+                file_path = os.path.join(self.plugin_dir, f"{code}_channels.json")
+                if os.path.exists(file_path):
+                    channel_files.append(file_path)
+                else:
+                    self.logger.warning(f"Channel database not found: {code}_channels.json")
+        else:
+            # Load all available databases
+            pattern = os.path.join(self.plugin_dir, "*_channels.json")
+            channel_files = glob(pattern)
+
+        if not channel_files:
+            self.logger.warning(f"No channel database files found to load")
+            return False
+
+        self.logger.info(f"Loading {len(channel_files)} channel database file(s): {[os.path.basename(f) for f in channel_files]}")
+
+        total_broadcast = 0
+        total_premium = 0
+
+        for channel_file in channel_files:
+            try:
+                with open(channel_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Extract the channels array from the JSON structure
+                    channels_list = data.get('channels', []) if isinstance(data, dict) else data
+
+                file_broadcast = 0
+                file_premium = 0
+
+                for channel in channels_list:
+                    channel_type = channel.get('type', '').lower()
+
+                    if 'broadcast' in channel_type or channel_type == 'broadcast (ota)':
+                        # Broadcast channel with callsign
+                        self.broadcast_channels.append(channel)
+                        file_broadcast += 1
+
+                        # Create lookup by callsign
+                        callsign = channel.get('callsign', '').strip()
+                        if callsign:
+                            self.channel_lookup[callsign] = channel
+
+                            # Also store base callsign without suffix for easier matching
+                            base_callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
+                            if base_callsign != callsign:
+                                self.channel_lookup[base_callsign] = channel
+                    else:
+                        # Premium/cable/national channel
+                        channel_name = channel.get('channel_name', '').strip()
+                        if channel_name:
+                            self.premium_channels.append(channel_name)
+                            self.premium_channels_full.append(channel)
+                            file_premium += 1
+
+                total_broadcast += file_broadcast
+                total_premium += file_premium
+
+                self.logger.info(f"Loaded from {os.path.basename(channel_file)}: {file_broadcast} broadcast, {file_premium} premium channels")
+
+            except Exception as e:
+                self.logger.error(f"Error loading {channel_file}: {e}")
+
+        self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
+        return True
+
     def extract_callsign(self, channel_name):
         """
         Extract US TV callsign from channel name with priority order.
