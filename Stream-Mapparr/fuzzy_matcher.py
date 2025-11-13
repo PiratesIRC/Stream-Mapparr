@@ -213,6 +213,9 @@ class FuzzyMatcher:
         if user_ignored_tags is None:
             user_ignored_tags = []
 
+        # Store original for logging
+        original_name = name
+
         # Remove leading parenthetical prefixes like (SP2), (D1), etc.
         name = re.sub(r'^\([^\)]+\)\s*', '', name)
 
@@ -223,7 +226,8 @@ class FuzzyMatcher:
             quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
 
             # Check for 2-3 letter prefix with colon or space at start
-            prefix_match = re.match(r'^([A-Z]{2,3})[:|\s]\s*', name)
+            # Fixed regex: [:\s] instead of [:|\s] (pipe and backslash were incorrect)
+            prefix_match = re.match(r'^([A-Z]{2,3})[:\s]\s*', name)
             if prefix_match:
                 prefix = prefix_match.group(1).upper()
                 # Only remove if it's NOT a quality tag
@@ -280,7 +284,11 @@ class FuzzyMatcher:
         
         # Clean up whitespace
         name = re.sub(r'\s+', ' ', name).strip()
-        
+
+        # Log warning if normalization resulted in empty string (indicates overly aggressive stripping)
+        if not name:
+            self.logger.warning(f"normalize_name returned empty string for input: '{original_name}' (original input was stripped too aggressively)")
+
         return name
     
     def extract_tags(self, name, user_ignored_tags=None):
@@ -346,15 +354,17 @@ class FuzzyMatcher:
     def calculate_similarity(self, str1, str2):
         """
         Calculate Levenshtein distance-based similarity ratio between two strings.
-        
+
         Returns:
             Similarity ratio between 0.0 and 1.0
         """
         if len(str1) < len(str2):
             str1, str2 = str2, str1
-        
-        if len(str2) == 0:
-            return 1.0 if len(str1) == 0 else 0.0
+
+        # Empty strings should not match anything (including other empty strings)
+        # This prevents false positives when normalization strips everything
+        if len(str2) == 0 or len(str1) == 0:
+            return 0.0
         
         previous_row = list(range(len(str2) + 1))
         
@@ -429,9 +439,14 @@ class FuzzyMatcher:
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
             candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+
+            # Skip candidates that normalize to empty or very short strings
+            if not candidate_normalized or len(candidate_normalized) < 2:
+                continue
+
             processed_candidate = self.process_string_for_matching(candidate_normalized)
             score = self.calculate_similarity(processed_query, processed_candidate)
-            
+
             if score > best_score:
                 best_score = score
                 best_match = candidate
@@ -481,6 +496,12 @@ class FuzzyMatcher:
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
             candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+
+            # Skip candidates that normalize to empty or very short strings (< 2 chars)
+            # This prevents false positives where multiple streams all normalize to ""
+            if not candidate_normalized or len(candidate_normalized) < 2:
+                continue
+
             candidate_lower = candidate_normalized.lower()
             candidate_nospace = re.sub(r'[\s&\-]+', '', candidate_lower)
 
@@ -502,6 +523,11 @@ class FuzzyMatcher:
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
             candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+
+            # Skip candidates that normalize to empty or very short strings
+            if not candidate_normalized or len(candidate_normalized) < 2:
+                continue
+
             candidate_lower = candidate_normalized.lower()
 
             # Check if one is a substring of the other
