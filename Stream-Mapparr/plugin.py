@@ -33,7 +33,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
 
     name = "Stream-Mapparr"
-    version = "0.5.0"
+    version = "0.5.1"
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
 
     @property
@@ -148,13 +148,6 @@ class Plugin:
                 "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
             },
         ]
-
-        # Add channel database section header
-        static_fields.append({
-            "id": "channel_databases_header",
-            "type": "info",
-            "label": "📚 Channel Databases",
-        })
 
         # Dynamically add channel database enable/disable fields
         try:
@@ -753,7 +746,8 @@ class Plugin:
         # Remove country code prefix if requested
         if remove_country_prefix:
             quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
-            prefix_match = re.match(r'^([A-Z]{2,3})[:|\s]\s*', cleaned)
+            # Fixed regex: [:\s] instead of [:|\s] (pipe and backslash were incorrect)
+            prefix_match = re.match(r'^([A-Z]{2,3})[:\s]\s*', cleaned)
             if prefix_match:
                 prefix = prefix_match.group(1).upper()
                 if prefix not in quality_tags:
@@ -1025,6 +1019,12 @@ class Plugin:
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     )
 
+                    # Skip if either cleaned name is empty or too short (prevents false positives)
+                    if not cleaned_stream or len(cleaned_stream) < 2:
+                        continue
+                    if not cleaned_matched or len(cleaned_matched) < 2:
+                        continue
+
                     if cleaned_stream.lower() == cleaned_matched.lower():
                         matching_streams.append(stream)
 
@@ -1064,6 +1064,12 @@ class Plugin:
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 )
 
+                # Skip if either cleaned name is empty or too short (prevents false positives)
+                if not cleaned_stream_name or len(cleaned_stream_name) < 2:
+                    continue
+                if not cleaned_channel_name or len(cleaned_channel_name) < 2:
+                    continue
+
                 if cleaned_stream_name.lower() == cleaned_channel_name.lower():
                     matching_streams.append(stream)
 
@@ -1085,6 +1091,12 @@ class Plugin:
                 stream['name'], ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
             )
+
+            # Skip if either cleaned name is empty or too short (prevents false positives)
+            if not cleaned_stream_name or len(cleaned_stream_name) < 2:
+                continue
+            if not cleaned_channel_name or len(cleaned_channel_name) < 2:
+                continue
 
             # Simple case-insensitive substring matching
             if cleaned_channel_name.lower() in cleaned_stream_name.lower() or cleaned_stream_name.lower() in cleaned_channel_name.lower():
