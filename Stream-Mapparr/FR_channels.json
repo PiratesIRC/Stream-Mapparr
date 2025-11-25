@@ -1,7 +1,7 @@
 {
   "country_code": "FR",
   "country_name": "France",
-  "version": "2025-11-10",
+  "version": "2025-11-25",
   "channels": [
     {
       "channel_name": "TF1",
@@ -196,6 +196,426 @@
     {
       "channel_name": "TV5 Monde",
       "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Box Office",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Grand Écran",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "OCS",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ciné+ Frisson",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ciné+ Émotion",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ciné+ Family",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ciné+ Festival",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ciné+ Classic",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TCM Cinéma",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Séries",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polar+",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Série Club",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Warner TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Breizh",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RTL9",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "AB1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Novelas TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Sport 360",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Foot",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Infosport+",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "beIN Sports 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Golf+",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Automoto",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Equidia",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sport en France",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cheval TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comédie+",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Olympia TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paris Première",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Téva",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BET",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MCM",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "J-One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mangas",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Game One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "MGG TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Warner TV Next",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "La Chaîne Météo",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "BFM Business",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "i24 News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "KTO",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Docs",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Planète+",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Planète+ Crime",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Planète+ Aventure",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Museum TV",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ushuaïa TV",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Histoire TV",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Toute l'Histoire",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Investigation",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Seasons",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Chasse et Pêche",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Animaux",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Monaco",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Le Figaro TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Europe 2 TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "M6 Music",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRJ Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Trace Urban",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "RFM TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Melody",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mezzo",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mezzo Live",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Deutsche Grammophon+",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Piwi+",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon Junior",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "TiJi",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Boomerang",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Télétoon+",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal J",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nicktoons",
+      "category": "Kids",
       "type": "National"
     }
   ]
