@@ -617,6 +617,41 @@
       "channel_name": "Nicktoons",
       "category": "Kids",
       "type": "National"
+    },
+    {
+      "channel_name": "T18",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Novo19",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "RMC Life",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Max - L'actu",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ligue 1+",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Free TV la chaine",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Free Ciné",
+      "category": "Movies",
+      "type": "National"
     }
   ]
 }
