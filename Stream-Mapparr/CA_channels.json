@@ -1,12 +1,22 @@
 {
   "country_code": "CA",
   "country_name": "Canada",
-  "version": "2025-11-11",
+  "version": "2025-11-10",
   "channels": [
     {
       "channel_name": "CBC",
       "category": "Entertainment",
       "type": "National"
+    },
+    {
+      "channel_name": "CBC Toronto",
+      "category": "Entertainment",
+      "type": "Local"
+    },
+    {
+      "channel_name": "CBC Vancouver",
+      "category": "Entertainment",
+      "type": "Local"
     },
     {
       "channel_name": "CBC News Network",
@@ -19,7 +29,32 @@
       "type": "National"
     },
     {
+      "channel_name": "CTV Toronto",
+      "category": "Entertainment",
+      "type": "Local"
+    },
+    {
+      "channel_name": "CTV Vancouver",
+      "category": "Entertainment",
+      "type": "Local"
+    },
+    {
+      "channel_name": "CTV2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
       "channel_name": "CTV News Channel",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CP24",
+      "category": "News",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BNN Bloomberg",
       "category": "News",
       "type": "National"
     },
@@ -29,7 +64,62 @@
       "type": "National"
     },
     {
+      "channel_name": "Global Toronto",
+      "category": "Entertainment",
+      "type": "Local"
+    },
+    {
       "channel_name": "Citytv",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ici Radio-Canada Télé",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ici RDI",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ici ARTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ici Explora",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVA",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "LCN",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVA Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Noovo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "APTN",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "OMNI",
       "category": "Entertainment",
       "type": "National"
     },
@@ -39,7 +129,27 @@
       "type": "National"
     },
     {
-      "channel_name": "The Sports Network",
+      "channel_name": "TSN1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN5",
       "category": "Sports",
       "type": "National"
     },
@@ -49,13 +159,93 @@
       "type": "National"
     },
     {
-      "channel_name": "TVA",
+      "channel_name": "Sportsnet One",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet 360",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet East",
+      "category": "Sports",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sportsnet Ontario",
+      "category": "Sports",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sportsnet West",
+      "category": "Sports",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sportsnet Pacific",
+      "category": "Sports",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RDS",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "RDS2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showcase",
       "category": "Entertainment",
       "type": "National"
     },
     {
-      "channel_name": "Ici Radio-Canada",
-      "category": "Entertainment",
+      "channel_name": "W Network",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Food Network",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "YTV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Treehouse",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Teletoon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Family Channel",
+      "category": "Kids",
       "type": "National"
     },
     {
@@ -69,39 +259,74 @@
       "type": "National"
     },
     {
-      "channel_name": "Discovery Channel",
+      "channel_name": "CTV Sci-Fi Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Much",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crave",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Channel",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Écran",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal D",
       "category": "Documentary",
       "type": "National"
     },
     {
-      "channel_name": "History",
+      "channel_name": "Canal Vie",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "SériesPlus",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Z",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Évasion",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVO",
       "category": "Documentary",
-      "type": "National"
+      "type": "Regional"
     },
     {
-      "channel_name": "Food Network Canada",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "TFO",
+      "category": "Documentary",
+      "type": "Regional"
     },
     {
-      "channel_name": "HGTV Canada",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Knowledge Network",
+      "category": "Documentary",
+      "type": "Regional"
     },
     {
-      "channel_name": "W Network",
+      "channel_name": "Télé-Québec",
       "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Showcase",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Space",
-      "category": "Entertainment",
-      "type": "National"
+      "type": "Regional"
     }
   ]
 }

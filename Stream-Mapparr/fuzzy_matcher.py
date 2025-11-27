@@ -8,10 +8,11 @@ import os
 import re
 import json
 import logging
+import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.317.1900"
+__version__ = "24.332.1600"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -21,21 +22,25 @@ LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
 # Quality-related patterns: [4K], HD, (SD), etc.
 QUALITY_PATTERNS = [
-    # Bracketed quality tags: [4K], [UHD], [FHD], [HD], [SD], [Unknown], [Unk], [Slow], [Dead]
-    r'\[(4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead)\]',
-    r'\[(?:4k|uhd|fhd|hd|sd|unknown|unk|slow|dead)\]',
-
-    # Unbracketed quality tags in middle: " 4K ", " UHD ", " FHD ", " HD ", " SD ", etc.
-    r'\s(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD)\s',
-
-    # Unbracketed quality tags at end: " 4K", " UHD", " FHD", " HD", " SD", etc.
-    r'\s(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD)$',
-
-    # Word boundary quality tags with optional colon: "4K:", "UHD:", "FHD:", "HD:", etc.
-    r'\b(?:4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD):?\s',
-
-    # Parenthesized quality tags: (4K), (UHD), (FHD), (HD), (SD), (Unknown), (Unk), (Slow), (Dead), (Backup)
-    r'\s\((4K|UHD|FHD|HD|SD|Unknown|Unk|Slow|Dead|FD|Backup)\)',
+    # Quality tags in any format: brackets, parentheses, or standalone
+    # These patterns match quality tags at the beginning, middle, or end of names
+    # Matches: [4K], (4K), 4K, [FHD], (FHD), FHD, etc.
+    # Quality keywords list: 4K, 8K, UHD, FHD, HD, SD, FD, Unknown, Unk, Slow, Dead, Backup
+    
+    # Bracketed quality tags: [4K], [UHD], [FHD], [HD], [SD], etc.
+    r'\s*\[(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead|Backup)\]\s*',
+    
+    # Parenthesized quality tags: (4K), (UHD), (FHD), (HD), (SD), etc.
+    r'\s*\((4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead|Backup)\)\s*',
+    
+    # Standalone quality tags at START of string (with word boundary)
+    r'^\s*(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s*',
+    
+    # Standalone quality tags at END of string (with word boundary)
+    r'\s*\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)$',
+    
+    # Standalone quality tags in MIDDLE (with word boundaries on both sides)
+    r'\s+\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s+',
 ]
 
 # Regional indicator patterns: East, West, etc.
@@ -46,21 +51,31 @@ REGIONAL_PATTERNS = [
 
 # Geographic prefix patterns: US:, USA:, etc.
 GEOGRAPHIC_PATTERNS = [
-    # Geographic prefixes
-    r'\bUSA?:\s',  # "US:" or "USA:"
-    r'\bUS\s',     # "US " at word boundary
+    # Country codes in various formats
+    # Matches patterns like: US, USA, FR, UK, CA, DE, etc.
+    # With separators: US:, USA:, |FR|, US -, FR -, etc.
+    
+    # Format: XX: or XXX: (e.g., US:, USA:, FR:, UK:)
+    # This is safe because the colon clearly indicates a prefix
+    r'\b[A-Z]{2,3}:\s*',
+    
+    # Format: XX - or XXX - (e.g., US - , USA - , FR - )
+    # Safe because the dash clearly indicates a separator
+    r'\b[A-Z]{2,3}\s*-\s*',
+    
+    # Format: |XX| or |XXX| (e.g., |US|, |FR|, |UK|)
+    # Safe because pipes clearly indicate a tag
+    r'\|[A-Z]{2,3}\|\s*',
+    
+    # Format: [XX] or [XXX] (e.g., [US], [FR], [UK])
+    # Safe because brackets clearly indicate a tag
+    r'\[[A-Z]{2,3}\]\s*',
 ]
 
 # Miscellaneous patterns: (CX), (Backup), single-letter tags, etc.
 MISC_PATTERNS = [
-    # Single letter tags in parentheses: (A), (B), (C), etc.
-    r'\([A-Z]\)',
-
-    # Special tags
-    r'\s\(CX\)',  # Cinemax tag
-
-    # Backup tags
-    r'\([bB]ackup\)',
+    # Remove ALL content within parentheses (e.g., (CX), (B), (PRIME), (Backup), etc.)
+    r'\s*\([^)]*\)\s*',
 ]
 
 
@@ -293,10 +308,10 @@ class FuzzyMatcher:
         Args:
             name: Name to normalize
             user_ignored_tags: Additional user-configured tags to ignore (list of strings)
-            ignore_quality: If True, remove quality-related patterns (e.g., [4K], HD, (SD))
+            ignore_quality: If True, remove ALL quality indicators in any format (e.g., 4K, [4K], (4K), FHD, [FHD], (FHD), HD, SD, UHD, 8K)
             ignore_regional: If True, remove regional indicator patterns (e.g., East)
-            ignore_geographic: If True, remove geographic prefix patterns (e.g., US:, USA)
-            ignore_misc: If True, remove miscellaneous patterns (e.g., (CX), (Backup), single-letter tags)
+            ignore_geographic: If True, remove ALL country code patterns (e.g., US, USA, US:, |FR|, FR -, [UK])
+            ignore_misc: If True, remove ALL content within parentheses (e.g., (CX), (B), (PRIME), (Backup))
             remove_cinemax: If True, remove "Cinemax" prefix (useful when channel name contains "max")
             remove_country_prefix: If True, remove country code prefixes (e.g., CA:, UK , DE: ) from start of name
 
@@ -309,8 +324,13 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
-        # Remove leading parenthetical prefixes like (SP2), (D1), etc.
-        name = re.sub(r'^\([^\)]+\)\s*', '', name)
+        # Remove ALL leading parenthetical prefixes like (US) (PRIME2), (SP2), (D1), etc.
+        # Loop until no more leading parentheses are found
+        while name.lstrip().startswith('('):
+            new_name = re.sub(r'^\s*\([^\)]+\)\s*', '', name)
+            if new_name == name:  # No change, break to avoid infinite loop
+                break
+            name = new_name
 
         # Remove country code prefix if requested (e.g., "CA:", "UK ", "USA: ")
         # This handles multi-country databases where streams may be prefixed with country codes
@@ -482,8 +502,19 @@ class FuzzyMatcher:
     def process_string_for_matching(self, s):
         """
         Normalize a string for token-sort fuzzy matching.
-        Lowercases, removes punctuation, sorts tokens.
+        Lowercases, removes accents, removes punctuation, sorts tokens.
+        Properly handles Unicode characters (e.g., French accents).
         """
+        # First, normalize Unicode to decomposed form (NFD)
+        # This separates base characters from accent marks
+        # e.g., "é" becomes "e" + combining acute accent
+        s = unicodedata.normalize('NFD', s)
+        
+        # Remove combining characters (accent marks)
+        # Keep only base characters
+        s = ''.join(char for char in s if unicodedata.category(char) != 'Mn')
+        
+        # Convert to lowercase
         s = s.lower()
         
         # Replace non-alphanumeric with space
