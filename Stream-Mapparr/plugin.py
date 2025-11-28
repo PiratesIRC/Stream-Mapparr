@@ -2642,10 +2642,11 @@ class Plugin:
 
             channels_updated = 0
             total_streams_added = 0
-            
-            self._send_progress_update("add_streams_to_channels", 'running', 20, 
+            channels_skipped = 0
+
+            self._send_progress_update("add_streams_to_channels", 'running', 20,
                                       f'Processing {len(channel_groups)} channel groups...', context)
-            
+
             processed_groups = 0
             total_groups = len(channel_groups)
 
@@ -2660,6 +2661,13 @@ class Plugin:
 
                 for channel in channels_to_update:
                     channel_id = channel['id']
+
+                    # Validate that channel exists in database before attempting operations
+                    if not Channel.objects.filter(id=channel_id).exists():
+                        logger.warning(f"[Stream-Mapparr] Skipping channel '{channel['name']}' (ID: {channel_id}) - channel no longer exists in database. Consider reloading channels.")
+                        channels_skipped += 1
+                        continue
+
                     try:
                         if matched_streams:
                             if overwrite_streams:
@@ -2785,11 +2793,14 @@ class Plugin:
                     logger.error(f"[Stream-Mapparr] Failed to create scheduled CSV export: {e}")
 
             self._trigger_frontend_refresh(settings, logger)
-            
+
             # Send final completion notification
             success_msg = f"Updated {channels_updated} channels with {total_streams_added} streams."
+            if channels_skipped > 0:
+                success_msg += f" Skipped {channels_skipped} deleted channel(s)."
+                logger.info(f"[Stream-Mapparr] {success_msg}")
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context)
-            
+
             return {"status": "success", "message": success_msg}
 
         except Exception as e:
