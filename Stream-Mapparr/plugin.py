@@ -864,7 +864,18 @@ class Plugin:
                 raise Exception(f"API endpoint not found: {endpoint}")
 
             response.raise_for_status()
-            json_data = response.json()
+
+            # Check if response has content before trying to parse JSON
+            if not response.text or response.text.strip() == '':
+                logger.warning(f"[Stream-Mapparr] API returned empty response for {endpoint}")
+                return []
+
+            try:
+                json_data = response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"[Stream-Mapparr] Invalid JSON response for {endpoint}: {e}")
+                logger.debug(f"[Stream-Mapparr] Response content: {response.text[:200]}")
+                raise Exception(f"API returned invalid JSON: {e}")
 
             if isinstance(json_data, dict):
                 return json_data.get('results', json_data)
@@ -919,7 +930,18 @@ class Plugin:
                 raise Exception(f"API endpoint not found: {endpoint}")
 
             response.raise_for_status()
-            return response.json()
+
+            # Check if response has content before trying to parse JSON
+            if not response.text or response.text.strip() == '':
+                logger.warning(f"[Stream-Mapparr] API returned empty response for {endpoint}")
+                return {}
+
+            try:
+                return response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"[Stream-Mapparr] Invalid JSON response for {endpoint}: {e}")
+                logger.debug(f"[Stream-Mapparr] Response content: {response.text[:200]}")
+                raise Exception(f"API returned invalid JSON: {e}")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"[Stream-Mapparr] API PATCH request failed for {endpoint}: {e}")
@@ -955,7 +977,18 @@ class Plugin:
                 raise Exception(f"API endpoint not found: {endpoint}")
 
             response.raise_for_status()
-            return response.json()
+
+            # Check if response has content before trying to parse JSON
+            if not response.text or response.text.strip() == '':
+                logger.warning(f"[Stream-Mapparr] API returned empty response for {endpoint}")
+                return {}
+
+            try:
+                return response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"[Stream-Mapparr] Invalid JSON response for {endpoint}: {e}")
+                logger.debug(f"[Stream-Mapparr] Response content: {response.text[:200]}")
+                raise Exception(f"API returned invalid JSON: {e}")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"[Stream-Mapparr] API POST request failed for {endpoint}: {e}")
