@@ -2421,13 +2421,12 @@ class Plugin:
 
     def preview_changes_action(self, settings, logger, context=None):
         """Preview which streams will be added to channels without making changes."""
-        # Auto-load channels if not already loaded
-        if not os.path.exists(self.processed_data_file):
-            logger.info("[Stream-Mapparr] No processed data found, loading channels automatically...")
-            self._send_progress_update("preview_changes", 'running', 0, 'Loading channels and streams...', context)
-            load_result = self.load_process_channels_action(settings, logger, context)
-            if load_result.get('status') != 'success':
-                return load_result
+        # Always reload channels to ensure fresh data
+        logger.info("[Stream-Mapparr] Loading fresh channel and stream data...")
+        self._send_progress_update("preview_changes", 'running', 0, 'Loading channels and streams...', context)
+        load_result = self.load_process_channels_action(settings, logger, context)
+        if load_result.get('status') != 'success':
+            return load_result
 
         try:
             self._send_progress_update("preview_changes", 'running', 5, 'Initializing preview...', context)
@@ -2596,13 +2595,12 @@ class Plugin:
 
     def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
         """Add matching streams to channels and replace existing stream assignments."""
-        # Auto-load channels if not already loaded
-        if not os.path.exists(self.processed_data_file):
-            logger.info("[Stream-Mapparr] No processed data found, loading channels automatically...")
-            self._send_progress_update("add_streams_to_channels", 'running', 0, 'Loading channels and streams...', context)
-            load_result = self.load_process_channels_action(settings, logger, context)
-            if load_result.get('status') != 'success':
-                return load_result
+        # Always reload channels to ensure fresh data
+        logger.info("[Stream-Mapparr] Loading fresh channel and stream data...")
+        self._send_progress_update("add_streams_to_channels", 'running', 0, 'Loading channels and streams...', context)
+        load_result = self.load_process_channels_action(settings, logger, context)
+        if load_result.get('status') != 'success':
+            return load_result
 
         try:
             self._send_progress_update("add_streams_to_channels", 'running', 5, 'Initializing stream assignment...', context)
