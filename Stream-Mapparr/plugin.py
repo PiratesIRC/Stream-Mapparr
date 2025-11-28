@@ -159,6 +159,14 @@ class Plugin:
                 "help_text": "Specific channel groups to process, or leave empty for all groups.",
             },
             {
+                "id": "selected_stream_groups",
+                "label": "📺 Stream Groups (comma-separated)",
+                "type": "string",
+                "default": "",
+                "placeholder": "TVE, Cable, Satellite",
+                "help_text": "Specific stream groups to use when matching, or leave empty for all stream groups. Multiple groups can be specified separated by commas.",
+            },
+            {
                 "id": "ignore_tags",
                 "label": "🏷️ Ignore Tags (comma-separated)",
                 "type": "string",
@@ -1975,6 +1983,8 @@ class Plugin:
             profile_names_str = profile_names_str.strip() if profile_names_str else ""
             selected_groups_str = settings.get("selected_groups") or ""
             selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
+            selected_stream_groups_str = settings.get("selected_stream_groups") or ""
+            selected_stream_groups_str = selected_stream_groups_str.strip() if selected_stream_groups_str else ""
             ignore_tags_str = settings.get("ignore_tags") or ""
             ignore_tags_str = ignore_tags_str.strip() if ignore_tags_str else ""
             visible_channel_limit_str = settings.get("visible_channel_limit", "1")
@@ -2048,6 +2058,44 @@ class Plugin:
                     break
 
             group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
+
+            # Fetch stream groups with rate limiting
+            self._send_progress_update("load_process_channels", 'running', 35, 'Fetching stream groups...', context)
+            all_stream_groups = []
+            page = 1
+            while True:
+                try:
+                    api_stream_groups = self._get_api_data(f"/api/channels/stream-groups/?page={page}", token, settings, logger, limiter=limiter)
+                except Exception as e:
+                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                    if page > 1:
+                        logger.debug(f"[Stream-Mapparr] No more stream group pages available (attempted page {page})")
+                        break
+                    else:
+                        # If error on first page, stream groups might not be available in this API version
+                        logger.warning(f"[Stream-Mapparr] Could not fetch stream groups (API may not support this endpoint): {e}")
+                        break
+
+                if isinstance(api_stream_groups, dict) and 'results' in api_stream_groups:
+                    results = api_stream_groups['results']
+                    if not results:
+                        logger.debug("[Stream-Mapparr] Reached last page of stream groups (empty results)")
+                        break
+                    all_stream_groups.extend(results)
+                    if not api_stream_groups.get('next'):
+                        break
+                    page += 1
+                elif isinstance(api_stream_groups, list):
+                    if not api_stream_groups:
+                        logger.debug("[Stream-Mapparr] Reached last page of stream groups (empty results)")
+                        break
+                    all_stream_groups.extend(api_stream_groups)
+                    break
+                else:
+                    break
+
+            stream_group_name_to_id = {g['name']: g['id'] for g in all_stream_groups if 'name' in g and 'id' in g}
+            logger.info(f"[Stream-Mapparr] Found {len(all_stream_groups)} stream groups")
 
             # Fetch channels with rate limiting
             self._send_progress_update("load_process_channels", 'running', 40, 'Fetching channels...', context)
@@ -2139,6 +2187,24 @@ class Plugin:
                     logger.warning("[Stream-Mapparr] Unexpected streams response format")
                     break
 
+            # Filter streams by selected stream groups
+            if selected_stream_groups_str:
+                selected_stream_groups = [g.strip() for g in selected_stream_groups_str.split(',') if g.strip()]
+                valid_stream_group_ids = [stream_group_name_to_id[name] for name in selected_stream_groups if name in stream_group_name_to_id]
+                if not valid_stream_group_ids:
+                    logger.warning("[Stream-Mapparr] None of the specified stream groups were found. Using all streams.")
+                    selected_stream_groups = []
+                    stream_group_filter_info = " (all stream groups - specified groups not found)"
+                else:
+                    # Filter streams by stream_group_id
+                    filtered_streams = [s for s in all_streams_data if s.get('stream_group_id') in valid_stream_group_ids]
+                    logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on stream groups: {', '.join(selected_stream_groups)}")
+                    all_streams_data = filtered_streams
+                    stream_group_filter_info = f" in stream groups: {', '.join(selected_stream_groups)}"
+            else:
+                selected_stream_groups = []
+                stream_group_filter_info = " (all stream groups)"
+
             self.loaded_channels = channels_to_process
             self.loaded_streams = all_streams_data
 
@@ -2149,6 +2215,7 @@ class Plugin:
                 "profile_id": profile_id,
                 "profile_ids": profile_ids,
                 "selected_groups": selected_groups,
+                "selected_stream_groups": selected_stream_groups,
                 "ignore_tags": ignore_tags,
                 "visible_channel_limit": visible_channel_limit,
                 "ignore_quality": ignore_quality,
@@ -2182,8 +2249,9 @@ class Plugin:
         
         profile_name = processed_data.get('profile_name', 'N/A')
         selected_groups = processed_data.get('selected_groups', [])
+        selected_stream_groups = processed_data.get('selected_stream_groups', [])
         current_threshold = settings.get('fuzzy_match_threshold', 85)
-        
+
         # Build header with all settings except login credentials
         header_lines = [
             f"# Stream-Mapparr Export v{self.version}",
@@ -2191,7 +2259,8 @@ class Plugin:
             "#",
             "# === Profile & Group Settings ===",
             f"# Profile Name(s): {profile_name}",
-            f"# Selected Groups: {', '.join(selected_groups) if selected_groups else '(all groups)'}",
+            f"# Selected Channel Groups: {', '.join(selected_groups) if selected_groups else '(all groups)'}",
+            f"# Selected Stream Groups: {', '.join(selected_stream_groups) if selected_stream_groups else '(all stream groups)'}",
             "#",
             "# === Matching Settings ===",
             f"# Fuzzy Match Threshold: {current_threshold}",
