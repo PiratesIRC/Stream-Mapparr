@@ -1691,13 +1691,30 @@ class Plugin:
                 all_groups = []
                 page = 1
                 while True:
-                    api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger)
+                    try:
+                        api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger)
+                    except Exception as e:
+                        # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                        if page > 1:
+                            logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                            break
+                        else:
+                            # If error on first page, re-raise
+                            raise
+
                     if isinstance(api_groups, dict) and 'results' in api_groups:
-                        all_groups.extend(api_groups['results'])
+                        results = api_groups['results']
+                        if not results:
+                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            break
+                        all_groups.extend(results)
                         if not api_groups.get('next'):
                             break
                         page += 1
                     elif isinstance(api_groups, list):
+                        if not api_groups:
+                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            break
                         all_groups.extend(api_groups)
                         break
                     else:
@@ -2000,15 +2017,34 @@ class Plugin:
             all_groups = []
             page = 1
             while True:
-                api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger, limiter=limiter)
+                try:
+                    api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger, limiter=limiter)
+                except Exception as e:
+                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                    if page > 1:
+                        logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                        break
+                    else:
+                        # If error on first page, re-raise
+                        raise
+
                 if isinstance(api_groups, dict) and 'results' in api_groups:
-                    all_groups.extend(api_groups['results'])
-                    if not api_groups.get('next'): break
+                    results = api_groups['results']
+                    if not results:
+                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        break
+                    all_groups.extend(results)
+                    if not api_groups.get('next'):
+                        break
                     page += 1
                 elif isinstance(api_groups, list):
+                    if not api_groups:
+                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        break
                     all_groups.extend(api_groups)
                     break
-                else: break
+                else:
+                    break
 
             group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
 
@@ -2052,18 +2088,55 @@ class Plugin:
             page = 1
             while True:
                 endpoint = f"/api/channels/streams/?page={page}&page_size=100"
-                streams_response = self._get_api_data(endpoint, token, settings, logger, limiter=limiter)
 
+                try:
+                    streams_response = self._get_api_data(endpoint, token, settings, logger, limiter=limiter)
+                except Exception as e:
+                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                    if page > 1:
+                        logger.info(f"[Stream-Mapparr] No more pages available (attempted page {page})")
+                        break
+                    else:
+                        # If error on first page, re-raise
+                        raise
+
+                # Handle both paginated and non-paginated responses
                 if isinstance(streams_response, dict) and 'results' in streams_response:
                     results = streams_response['results']
+
+                    # Check if we got empty results
+                    if not results:
+                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        break
+
                     all_streams_data.extend(results)
-                    if not streams_response.get('next') or len(results) < 100: break
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(results)} streams (total so far: {len(all_streams_data)})")
+
+                    # Stop if this page had fewer results than page_size (last page)
+                    if len(results) < 100:
+                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        break
+
                     page += 1
                 elif isinstance(streams_response, list):
+                    # Check if we got empty results
+                    if not streams_response:
+                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        break
+
+                    # List response - could still be paginated
                     all_streams_data.extend(streams_response)
-                    if len(streams_response) < 100: break
-                    page += 1
-                else: break
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams_data)})")
+
+                    # If we got exactly 100 results, there might be more pages
+                    if len(streams_response) == 100:
+                        page += 1
+                    else:
+                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        break
+                else:
+                    logger.warning("[Stream-Mapparr] Unexpected streams response format")
+                    break
 
             self.loaded_channels = channels_to_process
             self.loaded_streams = all_streams_data
