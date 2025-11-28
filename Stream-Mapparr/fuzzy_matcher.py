@@ -205,7 +205,7 @@ class FuzzyMatcher:
             self.logger.warning(f"No channel database files found to load")
             return False
 
-        self.logger.info(f"Loading {len(channel_files)} channel database file(s): {[os.path.basename(f) for f in channel_files]}")
+        self.logger.debug(f"Loading {len(channel_files)} channel database file(s): {[os.path.basename(f) for f in channel_files]}")
 
         total_broadcast = 0
         total_premium = 0

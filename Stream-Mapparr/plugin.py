@@ -387,7 +387,7 @@ class Plugin:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
                     self.saved_settings = json.load(f)
-                    LOGGER.info("[Stream-Mapparr] Loaded saved settings")
+                    LOGGER.debug("[Stream-Mapparr] Loaded saved settings")
                     # Start background scheduler with loaded settings
                     self._start_background_scheduler(self.saved_settings)
             else:
@@ -411,7 +411,7 @@ class Plugin:
         try:
             scheduled_times_str = settings.get("scheduled_times") or ""
             scheduled_times_str = scheduled_times_str.strip() if scheduled_times_str else ""
-            logger.info(f"[Stream-Mapparr] Update Schedule - scheduled_times value: '{scheduled_times_str}'")
+            logger.debug(f"[Stream-Mapparr] Update Schedule - scheduled_times value: '{scheduled_times_str}'")
 
             # Save settings to disk
             self._save_settings(settings)
@@ -738,7 +738,7 @@ class Plugin:
     def get_or_refresh_api_token(self, settings, logger):
         """Get API token from cache or refresh if expired."""
         if self.api_token and self.token_expiration and self.token_expiration > datetime.now():
-            logger.info("[Stream-Mapparr] Using cached API token.")
+            logger.debug("[Stream-Mapparr] Using cached API token.")
             return self.api_token, None
 
         logger.debug("[Stream-Mapparr] API token is expired or not found, getting a new one.")
@@ -869,7 +869,7 @@ class Plugin:
 
         try:
             if limiter: limiter.wait()
-            logger.info(f"[Stream-Mapparr] Making API PATCH request to: {endpoint}")
+            logger.debug(f"[Stream-Mapparr] Making API PATCH request to: {endpoint}")
             response = requests.patch(url, headers=headers, json=payload, timeout=60)
 
             # --- Smart Rate Limiter Logic ---
@@ -917,7 +917,7 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
         try:
-            logger.info(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
+            logger.debug(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
 
             if response.status_code == 401:
@@ -961,7 +961,7 @@ class Plugin:
                         "message": "Channel visibility updated by Event Channel Managarr"
                     }
                 )
-                logger.info("[Stream-Mapparr] Frontend refresh triggered via WebSocket")
+                logger.debug("[Stream-Mapparr] Frontend refresh triggered via WebSocket")
                 return True
         except Exception as e:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
@@ -1518,7 +1518,7 @@ class Plugin:
     def save_settings(self, settings, context):
         """Save settings and sync schedules automatically"""
         try:
-            LOGGER.info(f"[Stream-Mapparr] Saving settings with keys: {list(settings.keys())}")
+            LOGGER.debug(f"[Stream-Mapparr] Saving settings with keys: {list(settings.keys())}")
 
             # Get timezone and schedule settings
             user_timezone = settings.get("timezone") or "US/Central"
@@ -1529,7 +1529,7 @@ class Plugin:
             cron_schedule = settings.get("schedule_cron") or ""
             cron_schedule = cron_schedule.strip() if cron_schedule else ""
 
-            LOGGER.info(f"[Stream-Mapparr] Schedule settings: enabled={enabled}, cron='{cron_schedule}', tz={user_timezone}")
+            LOGGER.debug(f"[Stream-Mapparr] Schedule settings: enabled={enabled}, cron='{cron_schedule}', tz={user_timezone}")
 
             # Sync the schedule
             if enabled and cron_schedule:
@@ -1697,7 +1697,7 @@ class Plugin:
                     except Exception as e:
                         # If we get an error (e.g., 404 for non-existent page), we've reached the end
                         if page > 1:
-                            logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                            logger.debug(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
                             break
                         else:
                             # If error on first page, re-raise
@@ -1706,7 +1706,7 @@ class Plugin:
                     if isinstance(api_groups, dict) and 'results' in api_groups:
                         results = api_groups['results']
                         if not results:
-                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                             break
                         all_groups.extend(results)
                         if not api_groups.get('next'):
@@ -1714,7 +1714,7 @@ class Plugin:
                         page += 1
                     elif isinstance(api_groups, list):
                         if not api_groups:
-                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                             break
                         all_groups.extend(api_groups)
                         break
@@ -1818,7 +1818,7 @@ class Plugin:
             cron_schedule = settings.get("schedule_cron") or ""
             cron_schedule = cron_schedule.strip() if cron_schedule else ""
 
-            logger.info(f"[Stream-Mapparr] Syncing schedule: enabled={enabled}, schedule='{cron_schedule}', tz={user_timezone}")
+            logger.debug(f"[Stream-Mapparr] Syncing schedule: enabled={enabled}, schedule='{cron_schedule}', tz={user_timezone}")
 
             if enabled and cron_schedule:
                 if not self._validate_cron(cron_schedule):
@@ -1852,7 +1852,7 @@ class Plugin:
         """View active schedule"""
         try:
             user_timezone = settings.get("timezone", "America/Chicago")
-            logger.info(f"[Stream-Mapparr] Viewing schedules with timezone: {user_timezone}")
+            logger.debug(f"[Stream-Mapparr] Viewing schedules with timezone: {user_timezone}")
 
             task_name = "stream_mapparr_scheduled_task"
             task = PeriodicTask.objects.filter(name=task_name, enabled=True).first()
@@ -2023,7 +2023,7 @@ class Plugin:
                 except Exception as e:
                     # If we get an error (e.g., 404 for non-existent page), we've reached the end
                     if page > 1:
-                        logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                        logger.debug(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
                         break
                     else:
                         # If error on first page, re-raise
@@ -2032,7 +2032,7 @@ class Plugin:
                 if isinstance(api_groups, dict) and 'results' in api_groups:
                     results = api_groups['results']
                     if not results:
-                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                         break
                     all_groups.extend(results)
                     if not api_groups.get('next'):
@@ -2040,7 +2040,7 @@ class Plugin:
                     page += 1
                 elif isinstance(api_groups, list):
                     if not api_groups:
-                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                         break
                     all_groups.extend(api_groups)
                     break
@@ -2095,7 +2095,7 @@ class Plugin:
                 except Exception as e:
                     # If we get an error (e.g., 404 for non-existent page), we've reached the end
                     if page > 1:
-                        logger.info(f"[Stream-Mapparr] No more pages available (attempted page {page})")
+                        logger.debug(f"[Stream-Mapparr] No more pages available (attempted page {page})")
                         break
                     else:
                         # If error on first page, re-raise
@@ -2107,7 +2107,7 @@ class Plugin:
 
                     # Check if we got empty results
                     if not results:
-                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
                         break
 
                     all_streams_data.extend(results)
@@ -2115,14 +2115,14 @@ class Plugin:
 
                     # Stop if this page had fewer results than page_size (last page)
                     if len(results) < 100:
-                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
                         break
 
                     page += 1
                 elif isinstance(streams_response, list):
                     # Check if we got empty results
                     if not streams_response:
-                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
                         break
 
                     # List response - could still be paginated
@@ -2133,7 +2133,7 @@ class Plugin:
                     if len(streams_response) == 100:
                         page += 1
                     else:
-                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
                         break
                 else:
                     logger.warning("[Stream-Mapparr] Unexpected streams response format")
