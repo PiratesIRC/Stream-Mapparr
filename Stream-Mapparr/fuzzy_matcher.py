@@ -115,7 +115,7 @@ class FuzzyMatcher:
             self.logger.warning(f"No *_channels.json files found in {self.plugin_dir}")
             return False
         
-        self.logger.info(f"Found {len(channel_files)} channel database file(s): {[os.path.basename(f) for f in channel_files]}")
+        self.logger.debug(f"Found {len(channel_files)} channel database file(s): {[os.path.basename(f) for f in channel_files]}")
         
         total_broadcast = 0
         total_premium = 0
@@ -158,12 +158,12 @@ class FuzzyMatcher:
                 total_broadcast += file_broadcast
                 total_premium += file_premium
                 
-                self.logger.info(f"Loaded from {os.path.basename(channel_file)}: {file_broadcast} broadcast, {file_premium} premium channels")
+                self.logger.debug(f"Loaded from {os.path.basename(channel_file)}: {file_broadcast} broadcast, {file_premium} premium channels")
                 
             except Exception as e:
                 self.logger.error(f"Error loading {channel_file}: {e}")
         
-        self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
+        self.logger.debug(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
         return True
 
     def reload_databases(self, country_codes=None):
@@ -248,12 +248,12 @@ class FuzzyMatcher:
                 total_broadcast += file_broadcast
                 total_premium += file_premium
 
-                self.logger.info(f"Loaded from {os.path.basename(channel_file)}: {file_broadcast} broadcast, {file_premium} premium channels")
+                self.logger.debug(f"Loaded from {os.path.basename(channel_file)}: {file_broadcast} broadcast, {file_premium} premium channels")
 
             except Exception as e:
                 self.logger.error(f"Error loading {channel_file}: {e}")
 
-        self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
+        self.logger.debug(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
         return True
 
     def extract_callsign(self, channel_name):
