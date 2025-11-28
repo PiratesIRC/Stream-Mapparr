@@ -387,7 +387,7 @@ class Plugin:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
                     self.saved_settings = json.load(f)
-                    LOGGER.info("[Stream-Mapparr] Loaded saved settings")
+                    LOGGER.debug("[Stream-Mapparr] Loaded saved settings")
                     # Start background scheduler with loaded settings
                     self._start_background_scheduler(self.saved_settings)
             else:
@@ -411,7 +411,7 @@ class Plugin:
         try:
             scheduled_times_str = settings.get("scheduled_times") or ""
             scheduled_times_str = scheduled_times_str.strip() if scheduled_times_str else ""
-            logger.info(f"[Stream-Mapparr] Update Schedule - scheduled_times value: '{scheduled_times_str}'")
+            logger.debug(f"[Stream-Mapparr] Update Schedule - scheduled_times value: '{scheduled_times_str}'")
 
             # Save settings to disk
             self._save_settings(settings)
@@ -730,7 +730,7 @@ class Plugin:
                     match_threshold=match_threshold,
                     logger=LOGGER
                 )
-                LOGGER.info(f"[Stream-Mapparr] Initialized FuzzyMatcher with threshold: {match_threshold}")
+                LOGGER.debug(f"[Stream-Mapparr] Initialized FuzzyMatcher with threshold: {match_threshold}")
             except Exception as e:
                 LOGGER.warning(f"[Stream-Mapparr] Failed to initialize FuzzyMatcher: {e}")
                 self.fuzzy_matcher = None
@@ -738,15 +738,15 @@ class Plugin:
     def get_or_refresh_api_token(self, settings, logger):
         """Get API token from cache or refresh if expired."""
         if self.api_token and self.token_expiration and self.token_expiration > datetime.now():
-            logger.info("[Stream-Mapparr] Using cached API token.")
+            logger.debug("[Stream-Mapparr] Using cached API token.")
             return self.api_token, None
 
-        logger.info("[Stream-Mapparr] API token is expired or not found, getting a new one.")
+        logger.debug("[Stream-Mapparr] API token is expired or not found, getting a new one.")
         token, error = self._get_api_token(settings, logger)
         if token:
             self.api_token = token
             self.token_expiration = datetime.now() + timedelta(minutes=30)
-            logger.info("[Stream-Mapparr] API token cached for 30 minutes.")
+            logger.debug("[Stream-Mapparr] API token cached for 30 minutes.")
 
         return token, error
 
@@ -764,7 +764,7 @@ class Plugin:
             url = f"{dispatcharr_url}/api/accounts/token/"
             payload = {"username": username, "password": password}
 
-            logger.info(f"[Stream-Mapparr] Attempting to authenticate with Dispatcharr at: {url}")
+            logger.debug(f"[Stream-Mapparr] Attempting to authenticate with Dispatcharr at: {url}")
             response = requests.post(url, json=payload, timeout=15)
 
             if response.status_code == 401:
@@ -785,7 +785,7 @@ class Plugin:
                 logger.error("[Stream-Mapparr] No access token returned from API")
                 return None, "Login successful, but no access token was returned by the API."
 
-            logger.info("[Stream-Mapparr] Successfully obtained API access token")
+            logger.debug("[Stream-Mapparr] Successfully obtained API access token")
             return access_token, None
 
         except requests.exceptions.ConnectionError as e:
@@ -869,7 +869,7 @@ class Plugin:
 
         try:
             if limiter: limiter.wait()
-            logger.info(f"[Stream-Mapparr] Making API PATCH request to: {endpoint}")
+            logger.debug(f"[Stream-Mapparr] Making API PATCH request to: {endpoint}")
             response = requests.patch(url, headers=headers, json=payload, timeout=60)
 
             # --- Smart Rate Limiter Logic ---
@@ -917,7 +917,7 @@ class Plugin:
         headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
         try:
-            logger.info(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
+            logger.debug(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
 
             if response.status_code == 401:
@@ -961,7 +961,7 @@ class Plugin:
                         "message": "Channel visibility updated by Event Channel Managarr"
                     }
                 )
-                logger.info("[Stream-Mapparr] Frontend refresh triggered via WebSocket")
+                logger.debug("[Stream-Mapparr] Frontend refresh triggered via WebSocket")
                 return True
         except Exception as e:
             logger.warning(f"[Stream-Mapparr] Could not trigger frontend refresh: {e}")
@@ -1160,12 +1160,13 @@ class Plugin:
                         continue
 
                     channels_data.extend(channels_list)
-                    logger.info(f"[Stream-Mapparr] Loaded {len(channels_list)} channels from {db_label}")
+                    logger.debug(f"[Stream-Mapparr] Loaded {len(channels_list)} channels from {db_label}")
 
                 except Exception as e:
                     logger.error(f"[Stream-Mapparr] Error loading {channel_file}: {e}")
 
-            logger.info(f"[Stream-Mapparr] Loaded total of {len(channels_data)} channels from {len(enabled_databases)} enabled database(s)")
+            db_names = [db_info['label'] for db_info in enabled_databases]
+            logger.info(f"[Stream-Mapparr] Loaded total of {len(channels_data)} channels from {len(enabled_databases)} enabled database(s): {', '.join(db_names)}")
 
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error loading channel data files: {e}")
@@ -1496,7 +1497,7 @@ class Plugin:
             if not is_success:
                 notification_data['error'] = message
             
-            LOGGER.info(f"[Stream-Mapparr] Sending notification: {action_id} ({'success' if is_success else 'error'}) - {message}")
+            LOGGER.debug(f"[Stream-Mapparr] Sending notification: {action_id} ({'success' if is_success else 'error'}) - {message}")
             send_websocket_update('updates', 'update', notification_data)
             
         except Exception as e:
@@ -1517,7 +1518,7 @@ class Plugin:
     def save_settings(self, settings, context):
         """Save settings and sync schedules automatically"""
         try:
-            LOGGER.info(f"[Stream-Mapparr] Saving settings with keys: {list(settings.keys())}")
+            LOGGER.debug(f"[Stream-Mapparr] Saving settings with keys: {list(settings.keys())}")
 
             # Get timezone and schedule settings
             user_timezone = settings.get("timezone") or "US/Central"
@@ -1528,7 +1529,7 @@ class Plugin:
             cron_schedule = settings.get("schedule_cron") or ""
             cron_schedule = cron_schedule.strip() if cron_schedule else ""
 
-            LOGGER.info(f"[Stream-Mapparr] Schedule settings: enabled={enabled}, cron='{cron_schedule}', tz={user_timezone}")
+            LOGGER.debug(f"[Stream-Mapparr] Schedule settings: enabled={enabled}, cron='{cron_schedule}', tz={user_timezone}")
 
             # Sync the schedule
             if enabled and cron_schedule:
@@ -1639,7 +1640,7 @@ class Plugin:
 
         try:
             # 1. Validate API connection and obtain token
-            logger.info("[Stream-Mapparr] Validating API connection...")
+            logger.debug("[Stream-Mapparr] Validating API connection...")
             token, error = self.get_or_refresh_api_token(settings, logger)
             if error:
                 validation_results.append(f"❌ API Connection: {error}")
@@ -1649,7 +1650,7 @@ class Plugin:
                 validation_results.append("✅ API Connection")
 
             # 2. Validate profile name exists
-            logger.info("[Stream-Mapparr] Validating profile names...")
+            logger.debug("[Stream-Mapparr] Validating profile names...")
             profile_names_str = settings.get("profile_name") or ""
             profile_names_str = profile_names_str.strip() if profile_names_str else ""
             if not profile_names_str:
@@ -1679,7 +1680,7 @@ class Plugin:
                     validation_results.append(f"✅ Profile Name ({len(found_profiles)})")
 
             # 3. Validate channel groups (if specified)
-            logger.info("[Stream-Mapparr] Validating channel groups...")
+            logger.debug("[Stream-Mapparr] Validating channel groups...")
             selected_groups_str = settings.get("selected_groups") or ""
             selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
             
@@ -1696,7 +1697,7 @@ class Plugin:
                     except Exception as e:
                         # If we get an error (e.g., 404 for non-existent page), we've reached the end
                         if page > 1:
-                            logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                            logger.debug(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
                             break
                         else:
                             # If error on first page, re-raise
@@ -1705,7 +1706,7 @@ class Plugin:
                     if isinstance(api_groups, dict) and 'results' in api_groups:
                         results = api_groups['results']
                         if not results:
-                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                             break
                         all_groups.extend(results)
                         if not api_groups.get('next'):
@@ -1713,7 +1714,7 @@ class Plugin:
                         page += 1
                     elif isinstance(api_groups, list):
                         if not api_groups:
-                            logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                            logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                             break
                         all_groups.extend(api_groups)
                         break
@@ -1740,7 +1741,7 @@ class Plugin:
                 validation_results.append("✅ Channel Groups (all)")
 
             # 4. Validate timezone is not empty
-            logger.info("[Stream-Mapparr] Validating timezone...")
+            logger.debug("[Stream-Mapparr] Validating timezone...")
             timezone_str = settings.get("timezone") or "US/Central"
             timezone_str = timezone_str.strip() if timezone_str else "US/Central"
             if not timezone_str:
@@ -1757,7 +1758,7 @@ class Plugin:
                     has_errors = True
 
             # 5. Validate at least one channel database is checked
-            logger.info("[Stream-Mapparr] Validating channel databases...")
+            logger.debug("[Stream-Mapparr] Validating channel databases...")
             databases = self._get_channel_databases()
             
             if not databases:
@@ -1817,7 +1818,7 @@ class Plugin:
             cron_schedule = settings.get("schedule_cron") or ""
             cron_schedule = cron_schedule.strip() if cron_schedule else ""
 
-            logger.info(f"[Stream-Mapparr] Syncing schedule: enabled={enabled}, schedule='{cron_schedule}', tz={user_timezone}")
+            logger.debug(f"[Stream-Mapparr] Syncing schedule: enabled={enabled}, schedule='{cron_schedule}', tz={user_timezone}")
 
             if enabled and cron_schedule:
                 if not self._validate_cron(cron_schedule):
@@ -1851,7 +1852,7 @@ class Plugin:
         """View active schedule"""
         try:
             user_timezone = settings.get("timezone", "America/Chicago")
-            logger.info(f"[Stream-Mapparr] Viewing schedules with timezone: {user_timezone}")
+            logger.debug(f"[Stream-Mapparr] Viewing schedules with timezone: {user_timezone}")
 
             task_name = "stream_mapparr_scheduled_task"
             task = PeriodicTask.objects.filter(name=task_name, enabled=True).first()
@@ -1961,7 +1962,7 @@ class Plugin:
             limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
 
             self._send_progress_update("load_process_channels", 'running', 5, 'Validating settings...', context)
-            logger.info("[Stream-Mapparr] Validating settings before loading channels...")
+            logger.debug("[Stream-Mapparr] Validating settings before loading channels...")
             has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
 
             if has_errors:
@@ -2022,7 +2023,7 @@ class Plugin:
                 except Exception as e:
                     # If we get an error (e.g., 404 for non-existent page), we've reached the end
                     if page > 1:
-                        logger.info(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                        logger.debug(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
                         break
                     else:
                         # If error on first page, re-raise
@@ -2031,7 +2032,7 @@ class Plugin:
                 if isinstance(api_groups, dict) and 'results' in api_groups:
                     results = api_groups['results']
                     if not results:
-                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                         break
                     all_groups.extend(results)
                     if not api_groups.get('next'):
@@ -2039,7 +2040,7 @@ class Plugin:
                     page += 1
                 elif isinstance(api_groups, list):
                     if not api_groups:
-                        logger.info("[Stream-Mapparr] Reached last page of groups (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of groups (empty results)")
                         break
                     all_groups.extend(api_groups)
                     break
@@ -2094,7 +2095,7 @@ class Plugin:
                 except Exception as e:
                     # If we get an error (e.g., 404 for non-existent page), we've reached the end
                     if page > 1:
-                        logger.info(f"[Stream-Mapparr] No more pages available (attempted page {page})")
+                        logger.debug(f"[Stream-Mapparr] No more pages available (attempted page {page})")
                         break
                     else:
                         # If error on first page, re-raise
@@ -2106,7 +2107,7 @@ class Plugin:
 
                     # Check if we got empty results
                     if not results:
-                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
                         break
 
                     all_streams_data.extend(results)
@@ -2114,14 +2115,14 @@ class Plugin:
 
                     # Stop if this page had fewer results than page_size (last page)
                     if len(results) < 100:
-                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
                         break
 
                     page += 1
                 elif isinstance(streams_response, list):
                     # Check if we got empty results
                     if not streams_response:
-                        logger.info("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
                         break
 
                     # List response - could still be paginated
@@ -2132,7 +2133,7 @@ class Plugin:
                     if len(streams_response) == 100:
                         page += 1
                     else:
-                        logger.info("[Stream-Mapparr] Reached last page of streams")
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
                         break
                 else:
                     logger.warning("[Stream-Mapparr] Unexpected streams response format")
@@ -2177,7 +2178,7 @@ class Plugin:
     def _generate_csv_header_comment(self, settings, processed_data, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
-        LOGGER.info(f"[Stream-Mapparr] CSV generation - All settings keys: {list(settings.keys())}")
+        LOGGER.debug(f"[Stream-Mapparr] CSV generation - All settings keys: {list(settings.keys())}")
         
         profile_name = processed_data.get('profile_name', 'N/A')
         selected_groups = processed_data.get('selected_groups', [])
@@ -2421,13 +2422,12 @@ class Plugin:
 
     def preview_changes_action(self, settings, logger, context=None):
         """Preview which streams will be added to channels without making changes."""
-        # Auto-load channels if not already loaded
-        if not os.path.exists(self.processed_data_file):
-            logger.info("[Stream-Mapparr] No processed data found, loading channels automatically...")
-            self._send_progress_update("preview_changes", 'running', 0, 'Loading channels and streams...', context)
-            load_result = self.load_process_channels_action(settings, logger, context)
-            if load_result.get('status') != 'success':
-                return load_result
+        # Always reload channels to ensure fresh data
+        logger.info("[Stream-Mapparr] Loading fresh channel and stream data...")
+        self._send_progress_update("preview_changes", 'running', 0, 'Loading channels and streams...', context)
+        load_result = self.load_process_channels_action(settings, logger, context)
+        if load_result.get('status') != 'success':
+            return load_result
 
         try:
             self._send_progress_update("preview_changes", 'running', 5, 'Initializing preview...', context)
@@ -2474,10 +2474,11 @@ class Plugin:
                 current_threshold = 85
 
             self._send_progress_update("preview_changes", 'running', 30, f'Analyzing {len(channel_groups)} channel groups...', context)
-            
+
             processed_groups = 0
             total_groups = len(channel_groups)
-            
+            group_stats = {}  # Track stats for each group
+
             for group_key, group_channels in channel_groups.items():
                 limiter.wait()
                 
@@ -2494,6 +2495,12 @@ class Plugin:
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data
                 )
+
+                # Track group stats
+                group_stats[group_key] = {
+                    'channel_count': len(group_channels),
+                    'stream_count': len(matched_streams)
+                }
 
                 channels_to_update = sorted_channels[:visible_channel_limit]
                 channels_not_updated = sorted_channels[visible_channel_limit:]
@@ -2562,6 +2569,13 @@ class Plugin:
                         "is_current": True
                     })
 
+            # Log channel group statistics
+            logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
+            for group_key, stats in list(group_stats.items())[:10]:  # Log first 10 groups
+                logger.info(f"[Stream-Mapparr]   - Group '{group_key}': {stats['channel_count']} channel(s), {stats['stream_count']} matched stream(s)")
+            if len(channel_groups) > 10:
+                logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
+
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
@@ -2596,13 +2610,12 @@ class Plugin:
 
     def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
         """Add matching streams to channels and replace existing stream assignments."""
-        # Auto-load channels if not already loaded
-        if not os.path.exists(self.processed_data_file):
-            logger.info("[Stream-Mapparr] No processed data found, loading channels automatically...")
-            self._send_progress_update("add_streams_to_channels", 'running', 0, 'Loading channels and streams...', context)
-            load_result = self.load_process_channels_action(settings, logger, context)
-            if load_result.get('status') != 'success':
-                return load_result
+        # Always reload channels to ensure fresh data
+        logger.info("[Stream-Mapparr] Loading fresh channel and stream data...")
+        self._send_progress_update("add_streams_to_channels", 'running', 0, 'Loading channels and streams...', context)
+        load_result = self.load_process_channels_action(settings, logger, context)
+        if load_result.get('status') != 'success':
+            return load_result
 
         try:
             self._send_progress_update("add_streams_to_channels", 'running', 5, 'Initializing stream assignment...', context)
@@ -2649,6 +2662,7 @@ class Plugin:
 
             processed_groups = 0
             total_groups = len(channel_groups)
+            group_stats = {}  # Track stats for each group
 
             for group_key, group_channels in channel_groups.items():
                 limiter.wait() # Rate limit processing
@@ -2656,6 +2670,12 @@ class Plugin:
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data
                 )
+
+                # Track group stats
+                group_stats[group_key] = {
+                    'channel_count': len(group_channels),
+                    'stream_count': len(matched_streams)
+                }
 
                 channels_to_update = sorted_channels[:visible_channel_limit]
 
@@ -2692,8 +2712,15 @@ class Plugin:
                 processed_groups += 1
                 progress = 20 + int((processed_groups / total_groups) * 60)  # 20-80%
                 if processed_groups % max(1, total_groups // 10) == 0:  # Update every 10%
-                    self._send_progress_update("add_streams_to_channels", 'running', progress, 
+                    self._send_progress_update("add_streams_to_channels", 'running', progress,
                                               f'Updated {channels_updated} channels so far...', context)
+
+            # Log channel group statistics
+            logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
+            for group_key, stats in list(group_stats.items())[:10]:  # Log first 10 groups
+                logger.info(f"[Stream-Mapparr]   - Group '{group_key}': {stats['channel_count']} channel(s), {stats['stream_count']} matched stream(s)")
+            if len(channel_groups) > 10:
+                logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
 
             # CSV Export - create if setting is enabled
             # Default to True if setting doesn't exist (matches field default)
