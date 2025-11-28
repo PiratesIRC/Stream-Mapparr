@@ -167,6 +167,14 @@ class Plugin:
                 "help_text": "Specific stream groups to use when matching, or leave empty for all stream groups. Multiple groups can be specified separated by commas.",
             },
             {
+                "id": "selected_m3us",
+                "label": "📡 M3U Sources (comma-separated)",
+                "type": "string",
+                "default": "",
+                "placeholder": "IPTV Provider 1, Local M3U, Sports",
+                "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas.",
+            },
+            {
                 "id": "ignore_tags",
                 "label": "🏷️ Ignore Tags (comma-separated)",
                 "type": "string",
@@ -1985,6 +1993,8 @@ class Plugin:
             selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
             selected_stream_groups_str = settings.get("selected_stream_groups") or ""
             selected_stream_groups_str = selected_stream_groups_str.strip() if selected_stream_groups_str else ""
+            selected_m3us_str = settings.get("selected_m3us") or ""
+            selected_m3us_str = selected_m3us_str.strip() if selected_m3us_str else ""
             ignore_tags_str = settings.get("ignore_tags") or ""
             ignore_tags_str = ignore_tags_str.strip() if ignore_tags_str else ""
             visible_channel_limit_str = settings.get("visible_channel_limit", "1")
@@ -2097,6 +2107,44 @@ class Plugin:
             stream_group_name_to_id = {g['name']: g['id'] for g in all_stream_groups if 'name' in g and 'id' in g}
             logger.info(f"[Stream-Mapparr] Found {len(all_stream_groups)} stream groups")
 
+            # Fetch M3U sources with rate limiting
+            self._send_progress_update("load_process_channels", 'running', 37, 'Fetching M3U sources...', context)
+            all_m3us = []
+            page = 1
+            while True:
+                try:
+                    api_m3us = self._get_api_data(f"/api/channels/m3us/?page={page}", token, settings, logger, limiter=limiter)
+                except Exception as e:
+                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                    if page > 1:
+                        logger.debug(f"[Stream-Mapparr] No more M3U pages available (attempted page {page})")
+                        break
+                    else:
+                        # If error on first page, M3Us might not be available in this API version
+                        logger.warning(f"[Stream-Mapparr] Could not fetch M3U sources (API may not support this endpoint): {e}")
+                        break
+
+                if isinstance(api_m3us, dict) and 'results' in api_m3us:
+                    results = api_m3us['results']
+                    if not results:
+                        logger.debug("[Stream-Mapparr] Reached last page of M3Us (empty results)")
+                        break
+                    all_m3us.extend(results)
+                    if not api_m3us.get('next'):
+                        break
+                    page += 1
+                elif isinstance(api_m3us, list):
+                    if not api_m3us:
+                        logger.debug("[Stream-Mapparr] Reached last page of M3Us (empty results)")
+                        break
+                    all_m3us.extend(api_m3us)
+                    break
+                else:
+                    break
+
+            m3u_name_to_id = {m['name']: m['id'] for m in all_m3us if 'name' in m and 'id' in m}
+            logger.info(f"[Stream-Mapparr] Found {len(all_m3us)} M3U sources")
+
             # Fetch channels with rate limiting
             self._send_progress_update("load_process_channels", 'running', 40, 'Fetching channels...', context)
             all_channels = self._get_api_data("/api/channels/channels/", token, settings, logger, limiter=limiter)
@@ -2205,6 +2253,24 @@ class Plugin:
                 selected_stream_groups = []
                 stream_group_filter_info = " (all stream groups)"
 
+            # Filter streams by selected M3U sources
+            if selected_m3us_str:
+                selected_m3us = [m.strip() for m in selected_m3us_str.split(',') if m.strip()]
+                valid_m3u_ids = [m3u_name_to_id[name] for name in selected_m3us if name in m3u_name_to_id]
+                if not valid_m3u_ids:
+                    logger.warning("[Stream-Mapparr] None of the specified M3U sources were found. Using all streams.")
+                    selected_m3us = []
+                    m3u_filter_info = " (all M3U sources - specified M3Us not found)"
+                else:
+                    # Filter streams by m3u_id
+                    filtered_streams = [s for s in all_streams_data if s.get('m3u_id') in valid_m3u_ids]
+                    logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on M3U sources: {', '.join(selected_m3us)}")
+                    all_streams_data = filtered_streams
+                    m3u_filter_info = f" in M3U sources: {', '.join(selected_m3us)}"
+            else:
+                selected_m3us = []
+                m3u_filter_info = " (all M3U sources)"
+
             self.loaded_channels = channels_to_process
             self.loaded_streams = all_streams_data
 
@@ -2216,6 +2282,7 @@ class Plugin:
                 "profile_ids": profile_ids,
                 "selected_groups": selected_groups,
                 "selected_stream_groups": selected_stream_groups,
+                "selected_m3us": selected_m3us,
                 "ignore_tags": ignore_tags,
                 "visible_channel_limit": visible_channel_limit,
                 "ignore_quality": ignore_quality,
@@ -2250,6 +2317,7 @@ class Plugin:
         profile_name = processed_data.get('profile_name', 'N/A')
         selected_groups = processed_data.get('selected_groups', [])
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
+        selected_m3us = processed_data.get('selected_m3us', [])
         current_threshold = settings.get('fuzzy_match_threshold', 85)
 
         # Build header with all settings except login credentials
@@ -2261,6 +2329,7 @@ class Plugin:
             f"# Profile Name(s): {profile_name}",
             f"# Selected Channel Groups: {', '.join(selected_groups) if selected_groups else '(all groups)'}",
             f"# Selected Stream Groups: {', '.join(selected_stream_groups) if selected_stream_groups else '(all stream groups)'}",
+            f"# Selected M3U Sources: {', '.join(selected_m3us) if selected_m3us else '(all M3U sources)'}",
             "#",
             "# === Matching Settings ===",
             f"# Fuzzy Match Threshold: {current_threshold}",
