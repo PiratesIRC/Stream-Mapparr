@@ -10,7 +10,6 @@
 ![Last Commit](https://img.shields.io/github/last-commit/PiratesIRC/Stream-Mapparr)
 ![License](https://img.shields.io/github/license/PiratesIRC/Stream-Mapparr)
 
-
 A Dispatcharr plugin that automatically matches and assigns streams to channels based on advanced fuzzy matching, quality prioritization, and OTA callsign recognition.
 
 ## Recommendation
