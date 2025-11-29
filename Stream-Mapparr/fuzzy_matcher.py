@@ -12,7 +12,7 @@ import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "24.332.1600"
+__version__ = "25.333.1800"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -398,9 +398,9 @@ class FuzzyMatcher:
         # Clean up whitespace
         name = re.sub(r'\s+', ' ', name).strip()
 
-        # Log warning if normalization resulted in empty string (indicates overly aggressive stripping)
+        # Log debug message if normalization resulted in empty string (indicates overly aggressive stripping)
         if not name:
-            self.logger.warning(f"normalize_name returned empty string for input: '{original_name}' (original input was stripped too aggressively)")
+            self.logger.debug(f"normalize_name returned empty string for input: '{original_name}' (original input was stripped too aggressively)")
 
         return name
     
