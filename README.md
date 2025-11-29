@@ -4,7 +4,8 @@
 [![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/PiratesIRC/Stream-Mapparr?include_prereleases&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 ![License](https://img.shields.io/github/license/PiratesIRC/Stream-Mapparr)
-[![Issues](https://img.shields.io/github/issues/PiratesIRC/Stream-Mapparr)](https://github.com/PiratesIRC/Stream-Mapparr/issues) [![PRs](https://img.shields.io/github/issues-pr/PiratesIRC/Stream-Mapparr)](https://github.com/PiratesIRC/Stream-Mapparr/pulls)
+![Static Badge](https://img.shields.io/badge/Dispatcharr%20plugin)
+
 
 A Dispatcharr plugin that automatically matches and assigns streams to channels based on advanced fuzzy matching, quality prioritization, and OTA callsign recognition.
 
