@@ -118,8 +118,8 @@ class Plugin:
                 "id": "fuzzy_match_threshold",
                 "label": "🎯 Fuzzy Match Threshold",
                 "type": "number",
-                "default": 85,
-                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
+                "default": 65,
+                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 65",
             },
             {
                 "id": "dispatcharr_url",
@@ -227,7 +227,7 @@ class Plugin:
                     {"label": "Medium (Standard)", "value": "medium"},
                     {"label": "High (Slow)", "value": "high"},
                 ],
-                "default": "medium",
+                "default": "none",
                 "help_text": "Controls delay between API calls. None=No delays, Low=Fast/Aggressive, Medium=Standard, High=Slow/Safe.",
             },
             {
@@ -1619,7 +1619,7 @@ class Plugin:
                     settings = context['settings']
 
             # Initialize fuzzy matcher with configured threshold
-            match_threshold = settings.get("fuzzy_match_threshold", 85)
+            match_threshold = settings.get("fuzzy_match_threshold", 65)
             try:
                 match_threshold = int(match_threshold)
             except (ValueError, TypeError):
@@ -2008,7 +2008,7 @@ class Plugin:
         """Load and process channels from specified profile and groups."""
         try:
             # Create the rate limiter instance once
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
 
             self._send_progress_update("load_process_channels", 'running', 5, 'Validating settings...', context)
             logger.debug("[Stream-Mapparr] Validating settings before loading channels...")
@@ -2305,7 +2305,7 @@ class Plugin:
         selected_groups = processed_data.get('selected_groups', [])
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
         selected_m3us = processed_data.get('selected_m3us', [])
-        current_threshold = settings.get('fuzzy_match_threshold', 85)
+        current_threshold = settings.get('fuzzy_match_threshold', 65)
 
         # Build header with all settings except login credentials
         header_lines = [
@@ -2363,7 +2363,7 @@ class Plugin:
             f"# Enable Scheduled CSV Export: {settings.get('enable_scheduled_csv_export', False)}",
             "#",
             "# === API Settings ===",
-            f"# Rate Limiting: {settings.get('rate_limiting', 'medium')}",
+            f"# Rate Limiting: {settings.get('rate_limiting', 'none')}",
             "#",
         ])
         
@@ -2556,7 +2556,7 @@ class Plugin:
 
         try:
             self._send_progress_update("preview_changes", 'running', 5, 'Initializing preview...', context)
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
 
             self._send_progress_update("preview_changes", 'running', 10, 'Validating settings...', context)
             has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
@@ -2592,7 +2592,7 @@ class Plugin:
             total_channels_to_update = 0
             low_match_channels = []  # Track channels with few matches for recommendations
             threshold_data = {}  # Track threshold analysis for recommendations
-            current_threshold = settings.get('fuzzy_match_threshold', 85)
+            current_threshold = settings.get('fuzzy_match_threshold', 65)
             try:
                 current_threshold = int(current_threshold)
             except (ValueError, TypeError):
@@ -2744,7 +2744,7 @@ class Plugin:
 
         try:
             self._send_progress_update("add_streams_to_channels", 'running', 5, 'Initializing stream assignment...', context)
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
             
             self._send_progress_update("add_streams_to_channels", 'running', 10, 'Authenticating...', context)
             token, error = self._get_api_token(settings, logger)
@@ -2865,7 +2865,7 @@ class Plugin:
                     csv_data = []
                     low_match_channels = []  # Track channels with few matches for recommendations
                     threshold_data = {}  # Track threshold analysis for recommendations
-                    current_threshold = settings.get('fuzzy_match_threshold', 85)
+                    current_threshold = settings.get('fuzzy_match_threshold', 65)
                     try:
                         current_threshold = int(current_threshold)
                     except (ValueError, TypeError):
