@@ -12,534 +12,139 @@
 
 A Dispatcharr plugin that automatically matches and assigns streams to channels based on advanced fuzzy matching, quality prioritization, and OTA callsign recognition.
 
-## Recommendation
-It is strongly recommended to use the **[Channel Maparr Plugin](https://github.com/PiratesIRC/Dispatcharr-Channel-Maparr-Plugin)** before using this plugin. Running Channel Maparr first to standardize your channel names will significantly improve matching accuracy.
-
 ## ⚠️ Important: Backup Your Database
 Before installing or using this plugin, it is **highly recommended** that you create a backup of your Dispatcharr database. This plugin makes significant changes to your channel and stream assignments.
 
 **[Click here for instructions on how to back up your database.](https://dispatcharr.github.io/Dispatcharr-Docs/troubleshooting/?h=backup#how-can-i-make-a-backup-of-the-database)**
 
+---
+
+## 🚨 V0.6.0+ Important: Background Operations & Monitoring
+**Please Read Carefully:** Starting with v0.6.0, this plugin uses **Background Threading** to prevent browser timeouts during long operations. This changes how you interact with the plugin:
+
+1.  **No "Completed" Pop-up:** The frontend will show a green "✅ Started in background" notification immediately. This does **NOT** mean the task is finished.
+2.  **Buttons Re-enable Immediately:** Do not click the button again. The task is running in the background.
+3.  **Check Docker Logs:** To see progress and completion status, you **must** check your Docker logs.
+
+**To monitor operations, open your terminal and run:**
+Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" in the logs to know when it is done.
+
+---
+
 ## Features
-* **Advanced Fuzzy Matching**: Automatically finds and assigns streams to channels using an advanced fuzzy-matching engine (`fuzzy_matcher.py`).
-* **Unlimited Stream Support**: Fetches and processes ALL available streams regardless of quantity (no 10,000 stream limit).
-* **Enhanced OTA Callsign Matching**: Uses a robust `*_channels.json` database for superior callsign extraction and matching for Over-The-Air broadcast channels.
-* **Selectable Channel Databases** *(NEW v0.5.0a)*: Enable or disable specific channel databases through the GUI settings.
-* **Multi-Country Support** *(NEW v0.5.0a)*: Support for multiple country databases with automatic country code prefix handling (e.g., `CA:`, `UK `).
-* **Multi-Stream Assignment**: Assigns **all** matching streams to each channel (e.g., 4K, FHD, HD versions), sorted by quality.
-* **Quality Prioritization**: Sorts matched streams by quality (4K → FHD → HD → (H) → (F) → (D) → SD → Slow).
-* **Channel Visibility Management**: Automatically enables/disables channels based on stream assignments and duplicate detection.
-* **Channel Database Integration**: Uses `*_channels.json` files for robust OTA and cable channel identification.
-* **Customizable Ignore Tags**: Filter out unwanted tags during matching.
-* **Profile & Group Filtering**: Target specific channel profiles and groups.
+* **Background Processing Engine** *(NEW v0.6.0)*: Operations run in background threads to prevent HTTP timeouts and "broken pipe" errors on large datasets.
+* **Smart Rate Limiting** *(NEW v0.6.0)*: Configurable API rate limiting with exponential backoff to prevent server overload and 429/5xx errors.
+* **Integrated Scheduler** *(NEW v0.6.0)*: Configure automated daily runs directly within the plugin settings (supports Timezones and custom HHMM times).
+* **Token Mismatch Analysis** *(NEW v0.6.0)*: CSV exports now analyze why channels didn't match and provide specific recommendations (e.g., "Add 'UK' to ignore tags").
+* **Advanced Fuzzy Matching**: Automatically finds and assigns streams to channels using an advanced fuzzy-matching engine.
+* **Multi-Country Support**: Support for multiple `*_channels.json` databases (US, UK, CA, etc.).
+* **Quality Prioritization**: Sorts matched streams by quality (4K → FHD → HD → SD).
+* **Channel Visibility Management**: Automatically enables/disables channels based on stream assignments.
 * **Preview Mode**: Dry-run CSV export to review matches before applying changes.
-* **CSV Export Management**: Built-in cleanup tool to delete old export files.
-* **Real-time Updates**: WebSocket-based frontend refresh for immediate visual feedback.
-* **Comprehensive Logging**: Detailed matching logic and debug information.
 
 ## Requirements
 * Active Dispatcharr installation
 * Admin username and password for API access
-* **A Channels Profile other than "All"** ([Profile Documentation](https://dispatcharr.github.io/Dispatcharr-Docs/user-guide/#channels_1))
+* **A Channels Profile other than "All"**
 * Multiple streams of the same channel available in your setup
-* `fuzzy_matcher.py` (matching engine) - included
-* `*_channels.json` files (channel database) - included
 
 ## Installation
-1.  Log in to Dispatcharr's web UI
-2.  Navigate to **Plugins**
-3.  Click **Import Plugin** and upload the plugin zip file
-4.  Enable the plugin after installation
+1.  Log in to Dispatcharr's web UI.
+2.  Navigate to **Plugins**.
+3.  Click **Import Plugin** and upload the plugin zip file.
+4.  Enable the plugin after installation.
 
-## Creating Channel Databases for Other Countries
+## Operations & Monitoring Guide
 
-Stream-Mapparr uses `*_channels.json` files to improve OTA (Over-The-Air) and cable channel matching. The plugin includes `US_channels.json` by default, but you can create additional database files for other countries or regions.
+Because this plugin processes potentially thousands of streams, operations can take 5-15+ minutes.
 
-**NEW in v0.5.0a**: Channel databases are now **selectable within the GUI**! You can enable or disable specific databases in the plugin settings.
+### How to Run an Action
+1.  Open a terminal connected to your server.
+2.  Run `docker logs -f dispatcharr` to watch the logs.
+3.  In the browser, click an action button (e.g., "Add Stream(s) to Channels").
+4.  You will see a notification: **"✅ Operation started in background"**.
+5.  **Wait.** Do not close the browser or restart the container.
+6.  Watch the terminal logs for updates like:
+    * `[Stream-Mapparr] Progress: 20%...`
+    * `[Stream-Mapparr] Progress: 50%...`
+7.  The operation is finished when you see:
+    * `[Stream-Mapparr] ✅ ADD STREAMS TO CHANNELS COMPLETED`
 
-### Database File Format
+### Why can't I see progress in the UI?
+Dispatcharr's plugin system currently supports synchronous HTTP responses. Because we moved to asynchronous background threads (to fix timeouts), the frontend receives the "Started" signal but cannot listen for the "Completed" signal without core modifications to Dispatcharr. We prioritize **successful completion** over UI feedback.
 
-Channel database files follow the naming pattern: `[COUNTRY_CODE]_channels.json` (e.g., `US_channels.json`, `CA_channels.json`, `UK_channels.json`)
+## Scheduling (New in v0.6.0)
 
-#### Recommended Format (v0.5.0a+)
+You can now schedule Stream-Mapparr to run automatically without setting up external Celery tasks.
 
-The recommended format includes metadata at the top level:
+1.  Go to **Plugin Settings**.
+2.  **Timezone**: Select your local timezone (e.g., `US/Central`, `Europe/London`).
+3.  **Scheduled Run Times**: Enter times in 24-hour format, comma-separated (e.g., `0400, 1600`).
+    * Example: `0400` runs at 4:00 AM.
+    * Example: `0400,1600` runs at 4:00 AM and 4:00 PM.
+4.  **Enable CSV Export**: Check this to generate a report every time the scheduler runs.
+5.  Click **Update Schedule**.
 
-```json
-{
-  "country_code": "CA",
-  "country_name": "Canada",
-  "version": "2025-11-10",
-  "channels": [
-    {
-      "channel_name": "CBC",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CTV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Global",
-      "category": "Entertainment",
-      "type": "National"
-    }
-  ]
-}
-```
-
-#### Legacy Format (Still Supported)
-
-The legacy format is still supported and uses a direct array:
-
-```json
-[
-  {
-    "channel_name": "CBC",
-    "category": "News",
-    "type": "National"
-  },
-  {
-    "channel_name": "CTV",
-    "category": "Entertainment",
-    "type": "National"
-  }
-]
-```
-
-**Note**: If using the legacy format without metadata, the database will be displayed in settings using the filename.
-
-### Field Descriptions
-
-#### Metadata Fields (Recommended Format Only)
-
-| Field | Required | Description | Examples |
-|:---|:---|:---|:---|
-| **country_code** | Recommended | Two-letter ISO country code | `US`, `CA`, `UK`, `AU`, `DE` |
-| **country_name** | Recommended | Full country/region name | `United States`, `Canada`, `United Kingdom` |
-| **version** | Optional | Database version or date | `2025-11-10`, `1.0`, `v2` |
-| **channels** | Yes | Array of channel objects | See below |
-
-#### Channel Object Fields
-
-| Field | Required | Description | Examples |
-|:---|:---|:---|:---|
-| **channel_name** | Yes | The channel name or callsign | `CBC`, `BBC One`, `WSBT`, `Sky Sports` |
-| **category** | Yes | The channel category | `News`, `Sports`, `Entertainment`, `Religious`, `Kids` |
-| **type** | Yes | Geographic scope of the channel | `National`, `Regional`, `Local` |
-
-### Creating a New Database
-
-1.  **Research Your Channels**
-    * Compile a list of channels available in your country/region
-    * Include OTA broadcast stations, cable channels, and streaming services
-    * Note callsigns for OTA stations (e.g., `WSBT`, `WABC`)
-    * Identify common channel names used by your IPTV provider
-
-2.  **Create the JSON File**
-    * Name the file using your country code: `[CODE]_channels.json`
-    * Examples: `CA_channels.json` (Canada), `UK_channels.json` (United Kingdom), `AU_channels.json` (Australia)
-    * Use a text editor to create the file with proper JSON formatting
-    * Include all channels you want the plugin to recognize
-
-3.  **Populate Channel Data**
-    * Add each channel as a JSON object with all three required fields
-    * Use consistent naming that matches your IPTV stream names
-    * Common categories: `News`, `Sports`, `Entertainment`, `Movies`, `Kids`, `Religious`, `Shopping`, `Documentary`
-    * Common types: `National` (country-wide), `Regional` (multi-state/province), `Local` (city-specific)
-
-4.  **Install the Database**
-    * Place the file in the plugin directory: `/data/plugins/stream_mapparr/`
-    * Use Docker command:
-        ```bash
-        docker cp [CODE]_channels.json dispatcharr:/data/plugins/stream_mapparr/
-        ```
-    * Or add the file to the plugin zip before installation
-
-5.  **Verify Installation**
-    * Check that the file exists:
-        ```bash
-        docker exec dispatcharr ls -la /data/plugins/stream_mapparr/*_channels.json
-        ```
-    * The plugin will automatically detect and use all `*_channels.json` files in the directory
-
-### Example: Creating UK_channels.json (Recommended Format)
-
-```json
-{
-  "country_code": "UK",
-  "country_name": "United Kingdom",
-  "version": "2025-11-11",
-  "channels": [
-    {
-      "channel_name": "BBC One",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "BBC Two",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "ITV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Channel 4",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Sky Sports",
-      "category": "Sports",
-      "type": "National"
-    }
-  ]
-}
-```
-
-### Managing Channel Databases in the GUI
-
-**NEW in v0.5.0a**: All channel databases are now manageable through the plugin settings!
-
-1. **Viewing Available Databases**
-   * Navigate to **Plugins** → **Stream-Mapparr** → **Settings**
-   * Scroll to the **"📚 Channel Databases"** section
-   * All detected `*_channels.json` files will be listed with checkboxes
-
-2. **Enabling/Disabling Databases**
-   * Check the box next to a database to enable it for matching
-   * Uncheck the box to disable it
-   * By default, only the **US** database is enabled
-   * If only one database exists, it will be enabled by default
-
-3. **Database Labels**
-   * Databases using the **recommended format** show: `Country Name (vVersion)`
-   * Example: `Canada (v2025-11-10)`
-   * Databases using the **legacy format** show: `Filename`
-   * Example: `UK_channels.json`
-
-4. **Country Code Prefix Handling**
-   * Stream names may be prefixed with country codes (e.g., `CA: CBC`, `UK BBC One`, `USA News`)
-   * The plugin automatically removes these prefixes during matching
-   * Supported formats: `CC:` or `CC ` (2-letter codes), `CCC:` or `CCC ` (3-letter codes)
-   * Smart detection avoids removing quality tags like HD, SD, UHD, FHD
-
-### Tips for Better Matching
-
-* Include all variations of channel names (e.g., `BBC 1`, `BBC One`, `BBC1`)
-* Add both full names and abbreviations (e.g., `The Sports Network`, `TSN`)
-* Include regional variants if applicable (e.g., `BBC One London`, `BBC One Scotland`)
-* Use the exact callsigns for OTA broadcast stations
-* Enable only the databases relevant to your region for better matching accuracy
-* Use the recommended format with metadata for clearer identification in the GUI
-* Test your database by enabling it in settings and checking the logs for matching activity
+*Note: The scheduler runs in a background thread. If you restart the Dispatcharr container, the scheduler restarts automatically.*
 
 ## Settings Reference
 
 | Setting | Type | Default | Description |
 |:---|:---|:---|:---|
-| **Overwrite Existing Streams** | `boolean` | True | If enabled, removes all existing streams and replaces with matched streams |
-| **Fuzzy Match Threshold** | `number` | 85 | Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches |
-| **Dispatcharr URL** | `string` | - | Full URL of your Dispatcharr instance (e.g., `http://192.168.1.10:9191`) |
-| **Dispatcharr Admin Username** | `string` | - | Username for API authentication |
-| **Dispatcharr Admin Password** | `password` | - | Password for API authentication |
-| **Profile Name** | `string` | - | Name of an existing Channel Profile to process (e.g., "Primary", "Sports") |
-| **Channel Groups** | `string` | - | Comma-separated group names to process, or leave empty for all groups |
-| **Ignore Tags** | `string` | - | Comma-separated tags to ignore during matching (e.g., `4K, [4K], [Dead]`) |
-| **Ignore Quality Tags** | `boolean` | True | Remove quality-related patterns like [4K], HD, (SD) during matching |
-| **Ignore Regional Tags** | `boolean` | True | Remove regional indicators like "East" during matching |
-| **Ignore Geographic Tags** | `boolean` | True | Remove geographic prefixes like US:, CA:, UK: during matching |
-| **Ignore Miscellaneous Tags** | `boolean` | True | Remove miscellaneous tags like (CX), (Backup) during matching |
-| **Visible Channel Limit** | `number` | 1 | Number of channels per matching group that will be visible and have streams added |
-| **Enable [Database]** *(v0.5.0a)* | `boolean` | US: True, Others: False | Enable or disable specific channel databases for matching |
+| **Overwrite Existing Streams** | `boolean` | True | If enabled, removes all existing streams and replaces with matched streams. |
+| **Fuzzy Match Threshold** | `number` | 85 | Minimum similarity score (0-100). Higher = stricter matching. |
+| **Dispatcharr URL/Creds** | `string` | - | Connection details for the API. |
+| **Profile Name** | `string` | - | Name of the Channel Profile to process. |
+| **Channel Groups** | `string` | - | Specific groups to process (empty = all). |
+| **Rate Limiting** *(v0.6.0)* | `select` | Medium | Controls API speed. Use 'High' if experiencing timeouts/errors. |
+| **Timezone** *(v0.6.0)* | `select` | US/Central | Timezone for scheduled runs. |
+| **Scheduled Run Times** | `string` | - | Times to run automatically (HHMM format). |
+| **Visible Channel Limit** | `number` | 1 | How many duplicate channels to enable per group. |
+| **Ignore Tags** | `string` | - | Tags to strip before matching (e.g., `[Dead], (Backup)`). |
 
-## Usage Guide
+## Channel Databases
 
-### Step-by-Step Workflow
-1.  **Configure Settings**
-    * Enter your Dispatcharr URL, username, and password
-    * Adjust the **Fuzzy Match Threshold** slider (85 is a good default)
-    * Specify an existing **Profile Name** (cannot be "All")
-    * Optionally specify **Channel Groups** (leave empty to process all)
-    * Optionally configure **Ignore Tags**
-    * Set **Visible Channel Limit** (default: 1 channel per matching group)
-    * Click **Save Settings**
+Stream-Mapparr uses `*_channels.json` files to improve OTA and cable channel matching.
 
-2.  **Load and Process Channels**
-    * Click **Run** on `Load/Process Channels`
-    * The plugin loads channels from the specified profile and groups
-    * Fetches all available streams (handles pagination automatically with no limit)
-    * Review the summary showing channel and stream counts
+1.  Navigate to **Settings**.
+2.  Scroll to **Channel Databases**.
+3.  Check the boxes for the countries you want to enable (e.g., `Enable US`, `Enable UK`).
+4.  If you need a custom database, create a JSON file (e.g., `CA_channels.json`) and place it in `/data/plugins/stream_mapparr/`.
 
-3.  **Preview Changes (Dry Run)**
-    * Click **Run** on `Preview Changes (Dry Run)`
-    * Exports a CSV to `/data/exports/stream_mapparr_preview_YYYYMMDD_HHMMSS.csv`
-    * Review matched streams for each channel
-    * Shows which channels will be updated vs skipped
-    * Identifies channels without matches
+## CSV Reports & Recommendations
 
-4.  **Add Streams to Channels**
-    * Click **Run** on `Add Stream(s) to Channels`
-    * Adds **all** matched streams to each channel (sorted by quality)
-    * Only updates channels within the visible channel limit
-    * Enables updated channels in the profile
-    * Triggers real-time frontend refresh via WebSocket
-    * Exports results to `/data/exports/stream_mapparr_update_YYYYMMDD_HHMMSS.csv`
+When running **Preview Changes** or **Add Streams**, the plugin generates a CSV file in `/data/exports/`.
 
-5.  **Manage Channel Visibility (Optional)**
-    * Click **Run** on `Manage Channel Visibility`
-    * Disables all channels in the profile
-    * Enables only the single highest-priority, eligible channel from each matching group
-    * Useful for cleaning up duplicate channels
-    * Triggers real-time frontend refresh via WebSocket
-    * Exports visibility report to `/data/exports/stream_mapparr_visibility_YYYYMMDD_HHMMSS.csv`
-
-6.  **Clear CSV Exports (Optional)**
-    * Click **Run** on `Clear CSV Exports`
-    * Deletes all CSV files created by this plugin from `/data/exports/`
-    * Shows list of deleted files (up to 10 listed with count of additional files)
-    * Useful for cleaning up old reports and freeing disk space
-
-## Matching Logic
-Stream-Mapparr v0.4 uses a new `FuzzyMatcher` engine and a channel database for all matching.
-
-1.  **Channel Grouping**: Channels are grouped by a 'group key'.
-    * **OTA Channels**: Grouped by callsign (e.g., `OTA_WSBT`).
-    * **Standard Channels**: Grouped by their cleaned name (e.g., `HBO`).
-
-2.  **Channel Prioritization**: Within each group, channels are sorted by quality tags (e.g., `[4K]` > `[HD]`) and then by channel number (ascending).
-
-3.  **Matching**: The plugin uses the **highest priority** channel from the group (e.g., `CBS - IN South Bend (WSBT) [4K]` or `HBO [4K]`) as the "search query".
-    * **OTA Matching**: If the channel is OTA, the `FuzzyMatcher` looks up its callsign (`WSBT`) in the `*_channels.json` database and searches all streams for that callsign.
-    * **Standard Matching**: If not OTA, the `FuzzyMatcher` cleans the channel name (e.g., to `HBO`) and uses advanced fuzzy matching (token sorting, similarity ratios) to find the best match from the stream list (e.g., matching `HBO` to `HBO US`).
-
-4.  **Multi-Stream Collection**: Once a match is found (e.g., stream name "HBO US"), the plugin gathers **all** quality variations of that matched stream (e.g., `HBO US [4K]`, `HBO US [HD]`, `HBO US [SD]`).
-
-5.  **Assignment**: These collected streams are sorted by quality and assigned to the high-priority channel(s) in the group, up to the **Visible Channel Limit**.
-
-### Channel Grouping and Priority
-Channels are grouped by callsign (OTA) or cleaned name (regular):
-* Within each group, channels are sorted by quality tag priority:
-    * `[4K]` → `[FHD]` → `[HD]` → `[SD]` → `[Unknown]` → `[Slow]` → No tag
-* Then by channel number (ascending)
-* Only the highest priority channels (up to Visible Channel Limit) receive streams
-
-### Quality Sorting
-Matched streams are automatically sorted by quality precedence:
-* **4K**: `[4K]`, `(4K)`, `4K`
-* **FHD**: `[FHD]`, `(FHD)`, `FHD`
-* **HD**: `[HD]`, `(HD)`, `HD`, `(H)`
-* **SD**: `[SD]`, `(SD)`, `SD`
-* **Other**: `(F)`, `(D)`
-* **Slow**: `Slow`, `[Slow]`, `(Slow)`
-
-### Duplicate Channel Handling
-**Channels in Profile**:
-* `CBS - AL Birmingham (WIAT) [FHD]` ← Highest priority (enabled, receives streams)
-* `CBS - AL Birmingham (WIAT) [HD]` ← Lower priority (skipped)
-* `CBS - AL Birmingham (WIAT) [Slow] [HD]` ← Lower priority (skipped)
-
-**Result**: With `Visible Channel Limit` set to 1, only the `[FHD]` channel receives streams and is visible.
-
-## Action Reference
-
-| Action | Description |
-|:---|:---|
-| **Load/Process Channels** | Load channels from specified profile/groups and fetch all available streams (unlimited) |
-| **Preview Changes (Dry Run)** | Export CSV showing which streams will be matched to each channel |
-| **Add Stream(s) to Channels** | Apply **all** matched streams to channels, enabling highest priority channels in each group |
-| **Manage Channel Visibility** | Disable all channels, then enable only the single highest-priority, eligible channel from each matching group |
-| **Clear CSV Exports** | Delete all CSV export files created by this plugin to free up disk space |
-
-## File Locations
-* **Processing Cache**: `/data/stream_mapparr_processed.json`
-* **Preview Export**: `/data/exports/stream_mapparr_preview_YYYYMMDD_HHMMSS.csv`
-* **Results Report**: `/data/exports/stream_mapparr_update_YYYYMMDD_HHMMSS.csv`
-* **Visibility Report**: `/data/exports/stream_mapparr_visibility_YYYYMMDD_HHMMSS.csv`
-* **Plugin Files**:
-    * `/data/plugins/stream_mapparr/plugin.py`
-    * `/data/plugins/stream_mapparr/__init__.py`
-    * `/data/plugins/stream_mapparr/fuzzy_matcher.py` (Matching Engine)
-    * `/data/plugins/stream_mapparr/*_channels.json` (Channel Database)
-
-## CSV Export Format
-
-### Preview CSV (`stream_mapparr_preview_...csv`)
-| Column | Description |
-|:---|:---|
-| **will_update** | `Yes` if channel will be updated, `No` if skipped |
-| **channel_id** | Internal Dispatcharr channel ID |
-| **channel_name** | Channel name |
-| **channel_name_cleaned** | The cleaned name used for matching |
-| **channel_number** | Channel number |
-| **matched_streams** | Number of streams matched |
-| **match_reason** | How the match was found (e.g., `Fuzzy match (exact, score: 100)`) |
-| **stream_names** | Semicolon-separated list of matched stream names |
-
-### Results CSV (`stream_mapparr_update_...csv`)
-| Column | Description |
-|:---|:---|
-| **channel_name** | Channel name that was updated |
-| **stream_names** | Semicolon-separated list of added stream names |
-| **matched_streams** | Number of streams added |
-
-### Visibility Report CSV (`stream_mapparr_visibility_...csv`)
-| Column | Description |
-|:---|:---|
-| **channel_id** | Internal Dispatcharr channel ID |
-| **channel_name** | Channel name |
-| **stream_count** | Number of streams attached to channel |
-| **reason** | Why channel was enabled/disabled (e.g., `2+ streams`, `Duplicate`, `Attached`) |
-| **enabled** | `Yes` if channel is visible, `No` if hidden |
+**New in v0.6.0**: Open the CSV file in a text editor or spreadsheet. The header contains detailed analysis:
+* **Threshold Recommendations**: "3 additional streams available at lower thresholds. Consider lowering to 75."
+* **Token Mismatches**: "Channel 'BBC One' vs Stream 'UK BBC One'. Mismatched token: 'UK'. Add 'UK' to Ignore Tags."
 
 ## Troubleshooting
 
-### Common Issues
+**Buttons are clickable but nothing happens?**
+Check the Docker logs. If an operation is already running, the logs will say: `❌ Cannot start... Another operation is already running`. Wait for the current operation to finish (lock expires after 10 mins).
 
-**"Profile Name must be configured"**
-* Enter an existing profile name in the settings
-* Profile name is case-sensitive
-* Cannot use "All" - must create a separate profile
+**"API token expired" in logs**
+The plugin now automatically attempts to refresh tokens. If it fails, check your Username/Password in settings.
 
-**"None of the specified groups were found"**
-* Verify group names are spelled correctly (case-sensitive)
-* Check available groups in the error message
-* Leave field empty to process all groups
+**System/API is slow during scanning**
+Change the **Rate Limiting** setting to "High (Slow)". This adds a delay between API calls to reduce load on your server.
 
-**OTA channels not matching streams**
-* Verify channel name format: `NETWORK - STATE City (CALLSIGN)`
-* Example: `CBS - IN South Bend (WSBT) [HD]`
-* Check that callsign exists in stream names
-* Review logs for `FuzzyMatcher` and `callsign` messages
-* Ensure `*_channels.json` files are present in the plugin directory
+**How to stop a running operation?**
+Restart the Dispatcharr container: `docker restart dispatcharr`.
 
-**Too many duplicate channels visible**
-* Run "Manage Channel Visibility" action
-* Adjust "Visible Channel Limit" setting (default: 1)
-* Only highest priority channels per matching group will remain visible
+**Cleaning up old tasks**
+If you upgraded from an older version, run the **"Cleanup Orphaned Tasks"** action to remove old Celery schedules that might conflict with the new internal scheduler.
 
-**Channels not matching streams**
-* Run Channel Mapparr first to standardize channel names
-* Adjust the **"Fuzzy Match Threshold"** slider (try a lower value like 80)
-* Check that streams exist for your channels
-* Use Preview mode to see matching details in logs
-
-**Too many false positives**
-* Increase the **"Fuzzy Match Threshold"** slider (try 90 or 95)
-* Use Ignore Tags to filter out common unwanted words
-* Check logs for matching logic details
-
-**Frontend not updating after changes**
-* Plugin uses WebSocket-based updates for real-time refresh
-* If changes are not immediately visible, refresh your browser
-* Check logs for "Frontend refresh triggered via WebSocket" message
-
-**Many old CSV export files**
-* Use the "Clear CSV Exports" action to delete all old reports
-* This will free up disk space in `/data/exports/`
-
-**"Plugin 'stream-mapparr' not found" error**
-* Log out of Dispatcharr
-* Refresh your browser or close and reopen it
-* Log back in and try again
-
-### Updating the Plugin
-
-To update Stream-Mapparr from a previous version:
-
-1.  **Remove Old Version**
-    * Navigate to **Plugins** in Dispatcharr
-    * Click the trash icon next to the old Stream-Mapparr plugin
-    * Confirm deletion
-
-2.  **Restart Dispatcharr**
-    * Log out of Dispatcharr
-    * Restart the Docker container:
-        ```bash
-        docker restart dispatcharr
-        ```
-
-3.  **Install New Version**
-    * Log back into Dispatcharr
-    * Navigate to **Plugins**
-    * Click **Import Plugin** and upload the new plugin zip file
-    * Enable the plugin after installation
-
-4.  **Verify Installation**
-    * Check that the new version number appears in the plugin list
-    * Reconfigure your settings if needed
-    * Run "Load/Process Channels" to test
-
-## FAQ
-
-### How do I improve matching accuracy?
-
-**Option 1: Use Channel Mapparr Plugin (Recommended)**
-* Install and run the [Channel Mapparr Plugin](https://github.com/PiratesIRC/Dispatcharr-Channel-Maparr-Plugin)
-* This automatically standardizes channel names across your entire setup
-* Provides consistent naming that Stream-Mapparr can reliably match
-
-**Option 2: Adjust Fuzzy Match Threshold**
-* Navigate to the plugin settings
-* If you are missing matches, try a **lower** value (e.g., `80`).
-* If you are getting bad/incorrect matches, try a **higher** value (e.g., `90` or `95`).
-
-### How many streams can the plugin handle?
-
-Stream-Mapparr has no stream limit. The plugin automatically handles pagination and will fetch all available streams regardless of quantity. It has been successfully tested with libraries containing 10,000+ streams.
-
-### Why use Visible Channel Limit?
-
-The Visible Channel Limit setting controls how many channels per group receive streams and remain visible. For example, if you have:
-* `CBS - AL Birmingham (WIAT) [FHD]`
-* `CBS - AL Birmingham (WIAT) [HD]`
-* `CBS - AL Birmingham (WIAT) [SD]`
-
-With a limit of 1, only the highest priority channel (`[FHD]`) receives streams and stays visible. This prevents duplicate channels from cluttering your guide.
-
-### What happens to existing stream assignments?
-
-When you run "Add Stream(s) to Channels", the plugin:
-* Removes **all** existing stream assignments from matched channels
-* Adds **all** the new matched streams (sorted by quality)
-* Only affects channels within the Visible Channel Limit
-
-Channels outside the limit or without matches are left unchanged.
-
-### Can I undo changes?
-
-The plugin exports CSV reports for every action:
-* Preview reports show what will change
-* Results reports show what was changed
-* Visibility reports show which channels were enabled/disabled
-
-You can use these reports to manually revert changes if needed. However, there is no built-in "undo" function.
-
-### How do I clean up old export files?
-
-Use the "Clear CSV Exports" action to delete all CSV files created by Stream-Mapparr. This removes files from `/data/exports/` that start with `stream_mapparr_` and helps free up disk space.
-
-### Debugging Commands
+## Debugging Commands
 ```bash
+# Monitor plugin activity (The most important command!)
+docker logs -f dispatcharr | grep "Stream-Mapparr"
+
+# Check generated CSVs
+docker exec dispatcharr ls -lh /data/exports/
+
 # Check plugin files
 docker exec dispatcharr ls -la /data/plugins/stream_mapparr/
-
-# Monitor plugin activity
-docker logs -f dispatcharr | grep -i stream_mapparr
-
-# View processing cache
-docker exec dispatcharr cat /data/stream_mapparr_processed.json | jq
-
-# Check fuzzy matching activity
-docker logs -f dispatcharr | grep -i "FuzzyMatcher"
-
-# Check match type and score
-docker logs -f dispatcharr | grep "match_type"
-
-# Check CSV exports
-docker exec dispatcharr ls -lh /data/exports/stream_mapparr_*
+```bash
+docker logs -f dispatcharr | grep "Stream-Mapparr"
