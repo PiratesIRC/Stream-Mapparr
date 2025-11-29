@@ -38,6 +38,107 @@ if not LOGGER.handlers:
     LOGGER.addHandler(handler)
 LOGGER.setLevel(logging.INFO)
 
+# ============================================================================
+# CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
+# ============================================================================
+
+class PluginConfig:
+    """
+    Centralized configuration for all plugin default settings.
+    Modify these values to change the plugin's default behavior.
+
+    This configuration class contains ALL default values used throughout the plugin,
+    making it easy to customize defaults without searching through the entire codebase.
+
+    Categories:
+    - Plugin Metadata: Version number
+    - Matching Settings: Fuzzy matching behavior
+    - Tag Filtering: Which tag types to ignore by default
+    - Profile & Group Settings: Default profile/group selections
+    - API Settings: Timeouts, rate limiting, caching
+    - Scheduling Settings: Timezone, schedule format, CSV export
+    - Cache Settings: How long to cache data
+    - File Paths: Where to store data files
+    - Quality Tag Ordering: Priority order for channels and streams
+    """
+
+    # === PLUGIN METADATA ===
+    PLUGIN_VERSION = "0.6.0"
+
+    # === MATCHING SETTINGS ===
+    DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
+    DEFAULT_OVERWRITE_STREAMS = True            # Replace existing streams vs append
+    DEFAULT_VISIBLE_CHANNEL_LIMIT = 1           # Channels per group to enable
+
+    # === TAG FILTERING SETTINGS ===
+    DEFAULT_IGNORE_QUALITY_TAGS = True          # Ignore [4K], HD, (SD), etc.
+    DEFAULT_IGNORE_REGIONAL_TAGS = True         # Ignore East, West, etc.
+    DEFAULT_IGNORE_GEOGRAPHIC_TAGS = True       # Ignore US:, UK:, FR:, etc.
+    DEFAULT_IGNORE_MISC_TAGS = True             # Ignore (CX), (Backup), etc.
+    DEFAULT_IGNORE_TAGS = ""                    # Custom user-defined tags
+
+    # === PROFILE & GROUP SETTINGS ===
+    DEFAULT_PROFILE_NAME = ""                   # Required by user
+    DEFAULT_SELECTED_GROUPS = ""                # Empty = all groups
+    DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
+    DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
+
+    # === API SETTINGS ===
+    DEFAULT_DISPATCHARR_URL = ""                # Required by user
+    DEFAULT_RATE_LIMITING = "none"              # Options: none, low, medium, high
+    API_REQUEST_TIMEOUT = 30                    # Seconds for API requests
+    API_TOKEN_CACHE_DURATION = 30               # Minutes to cache API token
+
+    # === RATE LIMITING DELAYS (seconds) ===
+    RATE_LIMIT_NONE = 0.0                       # No rate limiting
+    RATE_LIMIT_LOW = 0.1                        # 10 requests/second
+    RATE_LIMIT_MEDIUM = 0.5                     # 2 requests/second
+    RATE_LIMIT_HIGH = 2.0                       # 1 request/2 seconds
+    RATE_LIMIT_MAX_BACKOFF = 60                 # Maximum exponential backoff delay
+
+    # === SCHEDULING SETTINGS ===
+    DEFAULT_TIMEZONE = "US/Central"             # Default timezone for scheduled runs
+    DEFAULT_SCHEDULED_TIMES = ""                # Empty = no scheduling
+    DEFAULT_ENABLE_CSV_EXPORT = True            # Create CSV when streams added
+
+    SCHEDULER_CHECK_INTERVAL = 30               # Seconds between schedule checks
+    SCHEDULER_TIME_WINDOW = 30                  # ± seconds to trigger scheduled run
+    SCHEDULER_ERROR_WAIT = 60                   # Seconds to wait after error
+    SCHEDULER_STOP_TIMEOUT = 5                  # Seconds to wait for graceful shutdown
+
+    # === CACHE SETTINGS ===
+    VERSION_CHECK_CACHE_HOURS = 24              # Hours to cache GitHub version check
+
+    # === FILE PATHS ===
+    DATA_DIR = "/data"
+    EXPORTS_DIR = "/data/exports"
+    PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
+    VERSION_CHECK_CACHE_FILE = "/data/stream_mapparr_version_check.json"
+    SETTINGS_FILE = "/data/stream_mapparr_settings.json"
+    OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
+
+    # === OPERATION LOCK SETTINGS ===
+    OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
+
+    # === QUALITY TAG ORDERING ===
+    # Order for prioritizing channels (higher quality first)
+    CHANNEL_QUALITY_TAG_ORDER = ["[4K]", "[UHD]", "[FHD]", "[HD]", "[SD]", "[Unknown]", "[Slow]", ""]
+
+    # Order for sorting streams (higher quality first)
+    STREAM_QUALITY_ORDER = [
+        "[4K]", "(4K)", "4K",
+        "[UHD]", "(UHD)", "UHD",
+        "[FHD]", "(FHD)", "FHD",
+        "[HD]", "(HD)", "HD", "(H)",
+        "[SD]", "(SD)", "SD",
+        "(F)", "(D)",
+        "Slow", "[Slow]", "(Slow)"
+    ]
+
+# ============================================================================
+# END CONFIGURATION
+# ============================================================================
+
 class SmartRateLimiter:
     """
     Handles rate limiting with exponential backoff for 429/5xx errors.
@@ -47,15 +148,15 @@ class SmartRateLimiter:
         self.logger = logger
         self.disabled = setting_value == "none"
 
-        # Define delays (seconds) based on settings
+        # Define delays (seconds) based on settings - uses PluginConfig values
         if self.disabled:
-            self.base_delay = 0.0    # No rate limiting
+            self.base_delay = PluginConfig.RATE_LIMIT_NONE
         elif setting_value == "high":
-            self.base_delay = 2.0    # 1 request every 2 seconds
+            self.base_delay = PluginConfig.RATE_LIMIT_HIGH
         elif setting_value == "low":
-            self.base_delay = 0.1    # 10 requests per second
+            self.base_delay = PluginConfig.RATE_LIMIT_LOW
         else:
-            self.base_delay = 0.5    # 2 requests per second (Default/Medium)
+            self.base_delay = PluginConfig.RATE_LIMIT_MEDIUM
 
         self.current_delay = self.base_delay
         self.consecutive_errors = 0
@@ -76,7 +177,7 @@ class SmartRateLimiter:
         self.consecutive_errors += 1
 
         if status_code == 429 or status_code >= 500:
-            backoff = min(60, self.base_delay * (2 ** self.consecutive_errors))
+            backoff = min(PluginConfig.RATE_LIMIT_MAX_BACKOFF, self.base_delay * (2 ** self.consecutive_errors))
             jitter = backoff * 0.1 * random.random() # +/- 10% jitter
             self.current_delay = backoff + jitter
 
@@ -89,7 +190,7 @@ class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
 
     name = "Stream-Mapparr"
-    version = "0.6.0d"
+    version = PluginConfig.PLUGIN_VERSION
     description = "🎯 Automatically add matching streams to channels based on name similarity and quality precedence with enhanced fuzzy matching"
 
     @property
@@ -111,21 +212,21 @@ class Plugin:
                 "id": "overwrite_streams",
                 "label": "🔄 Overwrite Existing Streams",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_OVERWRITE_STREAMS,
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
             },
             {
                 "id": "fuzzy_match_threshold",
                 "label": "🎯 Fuzzy Match Threshold",
                 "type": "number",
-                "default": 65,
-                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 65",
+                "default": PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD,
+                "help_text": f"Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: {PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD}",
             },
             {
                 "id": "dispatcharr_url",
                 "label": "🌐 Dispatcharr URL",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_DISPATCHARR_URL,
                 "placeholder": "http://192.168.1.10:9191",
                 "help_text": "URL of your Dispatcharr instance (from your browser address bar). Example: http://127.0.0.1:9191",
             },
@@ -146,7 +247,7 @@ class Plugin:
                 "id": "profile_name",
                 "label": "📋 Profile Name",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_PROFILE_NAME,
                 "placeholder": "Sports, Movies, News",
                 "help_text": "*** Required Field *** - The name(s) of existing Channel Profile(s) to process channels from. Multiple profiles can be specified separated by commas.",
             },
@@ -154,7 +255,7 @@ class Plugin:
                 "id": "selected_groups",
                 "label": "📁 Channel Groups (comma-separated)",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_SELECTED_GROUPS,
                 "placeholder": "Sports, News, Entertainment",
                 "help_text": "Specific channel groups to process, or leave empty for all groups.",
             },
@@ -162,7 +263,7 @@ class Plugin:
                 "id": "selected_stream_groups",
                 "label": "📺 Stream Groups (comma-separated)",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_SELECTED_STREAM_GROUPS,
                 "placeholder": "TVE, Cable, Satellite",
                 "help_text": "Specific stream groups to use when matching, or leave empty for all stream groups. Multiple groups can be specified separated by commas.",
             },
@@ -170,7 +271,7 @@ class Plugin:
                 "id": "selected_m3us",
                 "label": "📡 M3U Sources (comma-separated)",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_SELECTED_M3US,
                 "placeholder": "IPTV Provider 1, Local M3U, Sports",
                 "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas.",
             },
@@ -178,7 +279,7 @@ class Plugin:
                 "id": "ignore_tags",
                 "label": "🏷️ Ignore Tags (comma-separated)",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_IGNORE_TAGS,
                 "placeholder": "4K, [4K], \" East\", \"[Dead]\"",
                 "help_text": "Tags to ignore when matching streams. Use quotes to preserve spaces/special chars (e.g., \" East\" for tags with leading space).",
             },
@@ -186,35 +287,35 @@ class Plugin:
                 "id": "ignore_quality_tags",
                 "label": "🎬 Ignore Quality Tags",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS,
                 "help_text": "If enabled, all quality indicators will be ignored in any format and position (e.g., 4K, [4K], (4K), FHD, [FHD], (FHD), HD, SD at beginning, middle, or end of name).",
             },
             {
                 "id": "ignore_regional_tags",
                 "label": "🌍 Ignore Regional Tags",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS,
                 "help_text": "If enabled, hardcoded regional tags like 'East' will be ignored during matching.",
             },
             {
                 "id": "ignore_geographic_tags",
                 "label": "🗺️ Ignore Geographic Tags",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS,
                 "help_text": "If enabled, all country codes will be ignored during matching (e.g., US, USA, US:, |FR|, FR -, [UK], etc.).",
             },
             {
                 "id": "ignore_misc_tags",
                 "label": "🏷️ Ignore Miscellaneous Tags",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_IGNORE_MISC_TAGS,
                 "help_text": "If enabled, all content within parentheses will be ignored during matching (e.g., (CX), (B), (PRIME), (Backup)).",
             },
             {
                 "id": "visible_channel_limit",
                 "label": "👁️ Visible Channel Limit",
                 "type": "number",
-                "default": 1,
+                "default": PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT,
                 "help_text": "Number of channels that will be visible and have streams added. Channels are prioritized by quality tags, then by channel number.",
             },
             {
@@ -227,14 +328,14 @@ class Plugin:
                     {"label": "Medium (Standard)", "value": "medium"},
                     {"label": "High (Slow)", "value": "high"},
                 ],
-                "default": "none",
+                "default": PluginConfig.DEFAULT_RATE_LIMITING,
                 "help_text": "Controls delay between API calls. None=No delays, Low=Fast/Aggressive, Medium=Standard, High=Slow/Safe.",
             },
             {
                 "id": "timezone",
                 "label": "🌍 Timezone",
                 "type": "select",
-                "default": "US/Central",
+                "default": PluginConfig.DEFAULT_TIMEZONE,
                 "help_text": "Timezone for scheduled runs. Schedule times below will be converted to UTC.",
                 "options": [
                     {"label": "UTC (Coordinated Universal Time)", "value": "UTC"},
@@ -256,7 +357,7 @@ class Plugin:
                 "id": "scheduled_times",
                 "label": "⏰ Scheduled Run Times (24-hour format)",
                 "type": "string",
-                "default": "",
+                "default": PluginConfig.DEFAULT_SCHEDULED_TIMES,
                 "placeholder": "0600,1300,1800",
                 "help_text": "Comma-separated times to run automatically each day (24-hour format). Example: 0600,1300,1800 runs at 6 AM, 1 PM, and 6 PM daily. Leave blank to disable scheduling.",
             },
@@ -264,7 +365,7 @@ class Plugin:
                 "id": "enable_scheduled_csv_export",
                 "label": "📄 Enable CSV Export",
                 "type": "boolean",
-                "default": True,
+                "default": PluginConfig.DEFAULT_ENABLE_CSV_EXPORT,
                 "help_text": "If enabled, a CSV file of the scan results will be created when streams are added.",
             },
         ]
@@ -321,12 +422,12 @@ class Plugin:
         {
             "id": "preview_changes",
             "label": "👀 Preview Changes (Dry Run)",
-            "description": "Preview which streams will be added to channels (automatically loads channels if needed)",
+            "description": "Preview which streams will be added to channels. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
         },
         {
             "id": "add_streams_to_channels",
             "label": "✅ Add Stream(s) to Channels",
-            "description": "Add matching streams to channels (automatically loads channels if needed)",
+            "description": "Add matching streams to channels. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
             "confirm": {
                 "required": True,
                 "title": "Add Streams to Channels?",
@@ -336,7 +437,7 @@ class Plugin:
         {
             "id": "manage_channel_visibility",
             "label": "👁️ Manage Channel Visibility",
-            "description": "Disable all channels, then enable only channels with 1 or more streams (excluding channels attached to others)",
+            "description": "Disable all channels, then enable only channels with 1 or more streams. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
             "confirm": {
                 "required": True,
                 "title": "Manage Channel Visibility?",
@@ -355,17 +456,9 @@ class Plugin:
         },
     ]
 
-    CHANNEL_QUALITY_TAG_ORDER = ["[4K]", "[UHD]", "[FHD]", "[HD]", "[SD]", "[Unknown]", "[Slow]", ""]
-
-    STREAM_QUALITY_ORDER = [
-        "[4K]", "(4K)", "4K", "[UHD]", "(UHD)", "UHD",
-        "[FHD]", "(FHD)", "FHD",
-        "[HD]", "(HD)", "HD", "(H)",
-        "[SD]", "(SD)", "SD",
-        "(F)",
-        "(D)",
-        "Slow", "[Slow]", "(Slow)"
-    ]
+    # Use config values for quality tag ordering
+    CHANNEL_QUALITY_TAG_ORDER = PluginConfig.CHANNEL_QUALITY_TAG_ORDER
+    STREAM_QUALITY_ORDER = PluginConfig.STREAM_QUALITY_ORDER
 
     def __init__(self):
         # -- SINGLETON GUARD --
@@ -374,9 +467,10 @@ class Plugin:
             return
         self._initialized = True
 
-        self.processed_data_file = "/data/stream_mapparr_processed.json"
-        self.version_check_cache_file = "/data/stream_mapparr_version_check.json"
-        self.settings_file = "/data/stream_mapparr_settings.json"
+        # Use config values for file paths
+        self.processed_data_file = PluginConfig.PROCESSED_DATA_FILE
+        self.version_check_cache_file = PluginConfig.VERSION_CHECK_CACHE_FILE
+        self.settings_file = PluginConfig.SETTINGS_FILE
         self.loaded_channels = []
         self.loaded_streams = []
         self.channel_stream_matches = []
@@ -522,9 +616,9 @@ class Plugin:
             LOGGER.info(f"Using user-specified timezone: {user_tz}")
             return user_tz
         
-        # Otherwise use US/Central as default
-        LOGGER.info("Using default timezone: US/Central")
-        return "US/Central"
+        # Otherwise use configured default timezone
+        LOGGER.info(f"Using default timezone: {PluginConfig.DEFAULT_TIMEZONE}")
+        return PluginConfig.DEFAULT_TIMEZONE
         
     def _parse_scheduled_times(self, scheduled_times_str):
         """Parse scheduled times string into list of datetime.time objects"""
@@ -569,8 +663,8 @@ class Plugin:
             try:
                 local_tz = pytz.timezone(tz_str)
             except pytz.exceptions.UnknownTimeZoneError:
-                LOGGER.error(f"[Stream-Mapparr] Unknown timezone: {tz_str}, falling back to America/Chicago")
-                local_tz = pytz.timezone('America/Chicago')
+                LOGGER.error(f"[Stream-Mapparr] Unknown timezone: {tz_str}, falling back to {PluginConfig.DEFAULT_TIMEZONE}")
+                local_tz = pytz.timezone(PluginConfig.DEFAULT_TIMEZONE)
 
             # Initialize last run tracker to prevent immediate execution
             # when scheduler starts at a time that matches a scheduled time
@@ -590,8 +684,8 @@ class Plugin:
                         scheduled_dt = local_tz.localize(datetime.combine(current_date, scheduled_time))
                         time_diff = (scheduled_dt - now).total_seconds()
                         
-                        # Run if within 30 seconds and have not run today for this time
-                        if -30 <= time_diff <= 30 and last_run.get(scheduled_time) != current_date:
+                        # Run if within configured time window and have not run today for this time
+                        if -PluginConfig.SCHEDULER_TIME_WINDOW <= time_diff <= PluginConfig.SCHEDULER_TIME_WINDOW and last_run.get(scheduled_time) != current_date:
                             LOGGER.info(f"[Stream-Mapparr] Scheduled scan triggered at {now.strftime('%Y-%m-%d %H:%M %Z')}")
                             try:
                                 # Step 1: Load/Process Channels
@@ -623,12 +717,12 @@ class Plugin:
                             last_run[scheduled_time] = current_date
                             break
                     
-                    # Sleep for 30 seconds
-                    _stop_event.wait(30)
-                    
+                    # Sleep for configured interval
+                    _stop_event.wait(PluginConfig.SCHEDULER_CHECK_INTERVAL)
+
                 except Exception as e:
                     LOGGER.error(f"[Stream-Mapparr] Error in scheduler loop: {e}")
-                    _stop_event.wait(60)
+                    _stop_event.wait(PluginConfig.SCHEDULER_ERROR_WAIT)
         
         _bg_thread = threading.Thread(target=scheduler_loop, name="stream-mapparr-scheduler", daemon=True)
         _bg_thread.start()
@@ -640,7 +734,7 @@ class Plugin:
         if _bg_thread and _bg_thread.is_alive():
             LOGGER.info("Stopping background scheduler")
             _stop_event.set()
-            _bg_thread.join(timeout=5)
+            _bg_thread.join(timeout=PluginConfig.SCHEDULER_STOP_TIMEOUT)
             _stop_event.clear()
             LOGGER.info("Background scheduler stopped")
 
@@ -665,7 +759,7 @@ class Plugin:
                     if cached_plugin_version == current_version and last_check_str:
                         last_check = datetime.fromisoformat(last_check_str)
                         time_diff = datetime.now() - last_check
-                        if time_diff < timedelta(hours=24):
+                        if time_diff < timedelta(hours=PluginConfig.VERSION_CHECK_CACHE_HOURS):
                             should_check = False
                             latest_version = cache_data.get('latest_version')
                             if latest_version and latest_version != current_version:
@@ -761,8 +855,8 @@ class Plugin:
         token, error = self._get_api_token(settings, logger)
         if token:
             self.api_token = token
-            self.token_expiration = datetime.now() + timedelta(minutes=30)
-            logger.debug("[Stream-Mapparr] API token cached for 30 minutes.")
+            self.token_expiration = datetime.now() + timedelta(minutes=PluginConfig.API_TOKEN_CACHE_DURATION)
+            logger.debug(f"[Stream-Mapparr] API token cached for {PluginConfig.API_TOKEN_CACHE_DURATION} minutes.")
 
         return token, error
 
@@ -830,7 +924,7 @@ class Plugin:
         try:
             if limiter: limiter.wait()
             logger.debug(f"[Stream-Mapparr] Making API request to: {endpoint}")
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, headers=headers, timeout=PluginConfig.API_REQUEST_TIMEOUT)
 
             # --- Smart Rate Limiter Logic ---
             if limiter:
@@ -850,7 +944,7 @@ class Plugin:
                 # Retry request with new token
                 headers['Authorization'] = f'Bearer {new_token}'
                 if limiter: limiter.wait() # Wait before retry
-                response = requests.get(url, headers=headers, timeout=30)
+                response = requests.get(url, headers=headers, timeout=PluginConfig.API_REQUEST_TIMEOUT)
 
                 if limiter:
                     if response.ok: limiter.report_success()
@@ -956,7 +1050,7 @@ class Plugin:
 
         try:
             logger.debug(f"[Stream-Mapparr] Making API POST request to: {endpoint}")
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response = requests.post(url, headers=headers, json=payload, timeout=PluginConfig.API_REQUEST_TIMEOUT)
 
             if response.status_code == 401:
                 logger.error("[Stream-Mapparr] API token expired or invalid, attempting to refresh.")
@@ -967,7 +1061,7 @@ class Plugin:
 
                 # Retry request with new token
                 headers['Authorization'] = f'Bearer {new_token}'
-                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                response = requests.post(url, headers=headers, json=payload, timeout=PluginConfig.API_REQUEST_TIMEOUT)
 
             if response.status_code == 403:
                 logger.error("[Stream-Mapparr] API access forbidden")
@@ -1530,27 +1624,104 @@ class Plugin:
                 return
             
             is_success = status in ('success', 'completed')
-            
-            # Use a notification type pattern similar to existing Dispatcharr notifications
-            # Format follows: plugin_action_result pattern
+
+            # Use standard notification format that frontend already handles
             notification_data = {
-                'type': 'plugin_notification',
+                'type': 'notification',  # Standard notification type
+                'level': 'success' if is_success else 'error',
+                'message': message,
+                'title': f'Stream-Mapparr: {action_id.replace("_", " ").title()}',
                 'plugin': 'stream-mapparr',
                 'action': action_id,
-                'success': is_success,
-                'message': message,
-                'title': 'Stream-Mapparr' if is_success else 'Stream-Mapparr Error'
             }
-            
-            # Add error field for failures
-            if not is_success:
-                notification_data['error'] = message
-            
-            LOGGER.debug(f"[Stream-Mapparr] Sending notification: {action_id} ({'success' if is_success else 'error'}) - {message}")
+
+            # Log notification prominently so user can see in logs
+            log_level = LOGGER.info if is_success else LOGGER.error
+            log_level(f"[Stream-Mapparr] ✅ {action_id.replace('_', ' ').upper()} COMPLETED: {message}")
+
+            LOGGER.debug(f"[Stream-Mapparr] Sending WebSocket notification: {notification_data}")
             send_websocket_update('updates', 'update', notification_data)
             
         except Exception as e:
             LOGGER.warning(f"[Stream-Mapparr] Failed to send notification: {e}")
+
+    def _check_operation_lock(self, logger):
+        """
+        Check if an operation is currently running.
+        Returns (is_locked, lock_info) where lock_info contains action name and start time.
+        Auto-expires locks older than configured timeout.
+        """
+        lock_file = PluginConfig.OPERATION_LOCK_FILE
+
+        if not os.path.exists(lock_file):
+            return False, None
+
+        try:
+            with open(lock_file, 'r') as f:
+                lock_data = json.load(f)
+
+            action_name = lock_data.get('action', 'unknown')
+            lock_time_str = lock_data.get('start_time')
+
+            if lock_time_str:
+                lock_time = datetime.fromisoformat(lock_time_str)
+                age_minutes = (datetime.now() - lock_time).total_seconds() / 60
+
+                # Auto-expire stale locks
+                if age_minutes > PluginConfig.OPERATION_LOCK_TIMEOUT_MINUTES:
+                    logger.warning(f"[Stream-Mapparr] Found stale lock from {action_name} ({age_minutes:.1f} min old), auto-removing")
+                    os.remove(lock_file)
+                    return False, None
+
+                return True, {
+                    'action': action_name,
+                    'start_time': lock_time,
+                    'age_minutes': age_minutes
+                }
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error reading lock file: {e}")
+            # If lock file is corrupt, remove it
+            try:
+                os.remove(lock_file)
+            except:
+                pass
+            return False, None
+
+        return False, None
+
+    def _acquire_operation_lock(self, action_name, logger):
+        """
+        Acquire operation lock. Returns True if acquired, False if already locked.
+        """
+        is_locked, lock_info = self._check_operation_lock(logger)
+
+        if is_locked:
+            logger.warning(f"[Stream-Mapparr] Cannot start {action_name} - {lock_info['action']} is already running ({lock_info['age_minutes']:.1f} min)")
+            return False
+
+        try:
+            lock_data = {
+                'action': action_name,
+                'start_time': datetime.now().isoformat(),
+                'pid': os.getpid()
+            }
+            with open(PluginConfig.OPERATION_LOCK_FILE, 'w') as f:
+                json.dump(lock_data, f, indent=2)
+
+            logger.info(f"[Stream-Mapparr] Lock acquired for {action_name}")
+            return True
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Failed to acquire lock: {e}")
+            return False
+
+    def _release_operation_lock(self, logger):
+        """Release operation lock."""
+        try:
+            if os.path.exists(PluginConfig.OPERATION_LOCK_FILE):
+                os.remove(PluginConfig.OPERATION_LOCK_FILE)
+                logger.debug("[Stream-Mapparr] Lock released")
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Failed to release lock: {e}")
 
     def _get_channel_info_from_json(self, channel_name, channels_data, logger):
         """Find channel info from channels.json by matching channel name."""
@@ -1570,7 +1741,7 @@ class Plugin:
             LOGGER.debug(f"[Stream-Mapparr] Saving settings with keys: {list(settings.keys())}")
 
             # Get timezone and schedule settings
-            user_timezone = settings.get("timezone") or "US/Central"
+            user_timezone = settings.get("timezone") or PluginConfig.DEFAULT_TIMEZONE
             enabled = settings.get("schedule_enabled", False)
             if isinstance(enabled, str):
                 enabled = enabled.lower() in ('true', '1', 'yes', 'on')
@@ -1619,11 +1790,11 @@ class Plugin:
                     settings = context['settings']
 
             # Initialize fuzzy matcher with configured threshold
-            match_threshold = settings.get("fuzzy_match_threshold", 65)
+            match_threshold = settings.get("fuzzy_match_threshold", PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
             try:
                 match_threshold = int(match_threshold)
             except (ValueError, TypeError):
-                match_threshold = 85
+                match_threshold = PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD
 
             self._initialize_fuzzy_matcher(match_threshold)
 
@@ -1645,28 +1816,81 @@ class Plugin:
             }
 
             if action in background_actions:
-                # Run synchronously to keep buttons disabled until complete
-                # The frontend will keep buttons disabled until this returns
-                try:
-                    self._send_progress_update(action, 'running', 0, 'Starting operation...', context)
-                    result = background_actions[action](settings, logger, context)
-                    
-                    if result.get('status') == 'success':
-                        self._send_progress_update(action, 'completed', 100, 
-                                                  result.get('message', 'Operation completed successfully'), context)
-                        return result
-                    else:
-                        self._send_progress_update(action, 'error', 0, 
-                                                  result.get('message', 'Operation failed'), context)
-                        return result
-                        
-                except Exception as e:
-                    logger.error(f"[Stream-Mapparr] Operation failed: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-                    error_msg = f'Error: {str(e)}'
-                    self._send_progress_update(action, 'error', 0, error_msg, context)
-                    return {'status': 'error', 'message': error_msg}
+                # Check if another operation is already running (only for long operations)
+                if action in ['preview_changes', 'add_streams_to_channels']:
+                    is_locked, lock_info = self._check_operation_lock(logger)
+                    if is_locked:
+                        action_label = action.replace("_", " ").title()
+                        running_action = lock_info['action'].replace("_", " ").title()
+                        age_min = lock_info['age_minutes']
+                        return {
+                            'status': 'error',
+                            'message': (
+                                f'❌ Cannot start {action_label}\n\n'
+                                f'Another operation is already running:\n'
+                                f'  • {running_action}\n'
+                                f'  • Started {age_min:.1f} minutes ago\n\n'
+                                f'⏳ Please wait for it to complete before starting another operation.\n\n'
+                                f'📋 Check Docker logs for completion:\n'
+                                f'   docker logs -f dispatcharr | grep "COMPLETED"'
+                            )
+                        }
+
+                # Run in background thread to prevent timeout/broken pipe errors
+                # Return immediately while operation continues in background
+                def background_runner():
+                    lock_acquired = False
+                    try:
+                        # Acquire lock for long-running operations
+                        if action in ['preview_changes', 'add_streams_to_channels']:
+                            if not self._acquire_operation_lock(action, logger):
+                                logger.error(f"[Stream-Mapparr] Failed to acquire lock for {action}")
+                                return
+                            lock_acquired = True
+
+                        self._send_progress_update(action, 'running', 0, 'Starting operation...', context)
+                        result = background_actions[action](settings, logger, context)
+
+                        if result.get('status') == 'success':
+                            self._send_progress_update(action, 'completed', 100,
+                                                      result.get('message', 'Operation completed successfully'), context)
+                        else:
+                            self._send_progress_update(action, 'error', 0,
+                                                      result.get('message', 'Operation failed'), context)
+                    except Exception as e:
+                        logger.error(f"[Stream-Mapparr] Operation failed: {str(e)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        error_msg = f'Error: {str(e)}'
+                        self._send_progress_update(action, 'error', 0, error_msg, context)
+                    finally:
+                        # Always release lock when done
+                        if lock_acquired:
+                            self._release_operation_lock(logger)
+
+                # Start background thread
+                bg_thread = threading.Thread(target=background_runner, name=f"stream-mapparr-{action}", daemon=True)
+                bg_thread.start()
+
+                # Return immediately with "started" status
+                # Note: Dispatcharr frontend only shows notifications from HTTP response,
+                # not WebSocket updates. Completion status must be checked in Docker logs.
+                action_label = action.replace("_", " ").title()
+                return {
+                    'status': 'success',
+                    'message': (
+                        f'✅ {action_label} started in background.\n\n'
+                        f'⏱️ This operation may take several minutes depending on channel/stream count.\n\n'
+                        f'📋 Monitor progress in Docker logs:\n'
+                        f'   docker logs -f dispatcharr\n\n'
+                        f'🔍 Look for:\n'
+                        f'  • Operation completion (✅ {action.replace("_", " ").upper()} COMPLETED)\n'
+                        f'  • CSV creation (📄 CSV ... CREATED)\n'
+                        f'  • Detailed progress updates\n\n'
+                        f'💡 All buttons remain enabled while operation runs in background.'
+                    ),
+                    'background': True
+                }
             
             elif action in immediate_actions:
                 # Immediate actions run synchronously and return result
@@ -1791,8 +2015,8 @@ class Plugin:
 
             # 4. Validate timezone is not empty
             logger.debug("[Stream-Mapparr] Validating timezone...")
-            timezone_str = settings.get("timezone") or "US/Central"
-            timezone_str = timezone_str.strip() if timezone_str else "US/Central"
+            timezone_str = settings.get("timezone") or PluginConfig.DEFAULT_TIMEZONE
+            timezone_str = timezone_str.strip() if timezone_str else PluginConfig.DEFAULT_TIMEZONE
             if not timezone_str:
                 validation_results.append("❌ Timezone: Not configured")
                 has_errors = True
@@ -1859,7 +2083,7 @@ class Plugin:
     def sync_schedules_action(self, settings, logger):
         """Sync schedules from settings"""
         try:
-            user_timezone = settings.get("timezone") or "US/Central"
+            user_timezone = settings.get("timezone") or PluginConfig.DEFAULT_TIMEZONE
             enabled = settings.get("schedule_enabled", False)
             if isinstance(enabled, str):
                 enabled = enabled.lower() in ('true', '1', 'yes', 'on')
@@ -1900,7 +2124,7 @@ class Plugin:
     def view_schedules_action(self, settings, logger):
         """View active schedule"""
         try:
-            user_timezone = settings.get("timezone", "America/Chicago")
+            user_timezone = settings.get("timezone", PluginConfig.DEFAULT_TIMEZONE)
             logger.debug(f"[Stream-Mapparr] Viewing schedules with timezone: {user_timezone}")
 
             task_name = "stream_mapparr_scheduled_task"
@@ -2030,13 +2254,13 @@ class Plugin:
             selected_m3us_str = selected_m3us_str.strip() if selected_m3us_str else ""
             ignore_tags_str = settings.get("ignore_tags") or ""
             ignore_tags_str = ignore_tags_str.strip() if ignore_tags_str else ""
-            visible_channel_limit_str = settings.get("visible_channel_limit", "1")
-            visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else 1
+            visible_channel_limit_str = settings.get("visible_channel_limit", str(PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT))
+            visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT
 
-            ignore_quality = settings.get("ignore_quality_tags", True)
-            ignore_regional = settings.get("ignore_regional_tags", True)
-            ignore_geographic = settings.get("ignore_geographic_tags", True)
-            ignore_misc = settings.get("ignore_misc_tags", True)
+            ignore_quality = settings.get("ignore_quality_tags", PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS)
+            ignore_regional = settings.get("ignore_regional_tags", PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS)
+            ignore_geographic = settings.get("ignore_geographic_tags", PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS)
+            ignore_misc = settings.get("ignore_misc_tags", PluginConfig.DEFAULT_IGNORE_MISC_TAGS)
 
             # Handle boolean string conversions
             if isinstance(ignore_quality, str): ignore_quality = ignore_quality.lower() in ('true', 'yes', '1')
@@ -2305,7 +2529,7 @@ class Plugin:
         selected_groups = processed_data.get('selected_groups', [])
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
         selected_m3us = processed_data.get('selected_m3us', [])
-        current_threshold = settings.get('fuzzy_match_threshold', 65)
+        current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
 
         # Build header with all settings except login credentials
         header_lines = [
@@ -2320,8 +2544,8 @@ class Plugin:
             "#",
             "# === Matching Settings ===",
             f"# Fuzzy Match Threshold: {current_threshold}",
-            f"# Overwrite Streams: {settings.get('overwrite_streams', True)}",
-            f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', 1)}",
+            f"# Overwrite Streams: {settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)}",
+            f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)}",
             "#",
             "# === Tag Filter Settings ===",
             f"# Ignore Quality Tags: {processed_data.get('ignore_quality', True)}",
@@ -2358,12 +2582,12 @@ class Plugin:
         header_lines.extend([
             "#",
             "# === Scheduling Settings ===",
-            f"# Timezone: {settings.get('timezone', 'US/Central')}",
+            f"# Timezone: {settings.get('timezone', PluginConfig.DEFAULT_TIMEZONE)}",
             f"# Scheduled Times: {settings.get('scheduled_times', '(none)')}",
-            f"# Enable Scheduled CSV Export: {settings.get('enable_scheduled_csv_export', False)}",
+            f"# Enable Scheduled CSV Export: {settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
             "#",
             "# === API Settings ===",
-            f"# Rate Limiting: {settings.get('rate_limiting', 'none')}",
+            f"# Rate Limiting: {settings.get('rate_limiting', PluginConfig.DEFAULT_RATE_LIMITING)}",
             "#",
         ])
         
@@ -2592,7 +2816,7 @@ class Plugin:
             total_channels_to_update = 0
             low_match_channels = []  # Track channels with few matches for recommendations
             threshold_data = {}  # Track threshold analysis for recommendations
-            current_threshold = settings.get('fuzzy_match_threshold', 65)
+            current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
             try:
                 current_threshold = int(current_threshold)
             except (ValueError, TypeError):
@@ -2725,6 +2949,10 @@ class Plugin:
                         'stream_names': '; '.join(match.get('stream_names', []))
                     })
 
+            # Log CSV creation prominently
+            logger.info(f"[Stream-Mapparr] 📄 CSV PREVIEW REPORT CREATED: {filepath}")
+            logger.info(f"[Stream-Mapparr] Preview shows {total_channels_to_update} channels will be updated")
+
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
             self._send_progress_update("preview_changes", 'success', 100, message, context)
             return {"status": "success", "message": message}
@@ -2757,8 +2985,8 @@ class Plugin:
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
             ignore_tags = processed_data.get('ignore_tags', [])
-            visible_channel_limit = processed_data.get('visible_channel_limit', 1)
-            overwrite_streams = settings.get('overwrite_streams', True)
+            visible_channel_limit = processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)
+            overwrite_streams = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
             if isinstance(overwrite_streams, str): overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
 
             ignore_quality = processed_data.get('ignore_quality', True)
@@ -2848,8 +3076,8 @@ class Plugin:
                 logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
 
             # CSV Export - create if setting is enabled
-            # Default to True if setting doesn't exist (matches field default)
-            create_csv = settings.get('enable_scheduled_csv_export', True)
+            # Default to configured value if setting doesn't exist
+            create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
             if isinstance(create_csv, str):
                 create_csv = create_csv.lower() in ('true', 'yes', '1')
             
@@ -2865,7 +3093,7 @@ class Plugin:
                     csv_data = []
                     low_match_channels = []  # Track channels with few matches for recommendations
                     threshold_data = {}  # Track threshold analysis for recommendations
-                    current_threshold = settings.get('fuzzy_match_threshold', 65)
+                    current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
                     try:
                         current_threshold = int(current_threshold)
                     except (ValueError, TypeError):
@@ -2940,14 +3168,22 @@ class Plugin:
                         for row in csv_data:
                             writer.writerow(row)
 
-                    logger.info(f"[Stream-Mapparr] CSV export saved to {filepath}")
+                    # Log CSV creation prominently
+                    logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
+                    logger.info(f"[Stream-Mapparr] Export contains {len(csv_data)} channel updates")
+                    csv_created = filepath
                 except Exception as e:
-                    logger.error(f"[Stream-Mapparr] Failed to create scheduled CSV export: {e}")
+                    logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
+                    csv_created = None
+            else:
+                csv_created = None
 
             self._trigger_frontend_refresh(settings, logger)
 
-            # Send final completion notification
+            # Send final completion notification with CSV info
             success_msg = f"Updated {channels_updated} channels with {total_streams_added} streams."
+            if csv_created:
+                success_msg += f" CSV saved to {csv_created}"
             if channels_skipped > 0:
                 success_msg += f" Skipped {channels_skipped} deleted channel(s)."
                 logger.info(f"[Stream-Mapparr] {success_msg}")
@@ -2985,10 +3221,10 @@ class Plugin:
             # Step 2: Disable all channels using Django ORM
             self._send_progress_update("manage_channel_visibility", 'running', 40, f'Disabling all {len(channels)} channels...', context)
             logger.info(f"[Stream-Mapparr] Disabling all {len(channels)} channels using Django ORM...")
-            
+
             channel_ids = [ch['id'] for ch in channels]
             ChannelProfileMembership.objects.filter(
-                profile_id=profile_id,
+                channel_profile_id=profile_id,
                 channel_id__in=channel_ids
             ).update(enabled=False)
             
@@ -3031,10 +3267,10 @@ class Plugin:
             # Step 4: Enable channels using Django ORM
             self._send_progress_update("manage_channel_visibility", 'running', 80, f'Enabling {len(channels_to_enable)} channels...', context)
             logger.info(f"[Stream-Mapparr] Enabling {len(channels_to_enable)} channels using Django ORM...")
-            
+
             if channels_to_enable:
                 ChannelProfileMembership.objects.filter(
-                    profile_id=profile_id,
+                    channel_profile_id=profile_id,
                     channel_id__in=channels_to_enable
                 ).update(enabled=True)
                 
@@ -3070,5 +3306,4 @@ class Plugin:
             return {"status": "success", "message": f"Deleted {deleted_count} CSV files."}
         except Exception as e:
             return {"status": "error", "message": f"Error clearing CSV exports: {e}"}
-
 
