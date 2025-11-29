@@ -1,13 +1,13 @@
 # Stream Mapparr
 [![Dispatcharr plugin](https://img.shields.io/badge/Dispatcharr-plugin-8A2BE2)](https://github.com/Dispatcharr/Dispatcharr)
-
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PiratesIRC/Stream-Mapparr)
 
-[![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 [![GitHub Release](https://img.shields.io/github/v/release/PiratesIRC/Stream-Mapparr?include_prereleases&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
-![Last Commit](https://img.shields.io/github/last-commit/PiratesIRC/Stream-Mapparr) ![Issues](https://img.shields.io/github/issues/PiratesIRC/Stream-Mapparr) ![Pull Requests](https://img.shields.io/github/issues-pr/PiratesIRC/Stream-Mapparr)
-![Top Language](https://img.shields.io/github/languages/top/PiratesIRC/Stream-Mapparr) ![Repo Size](https://img.shields.io/github/repo-size/PiratesIRC/Stream-Mapparr)
+[![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 
+![Top Language](https://img.shields.io/github/languages/top/PiratesIRC/Stream-Mapparr)
+![Repo Size](https://img.shields.io/github/repo-size/PiratesIRC/Stream-Mapparr)
+![Last Commit](https://img.shields.io/github/last-commit/PiratesIRC/Stream-Mapparr)
 ![License](https://img.shields.io/github/license/PiratesIRC/Stream-Mapparr)
 
 
