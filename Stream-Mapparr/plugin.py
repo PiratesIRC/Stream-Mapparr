@@ -118,8 +118,8 @@ class Plugin:
                 "id": "fuzzy_match_threshold",
                 "label": "🎯 Fuzzy Match Threshold",
                 "type": "number",
-                "default": 85,
-                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 85",
+                "default": 65,
+                "help_text": "Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: 65",
             },
             {
                 "id": "dispatcharr_url",
@@ -227,7 +227,7 @@ class Plugin:
                     {"label": "Medium (Standard)", "value": "medium"},
                     {"label": "High (Slow)", "value": "high"},
                 ],
-                "default": "medium",
+                "default": "none",
                 "help_text": "Controls delay between API calls. None=No delays, Low=Fast/Aggressive, Medium=Standard, High=Slow/Safe.",
             },
             {
@@ -1619,7 +1619,7 @@ class Plugin:
                     settings = context['settings']
 
             # Initialize fuzzy matcher with configured threshold
-            match_threshold = settings.get("fuzzy_match_threshold", 85)
+            match_threshold = settings.get("fuzzy_match_threshold", 65)
             try:
                 match_threshold = int(match_threshold)
             except (ValueError, TypeError):
@@ -2008,7 +2008,7 @@ class Plugin:
         """Load and process channels from specified profile and groups."""
         try:
             # Create the rate limiter instance once
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
 
             self._send_progress_update("load_process_channels", 'running', 5, 'Validating settings...', context)
             logger.debug("[Stream-Mapparr] Validating settings before loading channels...")
@@ -2102,81 +2102,35 @@ class Plugin:
 
             group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
 
-            # Fetch stream groups with rate limiting
+            # Fetch stream groups with rate limiting (returns array of group name strings)
             self._send_progress_update("load_process_channels", 'running', 35, 'Fetching stream groups...', context)
             all_stream_groups = []
-            page = 1
-            while True:
-                try:
-                    api_stream_groups = self._get_api_data(f"/api/channels/stream-groups/?page={page}", token, settings, logger, limiter=limiter)
-                except Exception as e:
-                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
-                    if page > 1:
-                        logger.debug(f"[Stream-Mapparr] No more stream group pages available (attempted page {page})")
-                        break
-                    else:
-                        # If error on first page, stream groups might not be available in this API version
-                        logger.warning(f"[Stream-Mapparr] Could not fetch stream groups (API may not support this endpoint): {e}")
-                        break
-
-                if isinstance(api_stream_groups, dict) and 'results' in api_stream_groups:
-                    results = api_stream_groups['results']
-                    if not results:
-                        logger.debug("[Stream-Mapparr] Reached last page of stream groups (empty results)")
-                        break
-                    all_stream_groups.extend(results)
-                    if not api_stream_groups.get('next'):
-                        break
-                    page += 1
-                elif isinstance(api_stream_groups, list):
-                    if not api_stream_groups:
-                        logger.debug("[Stream-Mapparr] Reached last page of stream groups (empty results)")
-                        break
-                    all_stream_groups.extend(api_stream_groups)
-                    break
+            try:
+                api_stream_groups = self._get_api_data("/api/channels/streams/groups/", token, settings, logger, limiter=limiter)
+                if isinstance(api_stream_groups, list):
+                    all_stream_groups = api_stream_groups
+                    logger.info(f"[Stream-Mapparr] Found {len(all_stream_groups)} stream groups")
                 else:
-                    break
+                    logger.warning(f"[Stream-Mapparr] Unexpected stream groups response format: {type(api_stream_groups)}")
+            except Exception as e:
+                # Stream groups might not be available in this API version
+                logger.warning(f"[Stream-Mapparr] Could not fetch stream groups (API may not support this endpoint): {e}")
 
-            stream_group_name_to_id = {g['name']: g['id'] for g in all_stream_groups if 'name' in g and 'id' in g}
-            logger.info(f"[Stream-Mapparr] Found {len(all_stream_groups)} stream groups")
-
-            # Fetch M3U sources with rate limiting
+            # Fetch M3U sources with rate limiting (returns array of M3U account objects)
             self._send_progress_update("load_process_channels", 'running', 37, 'Fetching M3U sources...', context)
             all_m3us = []
-            page = 1
-            while True:
-                try:
-                    api_m3us = self._get_api_data(f"/api/channels/m3us/?page={page}", token, settings, logger, limiter=limiter)
-                except Exception as e:
-                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
-                    if page > 1:
-                        logger.debug(f"[Stream-Mapparr] No more M3U pages available (attempted page {page})")
-                        break
-                    else:
-                        # If error on first page, M3Us might not be available in this API version
-                        logger.warning(f"[Stream-Mapparr] Could not fetch M3U sources (API may not support this endpoint): {e}")
-                        break
-
-                if isinstance(api_m3us, dict) and 'results' in api_m3us:
-                    results = api_m3us['results']
-                    if not results:
-                        logger.debug("[Stream-Mapparr] Reached last page of M3Us (empty results)")
-                        break
-                    all_m3us.extend(results)
-                    if not api_m3us.get('next'):
-                        break
-                    page += 1
-                elif isinstance(api_m3us, list):
-                    if not api_m3us:
-                        logger.debug("[Stream-Mapparr] Reached last page of M3Us (empty results)")
-                        break
-                    all_m3us.extend(api_m3us)
-                    break
+            try:
+                api_m3us = self._get_api_data("/api/m3u/accounts/", token, settings, logger, limiter=limiter)
+                if isinstance(api_m3us, list):
+                    all_m3us = api_m3us
+                    logger.info(f"[Stream-Mapparr] Found {len(all_m3us)} M3U sources")
                 else:
-                    break
+                    logger.warning(f"[Stream-Mapparr] Unexpected M3U sources response format: {type(api_m3us)}")
+            except Exception as e:
+                # M3U sources might not be available in this API version
+                logger.warning(f"[Stream-Mapparr] Could not fetch M3U sources (API may not support this endpoint): {e}")
 
             m3u_name_to_id = {m['name']: m['id'] for m in all_m3us if 'name' in m and 'id' in m}
-            logger.info(f"[Stream-Mapparr] Found {len(all_m3us)} M3U sources")
 
             # Fetch channels with rate limiting
             self._send_progress_update("load_process_channels", 'running', 40, 'Fetching channels...', context)
@@ -2268,17 +2222,17 @@ class Plugin:
                     logger.warning("[Stream-Mapparr] Unexpected streams response format")
                     break
 
-            # Filter streams by selected stream groups
+            # Filter streams by selected stream groups (uses channel_group field)
             if selected_stream_groups_str:
                 selected_stream_groups = [g.strip() for g in selected_stream_groups_str.split(',') if g.strip()]
-                valid_stream_group_ids = [stream_group_name_to_id[name] for name in selected_stream_groups if name in stream_group_name_to_id]
+                valid_stream_group_ids = [group_name_to_id[name] for name in selected_stream_groups if name in group_name_to_id]
                 if not valid_stream_group_ids:
                     logger.warning("[Stream-Mapparr] None of the specified stream groups were found. Using all streams.")
                     selected_stream_groups = []
                     stream_group_filter_info = " (all stream groups - specified groups not found)"
                 else:
-                    # Filter streams by stream_group_id
-                    filtered_streams = [s for s in all_streams_data if s.get('stream_group_id') in valid_stream_group_ids]
+                    # Filter streams by channel_group (which is the group ID)
+                    filtered_streams = [s for s in all_streams_data if s.get('channel_group') in valid_stream_group_ids]
                     logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on stream groups: {', '.join(selected_stream_groups)}")
                     all_streams_data = filtered_streams
                     stream_group_filter_info = f" in stream groups: {', '.join(selected_stream_groups)}"
@@ -2295,8 +2249,8 @@ class Plugin:
                     selected_m3us = []
                     m3u_filter_info = " (all M3U sources - specified M3Us not found)"
                 else:
-                    # Filter streams by m3u_id
-                    filtered_streams = [s for s in all_streams_data if s.get('m3u_id') in valid_m3u_ids]
+                    # Filter streams by m3u_account (which is the M3U account ID)
+                    filtered_streams = [s for s in all_streams_data if s.get('m3u_account') in valid_m3u_ids]
                     logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on M3U sources: {', '.join(selected_m3us)}")
                     all_streams_data = filtered_streams
                     m3u_filter_info = f" in M3U sources: {', '.join(selected_m3us)}"
@@ -2351,7 +2305,7 @@ class Plugin:
         selected_groups = processed_data.get('selected_groups', [])
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
         selected_m3us = processed_data.get('selected_m3us', [])
-        current_threshold = settings.get('fuzzy_match_threshold', 85)
+        current_threshold = settings.get('fuzzy_match_threshold', 65)
 
         # Build header with all settings except login credentials
         header_lines = [
@@ -2409,7 +2363,7 @@ class Plugin:
             f"# Enable Scheduled CSV Export: {settings.get('enable_scheduled_csv_export', False)}",
             "#",
             "# === API Settings ===",
-            f"# Rate Limiting: {settings.get('rate_limiting', 'medium')}",
+            f"# Rate Limiting: {settings.get('rate_limiting', 'none')}",
             "#",
         ])
         
@@ -2602,7 +2556,7 @@ class Plugin:
 
         try:
             self._send_progress_update("preview_changes", 'running', 5, 'Initializing preview...', context)
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
 
             self._send_progress_update("preview_changes", 'running', 10, 'Validating settings...', context)
             has_errors, validation_results, token = self._validate_plugin_settings(settings, logger)
@@ -2638,7 +2592,7 @@ class Plugin:
             total_channels_to_update = 0
             low_match_channels = []  # Track channels with few matches for recommendations
             threshold_data = {}  # Track threshold analysis for recommendations
-            current_threshold = settings.get('fuzzy_match_threshold', 85)
+            current_threshold = settings.get('fuzzy_match_threshold', 65)
             try:
                 current_threshold = int(current_threshold)
             except (ValueError, TypeError):
@@ -2790,7 +2744,7 @@ class Plugin:
 
         try:
             self._send_progress_update("add_streams_to_channels", 'running', 5, 'Initializing stream assignment...', context)
-            limiter = SmartRateLimiter(settings.get("rate_limiting", "medium"), logger)
+            limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
             
             self._send_progress_update("add_streams_to_channels", 'running', 10, 'Authenticating...', context)
             token, error = self._get_api_token(settings, logger)
@@ -2911,7 +2865,7 @@ class Plugin:
                     csv_data = []
                     low_match_channels = []  # Track channels with few matches for recommendations
                     threshold_data = {}  # Track threshold analysis for recommendations
-                    current_threshold = settings.get('fuzzy_match_threshold', 85)
+                    current_threshold = settings.get('fuzzy_match_threshold', 65)
                     try:
                         current_threshold = int(current_threshold)
                     except (ValueError, TypeError):
