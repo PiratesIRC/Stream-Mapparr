@@ -54,6 +54,32 @@ Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" in the lo
 3.  Click **Import Plugin** and upload the plugin zip file.
 4.  Enable the plugin after installation.
 
+## Updating the Plugin
+To update Channel Mapparr from a previous version:
+
+### 1. Remove Old Version
+1.  Navigate to **Plugins** in Dispatcharr.
+2.  Click the trash icon next to the old Stream Mapparr plugin.
+3.  Confirm deletion.
+
+### 2. Restart Dispatcharr
+1.  Log out of Dispatcharr.
+2.  Restart the Docker container:
+    ```bash
+    docker restart dispatcharr
+    ```
+
+### 3. Install New Version
+1.  Log back into Dispatcharr.
+2.  Navigate to **Plugins**.
+3.  Click **Import Plugin** and upload the new plugin zip file.
+4.  Enable the plugin after installation.
+
+### 4. Verify Installation
+1.  Check that the new version number appears in the plugin list.
+2.  Reconfigure your settings if needed.
+3.  Run **Load/Process Channels** to test the update.
+
 ## Operations & Monitoring Guide
 
 Because this plugin processes potentially thousands of streams, operations can take 5-15+ minutes.
