@@ -1,7 +1,7 @@
 {
   "country_code": "UK",
   "country_name": "United Kingdom",
-  "version": "2025-11-10",
+  "version": "2025-12-01",
   "channels": [
     {
       "channel_name": "BBC One",
@@ -12,26 +12,6 @@
       "channel_name": "BBC1",
       "category": "Entertainment",
       "type": "National"
-    },
-    {
-      "channel_name": "BBC One London",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "BBC One Scotland",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "BBC One Wales",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "BBC One NI",
-      "category": "Entertainment",
-      "type": "Regional"
     },
     {
       "channel_name": "BBC Two",
@@ -49,17 +29,7 @@
       "type": "National"
     },
     {
-      "channel_name": "BBC3",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
       "channel_name": "BBC Four",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "BBC4",
       "category": "Documentary",
       "type": "National"
     },
@@ -94,29 +64,9 @@
       "type": "Regional"
     },
     {
-      "channel_name": "ITV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
       "channel_name": "ITV1",
       "category": "Entertainment",
       "type": "National"
-    },
-    {
-      "channel_name": "ITV1 London",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "ITV1 Granada",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "ITV1 Wales",
-      "category": "Entertainment",
-      "type": "Regional"
     },
     {
       "channel_name": "STV",
@@ -201,47 +151,47 @@
     {
       "channel_name": "Sky Showcase",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Max",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Atlantic",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Witness",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Comedy",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Documentaries",
       "category": "Documentary",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky History",
       "category": "Documentary",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Nature",
       "category": "Documentary",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Arts",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky News",
@@ -251,86 +201,91 @@
     {
       "channel_name": "Sky Sports Main Event",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Sports Premier League",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Sports Football",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Sports Cricket",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Sports F1",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Sky Sports Golf",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "TNT Sports 1",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "TNT Sports 2",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "TNT Sports 3",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Eurosport 1",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
       "channel_name": "Eurosport 2",
       "category": "Sports",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
-      "channel_name": "Dave",
+      "channel_name": "U&Dave",
       "category": "Entertainment",
       "type": "National"
     },
     {
-      "channel_name": "Gold",
+      "channel_name": "U&Gold",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
-      "channel_name": "W",
+      "channel_name": "U&W",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
-      "channel_name": "Alibi",
+      "channel_name": "U&Alibi",
       "category": "Entertainment",
-      "type": "National"
+      "type": "Pay TV"
     },
     {
-      "channel_name": "Yesterday",
+      "channel_name": "U&Yesterday",
       "category": "Documentary",
       "type": "National"
     },
     {
-      "channel_name": "Eden",
+      "channel_name": "U&Eden",
       "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "U&Drama",
+      "category": "Entertainment",
       "type": "National"
     },
     {
@@ -342,6 +297,421 @@
       "channel_name": "Talk",
       "category": "News",
       "type": "National"
+    },
+    {
+      "channel_name": "Virgin TV Showcase",
+      "category": "Entertainment",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky HISTORY 2",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "PBS America",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Real Wild",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Food Network",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "God TV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Quest",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime+Investigation",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "True Crime",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Investigation Discovery",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Legend",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "National Geographic WILD",
+      "category": "Documentary",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "MUTV",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "LFC TV",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Racing TV",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Premier Sports 1",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Premier Sports 2",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Sports Tennis",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Sports Racing",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Sports News",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Sports Mix",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Sports Action",
+      "category": "Sports",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NDTV 24x7",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Al Jazeera English",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "France 24 English",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Sky Cinema Premiere",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Select",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Hits",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Greats",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Family",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Action",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Thriller",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Drama",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Sci-Fi & Horror",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Animation",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Cinema Comedy",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Movies 24",
+      "category": "Movies",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Great! Romance",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Great! Mystery",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Great! Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Talking Pictures TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Baby TV",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Sky Kids",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Nick Jr. Too",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Boomerang",
+      "category": "Kids",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Pop",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV Music",
+      "category": "Music",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "MTV Live",
+      "category": "Music",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Club MTV",
+      "category": "Music",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "MTV 90s",
+      "category": "Music",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "MTV 80s",
+      "category": "Music",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "NOW 70s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NOW 80s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NOW 90s & 00s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NOW ROCK",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Clubland TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Utsav Gold",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Utsav Bharat",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Utsav Plus",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "SONY TV Asia",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "SONY MAX",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Zee TV",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Zee Cinema",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "B4U Movies",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "B4U Music",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Colors",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Colors Rishtey",
+      "category": "International",
+      "type": "Pay TV"
+    },
+    {
+      "channel_name": "Colors Cineplex",
+      "category": "International",
+      "type": "Pay TV"
     }
   ]
 }
