@@ -1,0 +1,774 @@
+{
+  "country_code": "NL",
+  "country_name": "Netherlands",
+  "version": "2025-12-14-v2",
+  "description": "Based on actual Dispatcharr channel list from ODIDO provider",
+  "channels": [
+    {
+      "channel_name": "NPO 1",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NPO 2",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NPO 3",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NPO 1 Extra",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NPO 2 Extra",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NPO Politiek en Nieuws",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL 4",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL 5",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL 7",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL 8",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL Crime",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL Lounge",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL Telekids",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL Television",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "RTL Z",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "SBS 6",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "NET 5",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Veronica / Disney Junior",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Viaplay TV",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Film1 Première",
+      "category": "Films",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Film1 Action",
+      "category": "Films",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Film1 Drama",
+      "category": "Films",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Film1 Family",
+      "category": "Films",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Family 7",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "ONS",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "OUT TV",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Pebble TV",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "STAR Channel",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "E! Entertainment",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Fashion TV",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "GINX",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "LUXE.tv",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Shorts TV",
+      "category": "Algemeen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "BBC News",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "BBC World News",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "CNN Turk",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "France24 (English)",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Al Jazeera (English)",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Tagesschau24",
+      "category": "Internationaal Nieuws",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "BabyTV",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "CBBC",
+      "category": "Kinderen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Dreamworks",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Duck TV",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Ketnet",
+      "category": "Kinderen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Kika",
+      "category": "Kinderen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Nick Music",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Nick Toons",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kinderen",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Crime+Investigation",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "History Channel",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "ID",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Nat Geo Wild",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Museum TV",
+      "category": "Documentaire",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "24Kitchen",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Horse & Country TV",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MyZen TV",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Mezzo",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV 00s",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV 80s",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV 90s",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV Hits",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "MTV Live",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "SchlagerTV",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "SLAM!TV",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Stingray Classica",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Stingray Djazz",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Stingray I-Concerts",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Stingray Lite TV",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "Trace Urban",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "TV Oranje",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "TV538",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "XITE",
+      "category": "Muziek",
+      "type": "Nationaal"
+    },
+    {
+      "channel_name": "1Twente",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "A1 Regio TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "AT5",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Bo",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "BredaNu",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "DTV-OSS",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "HAARLEM105-tv",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "INPLUS",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "KempenTV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "L1 TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Langstraat TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Lelystad TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "LINQ TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "MeerTelevisie",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "NH",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Omroep Brabant",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Omroep Flevoland TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Omrop Fryslan",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Omroep Meierij TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Omroep Zeeland",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "ONE",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Oost",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Open Rotterdam",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "ORTS",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Regio TV Utrecht",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RN7",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Connect",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Dordrecht",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Drenthe",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Elburg",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Lansingerland Berkel en Rodenrijs",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV Maastricht",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "RTV-7",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Salto 1 (Amsterdam)",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "SIRIS TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "SOL2",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "Studio040 TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "TV Gelderland",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "TV Hoeksche Waard",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "TV Noord",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "TV Rijnmond",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "TV West",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "VOS TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "WOS TV",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "ZFMInfobox",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "ZO!34",
+      "category": "Regionaal",
+      "type": "Regionaal"
+    },
+    {
+      "channel_name": "BBC NL",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "BBC One",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "BBC Two",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "VRT Canvas",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "TWEE",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "VRT1",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "ARTE",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Das Erste (ARD)",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "NDR",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "WDR",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "ZDF",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "3Sat",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "TV5MONDE",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "RAI Uno",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Mediaset Italia",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "TVE",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    },
+    {
+      "channel_name": "2M Maroc",
+      "category": "Algemeen",
+      "type": "Internationaal"
+    }
+  ]
+}
+
