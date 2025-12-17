@@ -23,7 +23,7 @@ import threading
 from .fuzzy_matcher import FuzzyMatcher
 
 # Django model imports - same approach as Event Channel Managarr
-from apps.channels.models import Channel, ChannelProfileMembership, ChannelStream
+from apps.channels.models import Channel, ChannelProfileMembership, ChannelStream, Stream
 
 # Background scheduling globals
 _bg_thread = None
@@ -63,7 +63,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.6.0"
+    PLUGIN_VERSION = "0.7.0"
 
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
@@ -120,6 +120,16 @@ class PluginConfig:
     # === OPERATION LOCK SETTINGS ===
     OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
 
+    # === PROGRESS TRACKING SETTINGS ===
+    ESTIMATED_SECONDS_PER_ITEM = 7.73  # Historical average time per item (from log analysis)
+
+    # === IPTV CHECKER INTEGRATION SETTINGS ===
+    DEFAULT_FILTER_DEAD_STREAMS = False  # Filter streams with 0x0 resolution (requires IPTV Checker)
+    DEFAULT_WAIT_FOR_IPTV_CHECKER = False  # Wait for IPTV Checker to complete before scheduled runs
+    DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS = 6  # Maximum hours to wait for IPTV Checker
+    IPTV_CHECKER_PROGRESS_FILE = "/data/iptv_checker_progress.json"  # IPTV Checker progress file
+    IPTV_CHECKER_CHECK_INTERVAL = 60  # Check IPTV Checker status every 60 seconds
+
     # === QUALITY TAG ORDERING ===
     # Order for prioritizing channels (higher quality first)
     CHANNEL_QUALITY_TAG_ORDER = ["[4K]", "[UHD]", "[FHD]", "[HD]", "[SD]", "[Unknown]", "[Slow]", ""]
@@ -138,6 +148,142 @@ class PluginConfig:
 # ============================================================================
 # END CONFIGURATION
 # ============================================================================
+
+class ProgressTracker:
+    """
+    Tracks operation progress with ETA calculation and periodic updates.
+    Provides minute-by-minute progress reporting with estimated time remaining.
+    """
+    def __init__(self, total_items, action_id, logger, context=None, send_progress_callback=None):
+        """
+        Initialize progress tracker.
+        
+        Args:
+            total_items: Total number of items to process
+            action_id: Action identifier for logging
+            logger: Logger instance
+            context: Optional context for WebSocket updates
+            send_progress_callback: Callback function for sending progress updates
+        """
+        self.total_items = total_items
+        self.action_id = action_id
+        self.logger = logger
+        self.context = context
+        self.send_progress_callback = send_progress_callback
+        
+        # Time tracking
+        self.start_time = time.time()
+        self.last_update_time = self.start_time
+        self.update_interval = 60  # Update every 60 seconds
+        
+        # Progress tracking
+        self.processed_items = 0
+        self.last_reported_progress = 0
+        
+        # Base progress range (0-100)
+        self.base_progress_start = 0
+        self.base_progress_end = 100
+        
+        # Calculate initial ETA based on historical average
+        initial_eta_seconds = total_items * PluginConfig.ESTIMATED_SECONDS_PER_ITEM
+        initial_eta_str = self._format_eta(initial_eta_seconds)
+        
+        self.logger.info(f"[Stream-Mapparr] {action_id}: Starting to process {total_items} items (estimated ~{initial_eta_str})")
+    
+    def set_progress_range(self, start, end):
+        """
+        Set the progress range for this tracker within the overall operation.
+        For example, if this tracker handles 30-80% of the overall progress.
+        """
+        self.base_progress_start = start
+        self.base_progress_end = end
+    
+    def update(self, items_processed=1):
+        """
+        Update progress by incrementing processed items.
+        Automatically sends progress updates every minute.
+        
+        Args:
+            items_processed: Number of items just processed (default: 1)
+        """
+        self.processed_items += items_processed
+        current_time = time.time()
+        
+        # Check if we should send an update (every minute)
+        time_since_update = current_time - self.last_update_time
+        
+        # Always send update if it's been more than update_interval seconds
+        should_update = time_since_update >= self.update_interval
+        
+        # Also send update if we're at 100%
+        is_complete = self.processed_items >= self.total_items
+        
+        if should_update or is_complete:
+            self._send_update()
+            self.last_update_time = current_time
+    
+    def _send_update(self):
+        """Send a progress update with ETA calculation"""
+        # Calculate progress percentage within our range
+        if self.total_items > 0:
+            progress_ratio = min(1.0, self.processed_items / self.total_items)
+        else:
+            progress_ratio = 1.0
+        
+        # Map to our progress range
+        progress = self.base_progress_start + (progress_ratio * (self.base_progress_end - self.base_progress_start))
+        progress = int(progress)
+        
+        # Calculate ETA
+        elapsed_time = time.time() - self.start_time
+        
+        if self.processed_items > 0 and self.processed_items < self.total_items:
+            # Calculate time per item
+            time_per_item = elapsed_time / self.processed_items
+            items_remaining = self.total_items - self.processed_items
+            eta_seconds = time_per_item * items_remaining
+            
+            # Format ETA
+            eta_str = self._format_eta(eta_seconds)
+            message = f"Processed {self.processed_items}/{self.total_items} items. ETA: {eta_str}"
+        elif self.processed_items >= self.total_items:
+            # Complete
+            elapsed_str = self._format_time(elapsed_time)
+            message = f"Completed {self.total_items} items in {elapsed_str}"
+        else:
+            # Just started
+            message = f"Processing {self.total_items} items..."
+        
+        # Log the update
+        self.logger.info(f"[Stream-Mapparr] {self.action_id}: {message}")
+        
+        # Send WebSocket update if callback provided
+        if self.send_progress_callback and progress != self.last_reported_progress:
+            self.send_progress_callback(self.action_id, 'running', progress, message, self.context)
+            self.last_reported_progress = progress
+    
+    def _format_eta(self, seconds):
+        """Format ETA in human-readable format"""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            remaining_seconds = int(seconds % 60)
+            return f"{minutes}m {remaining_seconds}s"
+        else:
+            hours = int(seconds / 3600)
+            remaining_minutes = int((seconds % 3600) / 60)
+            return f"{hours}h {remaining_minutes}m"
+    
+    def _format_time(self, seconds):
+        """Format elapsed time in human-readable format"""
+        return self._format_eta(seconds)
+    
+    def force_update(self):
+        """Force an immediate progress update regardless of time interval"""
+        self._send_update()
+        self.last_update_time = time.time()
+
 
 class SmartRateLimiter:
     """
@@ -354,6 +500,34 @@ class Plugin:
                 ]
             },
             {
+                "id": "filter_dead_streams",
+                "label": "🚫 Filter Dead Streams",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_FILTER_DEAD_STREAMS,
+                "help_text": "Skip streams with 0x0 resolution (dead streams detected by IPTV Checker). Requires IPTV Checker to have run first and updated stream metadata.",
+            },
+            {
+                "id": "wait_for_iptv_checker",
+                "label": "⏳ Wait for IPTV Checker Completion",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_WAIT_FOR_IPTV_CHECKER,
+                "help_text": "When running on schedule, wait for IPTV Checker to complete before starting stream assignment. Ensures dead streams are filtered out. Only applies to scheduled runs, not manual runs.",
+            },
+            {
+                "id": "iptv_checker_max_wait_hours",
+                "label": "⏲️ IPTV Checker Max Wait (hours)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS,
+                "help_text": "Maximum hours to wait for IPTV Checker to complete. If IPTV Checker is still running after this time, Stream-Mapparr will proceed anyway. Default: 6 hours.",
+            },
+            {
+                "id": "dry_run_mode",
+                "label": "🧪 Dry Run Mode",
+                "type": "boolean",
+                "default": False,
+                "help_text": "When enabled, preview actions without making database changes. Exports CSV report only. When disabled, actually perform stream matching, sorting, and assignment. Applies to both manual actions and scheduled runs.",
+            },
+            {
                 "id": "scheduled_times",
                 "label": "⏰ Scheduled Run Times (24-hour format)",
                 "type": "string",
@@ -362,11 +536,25 @@ class Plugin:
                 "help_text": "Comma-separated times to run automatically each day (24-hour format). Example: 0600,1300,1800 runs at 6 AM, 1 PM, and 6 PM daily. Leave blank to disable scheduling.",
             },
             {
+                "id": "scheduled_sort_streams",
+                "label": "🔄 Schedule: Sort Streams",
+                "type": "boolean",
+                "default": False,
+                "help_text": "When enabled, scheduled runs will sort existing alternate streams by quality (4K → UHD → FHD → HD → SD). Only affects channels that already have multiple streams assigned.",
+            },
+            {
+                "id": "scheduled_match_streams",
+                "label": "✅ Schedule: Match & Assign Streams",
+                "type": "boolean",
+                "default": True,
+                "help_text": "When enabled, scheduled runs will match and assign new streams to channels using fuzzy matching. This is the main stream assignment feature.",
+            },
+            {
                 "id": "enable_scheduled_csv_export",
                 "label": "📄 Enable CSV Export",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_ENABLE_CSV_EXPORT,
-                "help_text": "If enabled, a CSV file of the scan results will be created when streams are added.",
+                "help_text": "If enabled, a CSV file will be created when streams are matched, sorted, or assigned (both manual and scheduled runs). Always creates CSV in dry run mode regardless of this setting.",
             },
         ]
 
@@ -420,18 +608,33 @@ class Plugin:
             "confirm": { "required": True, "title": "Cleanup Orphaned Tasks?", "message": "This will remove any old Celery Beat tasks created by previous versions of this plugin. Continue?" }
         },
         {
-            "id": "preview_changes",
-            "label": "👀 Preview Changes (Dry Run)",
-            "description": "Preview which streams will be added to channels. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
-        },
-        {
             "id": "add_streams_to_channels",
-            "label": "✅ Add Stream(s) to Channels",
-            "description": "Add matching streams to channels. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
+            "label": "✅ Match & Assign Streams",
+            "description": "Match and assign streams to channels using fuzzy matching. Respects 'Dry Run Mode' setting - preview only if enabled, actually assigns if disabled. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
             "confirm": {
                 "required": True,
-                "title": "Add Streams to Channels?",
-                "message": "This will add and/or update streams for matching channels. Are you sure you want to continue?"
+                "title": "Match & Assign Streams?",
+                "message": "This will match and assign (or preview if dry run enabled) streams to channels. Continue?"
+            }
+        },
+        {
+            "id": "sort_streams",
+            "label": "🔄 Sort Alternate Streams",
+            "description": "Sort existing alternate streams by quality (4K → UHD → FHD → HD → SD). Only affects channels with multiple streams already assigned. Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
+            "confirm": {
+                "required": True,
+                "title": "Sort Alternate Streams?",
+                "message": "This will sort (or preview if dry run enabled) existing alternate streams by quality for all channels. Continue?"
+            }
+        },
+        {
+            "id": "match_us_ota_only",
+            "label": "📡 Match US OTA Only",
+            "description": "Match ONLY US Over-The-Air broadcast channels by callsign. Uses US_channels.json as authoritative source. Searches streams for uppercase callsigns only (e.g., WKRG, WABC). Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
+            "confirm": {
+                "required": True,
+                "title": "Match US OTA Only?",
+                "message": "This will match and assign (or preview if dry run enabled) streams to US OTA channels using callsign matching only. Channels without valid US callsigns will be skipped. Continue?"
             }
         },
         {
@@ -452,6 +655,16 @@ class Plugin:
                 "required": True,
                 "title": "Clear CSV Exports?",
                 "message": "This will delete all CSV export files created by this plugin. Continue?"
+            }
+        },
+        {
+            "id": "clear_operation_lock",
+            "label": "🔓 Clear Operation Lock",
+            "description": "Manually clear the operation lock file if it's stuck (e.g., after a container restart). Only use if no operation is actually running.",
+            "confirm": {
+                "required": True,
+                "title": "Clear Operation Lock?",
+                "message": "This will clear the operation lock. Only do this if you're certain no operation is currently running. Continue?"
             }
         },
     ]
@@ -688,6 +901,11 @@ class Plugin:
                         if -PluginConfig.SCHEDULER_TIME_WINDOW <= time_diff <= PluginConfig.SCHEDULER_TIME_WINDOW and last_run.get(scheduled_time) != current_date:
                             LOGGER.info(f"[Stream-Mapparr] Scheduled scan triggered at {now.strftime('%Y-%m-%d %H:%M %Z')}")
                             try:
+                                # Step 0: Wait for IPTV Checker if enabled
+                                wait_result = self._wait_for_iptv_checker_completion(settings, LOGGER)
+                                if not wait_result:
+                                    LOGGER.warning("[Stream-Mapparr] IPTV Checker wait timed out, proceeding anyway")
+                                
                                 # Step 1: Load/Process Channels
                                 LOGGER.info("[Stream-Mapparr] Step 1/2: Loading and processing channels...")
                                 load_result = self.load_process_channels_action(settings, LOGGER)
@@ -695,15 +913,41 @@ class Plugin:
                                 if load_result.get("status") == "success":
                                     LOGGER.info(f"[Stream-Mapparr] {load_result.get('message', 'Channels loaded successfully')}")
                                     
-                                    # Step 2: Add Streams to Channels
-                                    LOGGER.info("[Stream-Mapparr] Step 2/2: Adding streams to channels...")
-                                    add_result = self.add_streams_to_channels_action(settings, LOGGER, is_scheduled=True)
+                                    # Get scheduled task settings
+                                    do_sort = settings.get('scheduled_sort_streams', False)
+                                    if isinstance(do_sort, str):
+                                        do_sort = do_sort.lower() in ('true', 'yes', '1')
                                     
-                                    if add_result.get("status") == "success":
-                                        LOGGER.info(f"[Stream-Mapparr] {add_result.get('message', 'Streams added successfully')}")
-                                        LOGGER.info("[Stream-Mapparr] Scheduled stream mapping completed successfully")
-                                    else:
-                                        LOGGER.error(f"[Stream-Mapparr] Failed to add streams: {add_result.get('message', 'Unknown error')}")
+                                    do_match = settings.get('scheduled_match_streams', True)
+                                    if isinstance(do_match, str):
+                                        do_match = do_match.lower() in ('true', 'yes', '1')
+                                    
+                                    step = 2
+                                    total_steps = (2 if do_sort else 0) + (1 if do_match else 0) + 1
+                                    
+                                    # Step 2: Sort Streams (if enabled)
+                                    if do_sort:
+                                        LOGGER.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Sorting alternate streams...")
+                                        sort_result = self.sort_streams_action(settings, LOGGER)
+                                        
+                                        if sort_result.get("status") == "success":
+                                            LOGGER.info(f"[Stream-Mapparr] {sort_result.get('message', 'Streams sorted successfully')}")
+                                        else:
+                                            LOGGER.error(f"[Stream-Mapparr] Failed to sort streams: {sort_result.get('message', 'Unknown error')}")
+                                        
+                                        step += 1
+                                    
+                                    # Step 3: Match & Assign Streams (if enabled)
+                                    if do_match:
+                                        LOGGER.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Matching and assigning streams...")
+                                        add_result = self.add_streams_to_channels_action(settings, LOGGER, is_scheduled=True)
+                                        
+                                        if add_result.get("status") == "success":
+                                            LOGGER.info(f"[Stream-Mapparr] {add_result.get('message', 'Streams added successfully')}")
+                                        else:
+                                            LOGGER.error(f"[Stream-Mapparr] Failed to add streams: {add_result.get('message', 'Unknown error')}")
+                                    
+                                    LOGGER.info("[Stream-Mapparr] Scheduled run completed successfully")
                                 else:
                                     LOGGER.error(f"[Stream-Mapparr] Failed to load channels: {load_result.get('message', 'Unknown error')}")
                                     LOGGER.error("[Stream-Mapparr] Scheduled run aborted - cannot proceed without channel data")
@@ -1088,6 +1332,60 @@ class Plugin:
             logger.error(f"[Stream-Mapparr] API POST request failed for {endpoint}: {e}")
             raise Exception(f"API POST request failed: {e}")
 
+    def _delete_api_data(self, endpoint, token, settings, logger, limiter=None):
+        """DELETE request to Dispatcharr API with automatic token refresh.
+        
+        Args:
+            endpoint: API endpoint (e.g., "/api/channels/channel-streams/123/")
+            token: Bearer token for authentication
+            settings: Plugin settings dict
+            logger: Logger instance
+            limiter: Optional SmartRateLimiter instance
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        dispatcharr_url = settings.get("dispatcharr_url", PluginConfig.DEFAULT_DISPATCHARR_URL)
+        if not dispatcharr_url:
+            logger.error("[Stream-Mapparr] Dispatcharr URL not configured")
+            return False
+        
+        url = f"{dispatcharr_url.rstrip('/')}{endpoint}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            if limiter:
+                limiter.wait()
+            
+            response = requests.delete(url, headers=headers, timeout=PluginConfig.API_REQUEST_TIMEOUT)
+            
+            # Handle 401 (token expired) - refresh and retry once
+            if response.status_code == 401:
+                logger.info("[Stream-Mapparr] Token expired during DELETE, refreshing...")
+                new_token = self._get_api_token(settings, logger)
+                if new_token:
+                    headers["Authorization"] = f"Bearer {new_token}"
+                    response = requests.delete(url, headers=headers, timeout=PluginConfig.API_REQUEST_TIMEOUT)
+            
+            if limiter:
+                if response.status_code == 200 or response.status_code == 204:
+                    limiter.report_success()
+                else:
+                    limiter.report_error(response.status_code)
+            
+            if response.status_code in [200, 204]:
+                return True
+            else:
+                logger.error(f"[Stream-Mapparr] DELETE {endpoint} failed: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error in DELETE {endpoint}: {str(e)}")
+            return False
+
     def _trigger_frontend_refresh(self, settings, logger):
         """Trigger frontend channel list refresh via WebSocket"""
         try:
@@ -1238,17 +1536,235 @@ class Plugin:
         return ""
 
     def _sort_streams_by_quality(self, streams):
-        """Sort streams by quality precedence."""
-        def get_quality_index(stream):
-            quality = self._extract_quality(stream['name'])
-            if quality:
-                try:
-                    return self.STREAM_QUALITY_ORDER.index(quality)
-                except ValueError:
-                    return len(self.STREAM_QUALITY_ORDER)
-            return len(self.STREAM_QUALITY_ORDER)
+        """Sort streams by quality using stream_stats (resolution + FPS).
+        
+        Priority:
+        1. Valid streams with good quality (>=1280x720 and >=30 FPS)
+        2. Valid streams with lower quality
+        3. Streams with no stats (unknown quality)
+        4. Dead streams (0x0 resolution)
+        """
+        def get_stream_quality_score(stream):
+            """Calculate quality score for sorting.
+            Returns tuple: (tier, -resolution_pixels, -fps)
+            Lower tier = higher priority
+            Negative resolution/fps for descending sort
+            """
+            stats = stream.get('stats', {})
+            
+            # Check for dead stream (0x0)
+            width = stats.get('width', 0)
+            height = stats.get('height', 0)
+            
+            if width == 0 or height == 0:
+                # Tier 3: Dead streams (0x0) - lowest priority
+                return (3, 0, 0)
+            
+            # Calculate total pixels
+            resolution_pixels = width * height
+            
+            # Get FPS
+            fps = stats.get('source_fps', 0)
+            
+            # Determine quality tier
+            is_hd = width >= 1280 and height >= 720
+            is_good_fps = fps >= 30
+            
+            if is_hd and is_good_fps:
+                # Tier 0: High quality (HD + good FPS)
+                tier = 0
+            elif is_hd or is_good_fps:
+                # Tier 1: Medium quality (either HD or good FPS)
+                tier = 1
+            else:
+                # Tier 2: Low quality (below HD and below 30 FPS)
+                tier = 2
+            
+            # Return tuple for sorting: (tier, -pixels, -fps)
+            # Negative values so higher resolution/fps sorts first within tier
+            return (tier, -resolution_pixels, -fps)
+        
+        # Sort streams by quality score
+        return sorted(streams, key=get_stream_quality_score)
 
-        return sorted(streams, key=get_quality_index)
+    def _filter_working_streams(self, streams, logger):
+        """
+        Filter out dead streams (0x0 resolution) based on IPTV Checker metadata.
+        
+        Args:
+            streams: List of stream dictionaries to filter
+            logger: Logger instance for output
+            
+        Returns:
+            List of working streams (excluding dead ones)
+        """
+        working_streams = []
+        dead_count = 0
+        no_metadata_count = 0
+        
+        for stream in streams:
+            stream_id = stream['id']
+            stream_name = stream.get('name', 'Unknown')
+            
+            try:
+                # Query Stream model for IPTV Checker metadata
+                stream_obj = Stream.objects.filter(id=stream_id).first()
+                
+                if not stream_obj:
+                    # Stream not in database - include it (benefit of doubt)
+                    working_streams.append(stream)
+                    no_metadata_count += 1
+                    continue
+                
+                # Check if stream has been marked dead by IPTV Checker
+                # IPTV Checker stores width and height as 0 for dead streams
+                width = getattr(stream_obj, 'width', None)
+                height = getattr(stream_obj, 'height', None)
+                
+                # If width or height is None, IPTV Checker hasn't checked this stream yet
+                if width is None or height is None:
+                    # No metadata yet - include it (benefit of doubt)
+                    working_streams.append(stream)
+                    no_metadata_count += 1
+                    continue
+                
+                # Check if stream is dead (0x0 resolution)
+                if width == 0 or height == 0:
+                    # Dead stream - skip it
+                    dead_count += 1
+                    logger.debug(f"[Stream-Mapparr] Filtered dead stream: '{stream_name}' (ID: {stream_id}, resolution: {width}x{height})")
+                    continue
+                
+                # Working stream - include it
+                working_streams.append(stream)
+                logger.debug(f"[Stream-Mapparr] Working stream: '{stream_name}' (ID: {stream_id}, resolution: {width}x{height})")
+                
+            except Exception as e:
+                # Error checking stream - include it (benefit of doubt)
+                logger.warning(f"[Stream-Mapparr] Error checking stream {stream_id} health: {e}, including stream")
+                working_streams.append(stream)
+        
+        # Log summary
+        if dead_count > 0:
+            logger.info(f"[Stream-Mapparr] Filtered out {dead_count} dead streams with 0x0 resolution")
+        
+        if no_metadata_count > 0:
+            logger.info(f"[Stream-Mapparr] {no_metadata_count} streams have no IPTV Checker metadata (included by default)")
+        
+        logger.info(f"[Stream-Mapparr] {len(working_streams)} working streams available for matching")
+        
+        return working_streams
+
+    def _wait_for_iptv_checker_completion(self, settings, logger, max_wait_hours=None):
+        """
+        Wait for IPTV Checker to complete if enabled and currently running.
+        
+        This method monitors the IPTV Checker progress file to determine when it has finished.
+        Used by the scheduler to coordinate stream assignment after stream health checks.
+        
+        Args:
+            settings: Plugin settings dictionary
+            logger: Logger instance for output
+            max_wait_hours: Maximum hours to wait (defaults to setting value)
+            
+        Returns:
+            bool: True if IPTV Checker completed or not running, False if timed out
+        """
+        wait_enabled = settings.get('wait_for_iptv_checker', PluginConfig.DEFAULT_WAIT_FOR_IPTV_CHECKER)
+        if isinstance(wait_enabled, str):
+            wait_enabled = wait_enabled.lower() in ('true', 'yes', '1')
+        
+        if not wait_enabled:
+            logger.debug("[Stream-Mapparr] Wait for IPTV Checker disabled, proceeding immediately")
+            return True
+        
+        # Get max wait time from settings or parameter
+        if max_wait_hours is None:
+            max_wait_hours = settings.get('iptv_checker_max_wait_hours', PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS)
+            try:
+                max_wait_hours = float(max_wait_hours)
+            except (ValueError, TypeError):
+                max_wait_hours = PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS
+        
+        max_wait_seconds = max_wait_hours * 3600
+        check_interval = PluginConfig.IPTV_CHECKER_CHECK_INTERVAL
+        progress_file = PluginConfig.IPTV_CHECKER_PROGRESS_FILE
+        
+        logger.info(f"[Stream-Mapparr] Checking if IPTV Checker is running (max wait: {max_wait_hours} hours)...")
+        
+        start_time = time.time()
+        last_log_time = start_time
+        log_interval = 300  # Log status every 5 minutes
+        
+        while True:
+            try:
+                # Check if IPTV Checker progress file exists
+                if not os.path.exists(progress_file):
+                    logger.info("[Stream-Mapparr] IPTV Checker progress file not found - assuming not running")
+                    return True
+                
+                # Read IPTV Checker progress
+                with open(progress_file, 'r') as f:
+                    progress_data = json.load(f)
+                
+                status = progress_data.get('status', 'idle')
+                
+                if status != 'running':
+                    logger.info(f"[Stream-Mapparr] IPTV Checker status: '{status}' - proceeding with stream assignment")
+                    return True
+                
+                # IPTV Checker is still running
+                current_time = time.time()
+                elapsed_seconds = current_time - start_time
+                elapsed_minutes = elapsed_seconds / 60
+                
+                # Check if we have exceeded max wait time
+                if elapsed_seconds >= max_wait_seconds:
+                    logger.warning(f"[Stream-Mapparr] IPTV Checker still running after {max_wait_hours} hours - proceeding anyway")
+                    return False
+                
+                # Log status periodically (every 5 minutes)
+                if current_time - last_log_time >= log_interval:
+                    current = progress_data.get('current', 0)
+                    total = progress_data.get('total', 0)
+                    percent = (current / total * 100) if total > 0 else 0
+                    
+                    logger.info(f"[Stream-Mapparr] Waiting for IPTV Checker to complete... "
+                               f"({elapsed_minutes:.0f} minutes elapsed, {percent:.0f}% complete)")
+                    last_log_time = current_time
+                
+                # Wait before checking again
+                time.sleep(check_interval)
+                
+            except json.JSONDecodeError as e:
+                logger.warning(f"[Stream-Mapparr] Failed to parse IPTV Checker progress file: {e} - proceeding anyway")
+                return True
+            except Exception as e:
+                logger.error(f"[Stream-Mapparr] Error checking IPTV Checker status: {e} - proceeding anyway")
+                return True
+
+    def _deduplicate_streams(self, streams):
+        """Remove duplicate streams based on stream name.
+        
+        Keeps the first occurrence of each unique stream name.
+        This prevents duplicate stream counts in results.
+        
+        Args:
+            streams: List of stream dictionaries
+            
+        Returns:
+            List of deduplicated stream dictionaries
+        """
+        seen_names = set()
+        deduplicated = []
+        
+        for stream in streams:
+            stream_name = stream.get('name', '')
+            if stream_name and stream_name not in seen_names:
+                seen_names.add(stream_name)
+                deduplicated.append(stream)
+        
+        return deduplicated
 
     def _load_channels_data(self, logger, settings=None):
         """Load channel data from enabled *_channels.json files."""
@@ -1337,14 +1853,124 @@ class Plugin:
             callsign = callsign.split('-')[0].strip()
         return callsign.upper()
 
+    def _build_us_callsign_database(self, logger):
+        """Build lookup dictionary of US OTA callsigns from US_channels.json.
+        
+        Returns:
+            dict: Callsign database mapping base callsigns to channel info
+                  Example: {"WKRG": {"base_name": "WKRG (CBS)", "category": "...", "type": "..."}}
+        """
+        callsign_db = {}
+        
+        # Load US_channels.json
+        plugin_dir = os.path.dirname(__file__)
+        us_channels_path = os.path.join(plugin_dir, 'US_channels.json')
+        if not os.path.exists(us_channels_path):
+            logger.warning(f"[Stream-Mapparr] US_channels.json not found at {us_channels_path}")
+            return callsign_db
+        
+        try:
+            with open(us_channels_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            channels = data.get('channels', [])
+            logger.info(f"[Stream-Mapparr] Parsing {len(channels)} entries from US_channels.json")
+            
+            for channel in channels:
+                channel_name = channel.get('channel_name', '')
+                
+                # Extract callsign from channel_name
+                callsign = self._extract_us_callsign(channel_name)
+                
+                if callsign:
+                    # Normalize to base callsign (remove suffixes)
+                    base_callsign = self._normalize_us_callsign(callsign)
+                    
+                    # Store in database (first occurrence becomes base_name)
+                    if base_callsign not in callsign_db:
+                        callsign_db[base_callsign] = {
+                            'base_name': channel_name,
+                            'category': channel.get('category', ''),
+                            'type': channel.get('type', '')
+                        }
+            
+            logger.info(f"[Stream-Mapparr] Built US callsign database with {len(callsign_db)} unique callsigns")
+            return callsign_db
+            
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error building US callsign database: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {}
+
+    def _extract_us_callsign(self, channel_name):
+        """Extract US callsign from channel name in US_channels.json.
+        
+        Handles formats:
+        - WKRG (CBS) → WKRG
+        - WKRG-DT (CBS) → WKRG-DT
+        - WKRG-DT2 (ION) → WKRG-DT2
+        
+        Args:
+            channel_name: Channel name from US_channels.json
+            
+        Returns:
+            str: Extracted callsign or None if not found
+        """
+        if not channel_name:
+            return None
+        
+        # Pattern: Match K/W followed by 3-4 letters, optional suffix
+        # Examples: WKRG, WKRG-DT, WKRG-DT2, WABC-TV
+        match = re.match(r'^([KW][A-Z]{3,4}(?:-[A-Z]{2}\d?)?)', channel_name, re.IGNORECASE)
+        if match:
+            callsign = match.group(1).upper()
+            # Filter false positives
+            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
+                return callsign
+        
+        return None
+
+    def _normalize_us_callsign(self, callsign):
+        """Normalize callsign to base form (remove suffixes and parentheses).
+        
+        Examples:
+        - WKRG-DT → WKRG
+        - WKRG-DT2 → WKRG
+        - WABC-TV → WABC
+        - WKRG → WKRG
+        
+        Args:
+            callsign: Full callsign with potential suffix
+            
+        Returns:
+            str: Base callsign without suffix
+        """
+        if not callsign:
+            return None
+        
+        # Remove everything in parentheses
+        callsign = re.sub(r'\s*\([^)]*\)', '', callsign)
+        
+        # Remove common suffixes: -TV, -CD, -LP, -DT, -DT2, -DT3, etc., -LD
+        base = re.sub(r'-(?:TV|CD|LP|DT\d?|LD)$', '', callsign, flags=re.IGNORECASE)
+        
+        return base.upper().strip()
+
     def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None,
                                   ignore_quality=True, ignore_regional=True, ignore_geographic=True,
-                                  ignore_misc=True, channels_data=None):
+                                  ignore_misc=True, channels_data=None, filter_dead=False):
         """Find matching streams for a channel using fuzzy matching when available."""
         if ignore_tags is None:
             ignore_tags = []
         if channels_data is None:
             channels_data = []
+
+        # Filter dead streams if enabled (0x0 resolution from IPTV Checker)
+        if filter_dead:
+            working_streams = self._filter_working_streams(all_streams, logger)
+        else:
+            working_streams = all_streams
 
         channel_name = channel['name']
         channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
@@ -1367,12 +1993,13 @@ class Plugin:
             matching_streams = []
             callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
 
-            for stream in all_streams:
+            for stream in working_streams:
                 if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
                     matching_streams.append(stream)
 
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
                     s['name'], ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1381,7 +2008,7 @@ class Plugin:
 
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
-            stream_names = [stream['name'] for stream in all_streams]
+            stream_names = [stream['name'] for stream in working_streams]
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                 channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max
             )
@@ -1397,7 +2024,7 @@ class Plugin:
                 
                 # Match streams against the CHANNEL name, not just the best-matched stream
                 # This allows collecting all streams that are similar to the channel
-                for stream in all_streams:
+                for stream in working_streams:
                     cleaned_stream = self._clean_channel_name(
                         stream['name'], ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1429,21 +2056,60 @@ class Plugin:
                     stream_tokens = set(stream_lower.split())
                     channel_tokens = set(channel_lower.split())
                     
-                    # Remove very short tokens (1 char only) but keep 2-char tokens like "al"
-                    stream_tokens = {t for t in stream_tokens if len(t) > 1}
-                    channel_tokens = {t for t in channel_tokens if len(t) > 1}
+                    # CRITICAL FIX: For channels with numeric suffixes (like "Premier Sports 1", "Sky Sports 1"),
+                    # we must keep single-digit tokens to prevent false matches between numbered channels.
+                    # Detect if channel contains any numbers
+                    channel_has_numbers = bool(re.search(r'\d', channel_lower))
+                    
+                    # Extract numeric tokens from channel name for strict matching
+                    channel_number_tokens = {t for t in channel_tokens if t.isdigit()}
+                    stream_number_tokens = {t for t in stream_tokens if t.isdigit()}
+                    
+                    # PREVENT FALSE POSITIVES: If channel contains numbers, stream must also contain matching numbers
+                    # This prevents "BBC1" from matching "CBBC", "BBC4" from matching "CBBC", etc.
+                    if channel_number_tokens:
+                        # Channel has numbers - stream must have at least one matching number
+                        if not stream_number_tokens:
+                            # Stream has no numbers but channel does - likely false positive, skip
+                            continue
+                        if not channel_number_tokens & stream_number_tokens:
+                            # Stream has numbers but none match channel numbers - skip this stream
+                            continue
+                    
+                    if channel_has_numbers:
+                        # Keep ALL tokens including single digits (1, 2, 3, etc.) for numbered channels
+                        # This ensures "Premier Sports 1" requires token "1" to match
+                        stream_tokens = {t for t in stream_tokens if len(t) >= 1}
+                        channel_tokens = {t for t in channel_tokens if len(t) >= 1}
+                    else:
+                        # For non-numbered channels, remove single-char tokens but keep 2-char tokens like "al"
+                        # This prevents matching on noise like single letters
+                        stream_tokens = {t for t in stream_tokens if len(t) > 1}
+                        channel_tokens = {t for t in channel_tokens if len(t) > 1}
                     
                     # Check if there's significant overlap
                     if stream_tokens and channel_tokens:
                         common_tokens = stream_tokens & channel_tokens
                         overlap_ratio = len(common_tokens) / min(len(stream_tokens), len(channel_tokens))
                         
-                        # Require either multiple common tokens OR high overlap ratio
-                        # This prevents false matches like "Gol TV English" matching "Al Jazeera English"
-                        has_multiple_common = len(common_tokens) >= 2
-                        has_high_overlap = overlap_ratio >= 0.75
+                        # HYBRID APPROACH: Adjust matching strictness based on threshold
+                        # At high thresholds (90%+): Use strict matching (only all channel tokens present)
+                        # At lower thresholds (<90%): Use permissive matching (sufficient overlap OR all channel tokens)
+                        # This prevents false matches like "Premier Sports 1" matching "Premier Sports 2" at 85%
+                        # while still allowing flexibility at lower thresholds
+                        all_channel_tokens_present = channel_tokens.issubset(stream_tokens)
                         
-                        if has_multiple_common or has_high_overlap:
+                        if self.fuzzy_matcher.match_threshold >= 90:
+                            # Strict mode: Only match if ALL channel tokens are present in stream
+                            # This ensures "Premier Sports 1" only matches streams containing "premier", "sports", AND "1"
+                            should_check_similarity = all_channel_tokens_present
+                        else:
+                            # Permissive mode: Match if sufficient overlap OR all channel tokens present
+                            min_tokens_needed = min(len(stream_tokens), len(channel_tokens))
+                            has_sufficient_overlap = len(common_tokens) >= min_tokens_needed or overlap_ratio >= 0.75
+                            should_check_similarity = has_sufficient_overlap or all_channel_tokens_present
+                        
+                        if should_check_similarity:
                             # Calculate full string similarity
                             similarity = self.fuzzy_matcher.calculate_similarity(stream_lower, channel_lower)
                             if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
@@ -1451,6 +2117,7 @@ class Plugin:
 
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
+                    sorted_streams = self._deduplicate_streams(sorted_streams)
                     cleaned_stream_names = [self._clean_channel_name(
                         s['name'], ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1462,13 +2129,13 @@ class Plugin:
         # Fallback to basic substring matching if fuzzy matcher unavailable
         matching_streams = []
 
-        if not all_streams:
+        if not working_streams:
             return [], cleaned_channel_name, [], "No streams available", database_used
 
         # Try exact channel name matching from JSON first
         if channel_info and channel_info.get('channel_name'):
             json_channel_name = channel_info['channel_name']
-            for stream in all_streams:
+            for stream in working_streams:
                 cleaned_stream_name = self._clean_channel_name(
                     stream['name'], ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1481,6 +2148,7 @@ class Plugin:
 
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
                     s['name'], ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1488,7 +2156,7 @@ class Plugin:
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Exact match (channels.json)", database_used
 
         # Fallback to basic substring matching
-        for stream in all_streams:
+        for stream in working_streams:
             cleaned_stream_name = self._clean_channel_name(
                 stream['name'], ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1501,6 +2169,7 @@ class Plugin:
 
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
+            sorted_streams = self._deduplicate_streams(sorted_streams)
             cleaned_stream_names = [self._clean_channel_name(
                 s['name'], ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -1546,6 +2215,7 @@ class Plugin:
             
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams)
                 results[f"callsign_{current_threshold}"] = {
                     'streams': sorted_streams,
                     'match_type': 'Callsign match'
@@ -1594,6 +2264,7 @@ class Plugin:
                     
                     if matching_streams:
                         sorted_streams = self._sort_streams_by_quality(matching_streams)
+                        sorted_streams = self._deduplicate_streams(sorted_streams)
                         results[threshold] = {
                             'streams': sorted_streams,
                             'match_type': match_type,
@@ -1650,6 +2321,7 @@ class Plugin:
         Check if an operation is currently running.
         Returns (is_locked, lock_info) where lock_info contains action name and start time.
         Auto-expires locks older than configured timeout.
+        Verifies process is actually running to handle container restarts.
         """
         lock_file = PluginConfig.OPERATION_LOCK_FILE
 
@@ -1662,6 +2334,7 @@ class Plugin:
 
             action_name = lock_data.get('action', 'unknown')
             lock_time_str = lock_data.get('start_time')
+            lock_pid = lock_data.get('pid')
 
             if lock_time_str:
                 lock_time = datetime.fromisoformat(lock_time_str)
@@ -1672,6 +2345,18 @@ class Plugin:
                     logger.warning(f"[Stream-Mapparr] Found stale lock from {action_name} ({age_minutes:.1f} min old), auto-removing")
                     os.remove(lock_file)
                     return False, None
+
+                # Check if the process is actually still running (handles container restarts)
+                if lock_pid:
+                    try:
+                        # Check if process exists by sending signal 0 (doesn't actually kill)
+                        os.kill(lock_pid, 0)
+                        # Process exists, lock is valid
+                    except (OSError, ProcessLookupError):
+                        # Process doesn't exist - lock is orphaned
+                        logger.warning(f"[Stream-Mapparr] Found orphaned lock from {action_name} (process {lock_pid} no longer running), removing")
+                        os.remove(lock_file)
+                        return False, None
 
                 return True, {
                     'action': action_name,
@@ -1804,7 +2489,9 @@ class Plugin:
                 "load_process_channels": self.load_process_channels_action,
                 "preview_changes": self.preview_changes_action,
                 "add_streams_to_channels": self.add_streams_to_channels_action,
+                "sort_streams": self.sort_streams_action,
                 "manage_channel_visibility": self.manage_channel_visibility_action,
+                "match_us_ota_only": self.match_us_ota_only_action,
             }
             
             # Actions that run immediately (synchronous)
@@ -1813,11 +2500,12 @@ class Plugin:
                 "update_schedule": self.update_schedule_action,
                 "cleanup_periodic_tasks": self.cleanup_periodic_tasks_action,
                 "clear_csv_exports": self.clear_csv_exports_action,
+                "clear_operation_lock": self.clear_operation_lock_action,
             }
 
             if action in background_actions:
                 # Check if another operation is already running (only for long operations)
-                if action in ['preview_changes', 'add_streams_to_channels']:
+                if action in ['preview_changes', 'add_streams_to_channels', 'sort_streams', 'match_us_ota_only']:
                     is_locked, lock_info = self._check_operation_lock(logger)
                     if is_locked:
                         action_label = action.replace("_", " ").title()
@@ -1842,7 +2530,7 @@ class Plugin:
                     lock_acquired = False
                     try:
                         # Acquire lock for long-running operations
-                        if action in ['preview_changes', 'add_streams_to_channels']:
+                        if action in ['preview_changes', 'add_streams_to_channels', 'sort_streams', 'match_us_ota_only']:
                             if not self._acquire_operation_lock(action, logger):
                                 logger.error(f"[Stream-Mapparr] Failed to acquire lock for {action}")
                                 return
@@ -1873,21 +2561,49 @@ class Plugin:
                 bg_thread.start()
 
                 # Return immediately with "started" status
-                # Note: Dispatcharr frontend only shows notifications from HTTP response,
-                # not WebSocket updates. Completion status must be checked in Docker logs.
+                # Calculate estimated time if processed data exists
+                eta_msg = ""
+                try:
+                    if os.path.exists(self.processed_data_file):
+                        with open(self.processed_data_file, 'r') as f:
+                            processed_data = json.load(f)
+                            channels = processed_data.get('channels', [])
+                            if channels:
+                                # Group channels to get item count
+                                ignore_tags = processed_data.get('ignore_tags', [])
+                                channels_data = self._load_channels_data(logger, settings)
+                                channel_groups = {}
+                                for channel in channels:
+                                    channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
+                                    if self._is_ota_channel(channel_info):
+                                        callsign = channel_info.get('callsign', '')
+                                        group_key = f"OTA_{callsign}" if callsign else channel['name']
+                                    else:
+                                        group_key = self._clean_channel_name(
+                                            channel['name'], ignore_tags,
+                                            processed_data.get('ignore_quality', True),
+                                            processed_data.get('ignore_regional', True),
+                                            processed_data.get('ignore_geographic', True),
+                                            processed_data.get('ignore_misc', True)
+                                        )
+                                    if group_key not in channel_groups:
+                                        channel_groups[group_key] = []
+                                    channel_groups[group_key].append(channel)
+                                
+                                item_count = len(channel_groups)
+                                eta_seconds = item_count * PluginConfig.ESTIMATED_SECONDS_PER_ITEM
+                                eta_minutes = int(eta_seconds / 60)
+                                eta_msg = f" Estimated ~{eta_minutes}m."
+                except Exception as e:
+                    logger.debug(f"[Stream-Mapparr] Could not calculate ETA: {e}")
+                
                 action_label = action.replace("_", " ").title()
                 return {
                     'status': 'success',
                     'message': (
-                        f'✅ {action_label} started in background.\n\n'
-                        f'⏱️ This operation may take several minutes depending on channel/stream count.\n\n'
-                        f'📋 Monitor progress in Docker logs:\n'
-                        f'   docker logs -f dispatcharr\n\n'
-                        f'🔍 Look for:\n'
-                        f'  • Operation completion (✅ {action.replace("_", " ").upper()} COMPLETED)\n'
-                        f'  • CSV creation (📄 CSV ... CREATED)\n'
-                        f'  • Detailed progress updates\n\n'
-                        f'💡 All buttons remain enabled while operation runs in background.'
+                        f'✅ {action_label} started.{eta_msg}\n'
+                        f'📋 Monitor: docker logs -f dispatcharr\n'
+                        f'🔍 Look for: ✅ {action.replace("_", " ").upper()} COMPLETED'
                     ),
                     'background': True
                 }
@@ -2500,6 +3216,7 @@ class Plugin:
                 "ignore_regional": ignore_regional,
                 "ignore_geographic": ignore_geographic,
                 "ignore_misc": ignore_misc,
+                "filter_dead_streams": settings.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS),
                 "channels": channels_to_process,
                 "streams": all_streams_data
             }
@@ -2520,7 +3237,7 @@ class Plugin:
             logger.error(f"[Stream-Mapparr] Error loading channels: {str(e)}")
             return {"status": "error", "message": f"Error loading channels: {str(e)}"}
 
-    def _generate_csv_header_comment(self, settings, processed_data, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
+    def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
         LOGGER.debug(f"[Stream-Mapparr] CSV generation - All settings keys: {list(settings.keys())}")
@@ -2535,6 +3252,11 @@ class Plugin:
         header_lines = [
             f"# Stream-Mapparr Export v{self.version}",
             f"# Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "#",
+            "# === Action Performed ===",
+            f"# Action: {action_name}",
+            f"# Execution Mode: {'Scheduled' if is_scheduled else 'Manual'}",
+            f"# Dry Run Mode: {settings.get('dry_run_mode', False)}",
             "#",
             "# === Profile & Group Settings ===",
             f"# Profile Name(s): {profile_name}",
@@ -2581,10 +3303,17 @@ class Plugin:
         
         header_lines.extend([
             "#",
+            "# === IPTV Checker Integration ===",
+            f"# Filter Dead Streams: {processed_data.get('filter_dead_streams', False)}",
+            f"# Wait for IPTV Checker: {settings.get('wait_for_iptv_checker', PluginConfig.DEFAULT_WAIT_FOR_IPTV_CHECKER)}",
+            f"# IPTV Checker Max Wait (hours): {settings.get('iptv_checker_max_wait_hours', PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS)}",
+            "#",
             "# === Scheduling Settings ===",
             f"# Timezone: {settings.get('timezone', PluginConfig.DEFAULT_TIMEZONE)}",
-            f"# Scheduled Times: {settings.get('scheduled_times', '(none)')}",
-            f"# Enable Scheduled CSV Export: {settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
+            f"# Scheduled Times: {settings.get('schedule_cron', '(none)')}",
+            f"# Schedule: Sort Streams: {settings.get('scheduled_sort_streams', False)}",
+            f"# Schedule: Match & Assign Streams: {settings.get('scheduled_match_streams', True)}",
+            f"# Enable CSV Export: {settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
             "#",
             "# === API Settings ===",
             f"# Rate Limiting: {settings.get('rate_limiting', PluginConfig.DEFAULT_RATE_LIMITING)}",
@@ -2633,7 +3362,7 @@ class Plugin:
                 
                 header_lines.extend([
                     f"# {additional_at_lower} additional stream(s) available at lower thresholds.",
-                    f"# Consider lowering Fuzzy Match Threshold from {current_threshold} to {lowest_threshold_with_matches} for better results.",
+                    f"# Consider lowering Fuzzy Match Threshold from {current_threshold} to {lowest_threshold_with_matches} for more results.",
                     "#"
                 ])
             
@@ -2683,7 +3412,7 @@ class Plugin:
             header_lines.extend([
                 "# === RECOMMENDATIONS ===",
                 f"# {len(low_match_channels)} channel(s) have 3 or fewer matches.",
-                f"# Consider lowering Fuzzy Match Threshold for better results.",
+                f"# Consider lowering Fuzzy Match Threshold for more results.",
                 "#"
             ])
             
@@ -2799,6 +3528,7 @@ class Plugin:
             ignore_regional = processed_data.get('ignore_regional', True)
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
+            filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
 
             channel_groups = {}
             for channel in channels:
@@ -2824,6 +3554,16 @@ class Plugin:
 
             self._send_progress_update("preview_changes", 'running', 30, f'Analyzing {len(channel_groups)} channel groups...', context)
 
+            # Initialize progress tracker for channel group processing
+            progress_tracker = ProgressTracker(
+                total_items=len(channel_groups),
+                action_id="preview_changes",
+                logger=logger,
+                context=context,
+                send_progress_callback=self._send_progress_update
+            )
+            progress_tracker.set_progress_range(30, 80)  # This phase handles 30-80% of progress
+            
             processed_groups = 0
             total_groups = len(channel_groups)
             group_stats = {}  # Track stats for each group
@@ -2831,18 +3571,14 @@ class Plugin:
             for group_key, group_channels in channel_groups.items():
                 limiter.wait()
                 
-                # Update progress
-                processed_groups += 1
-                progress = 30 + int((processed_groups / total_groups) * 50)  # 30-80%
-                if processed_groups % max(1, total_groups // 10) == 0:  # Update every 10%
-                    self._send_progress_update("preview_changes", 'running', progress, 
-                                              f'Processing channel group {processed_groups}/{total_groups}...', context)
+                # Update progress tracker (automatically sends updates every minute)
+                progress_tracker.update(items_processed=1)
                 
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 
                 # Get matches at current threshold for the primary channel
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data
+                    sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data, filter_dead
                 )
 
                 # Track group stats
@@ -2932,7 +3668,9 @@ class Plugin:
             os.makedirs("/data/exports", exist_ok=True)
 
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-                header_comment = self._generate_csv_header_comment(settings, processed_data, 
+                header_comment = self._generate_csv_header_comment(settings, processed_data,
+                                                                   action_name="Preview Changes (Dry Run)",
+                                                                   is_scheduled=False,
                                                                    low_match_channels=low_match_channels,
                                                                    threshold_data=threshold_data)
                 csvfile.write(header_comment)
@@ -2963,6 +3701,14 @@ class Plugin:
 
     def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
         """Add matching streams to channels and replace existing stream assignments."""
+        # Check dry run mode
+        dry_run = settings.get('dry_run_mode', False)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() in ('true', 'yes', '1')
+        
+        mode_label = "DRY RUN (Preview)" if dry_run else "LIVE MODE"
+        logger.info(f"[Stream-Mapparr] === MATCH & ASSIGN STREAMS ACTION STARTED ({mode_label}) ===")
+        
         # Always reload channels to ensure fresh data
         logger.info("[Stream-Mapparr] Loading fresh channel and stream data...")
         self._send_progress_update("add_streams_to_channels", 'running', 0, 'Loading channels and streams...', context)
@@ -2993,6 +3739,7 @@ class Plugin:
             ignore_regional = processed_data.get('ignore_regional', True)
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
+            filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
 
             channel_groups = {}
             for channel in channels:
@@ -3013,6 +3760,16 @@ class Plugin:
             self._send_progress_update("add_streams_to_channels", 'running', 20,
                                       f'Processing {len(channel_groups)} channel groups...', context)
 
+            # Initialize progress tracker for channel group processing
+            progress_tracker = ProgressTracker(
+                total_items=len(channel_groups),
+                action_id="add_streams_to_channels",
+                logger=logger,
+                context=context,
+                send_progress_callback=self._send_progress_update
+            )
+            progress_tracker.set_progress_range(20, 80)  # This phase handles 20-80% of progress
+
             processed_groups = 0
             total_groups = len(channel_groups)
             group_stats = {}  # Track stats for each group
@@ -3021,7 +3778,7 @@ class Plugin:
                 limiter.wait() # Rate limit processing
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
-                    sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data
+                    sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc, channels_data, filter_dead
                 )
 
                 # Track group stats
@@ -3043,30 +3800,35 @@ class Plugin:
 
                     try:
                         if matched_streams:
-                            if overwrite_streams:
-                                ChannelStream.objects.filter(channel_id=channel_id).delete()
+                            # Only apply changes if not in dry run mode
+                            if not dry_run:
+                                if overwrite_streams:
+                                    ChannelStream.objects.filter(channel_id=channel_id).delete()
 
-                            existing_stream_ids = set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
-                            streams_added = 0
-                            for stream in matched_streams:
-                                if not overwrite_streams and stream['id'] in existing_stream_ids: continue
-                                ChannelStream.objects.create(channel_id=channel_id, stream_id=stream['id'])
-                                streams_added += 1
+                                existing_stream_ids = set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
+                                streams_added = 0
+                                for index, stream in enumerate(matched_streams):
+                                    if not overwrite_streams and stream['id'] in existing_stream_ids: continue
+                                    # Set order field to maintain quality-based sorting (4K -> UHD -> FHD -> HD -> SD)
+                                    # matched_streams is already sorted by _sort_streams_by_quality in _match_streams_to_channel
+                                    ChannelStream.objects.create(channel_id=channel_id, stream_id=stream['id'], order=index)
+                                    streams_added += 1
+                                
+                                total_streams_added += streams_added
+                            else:
+                                # Dry run: just count what would be added
+                                streams_added = len(matched_streams)
+                                total_streams_added += streams_added
 
                             channels_updated += 1
-                            total_streams_added += streams_added
                         else:
-                            if overwrite_streams:
+                            if not dry_run and overwrite_streams:
                                 ChannelStream.objects.filter(channel_id=channel_id).delete()
                     except Exception as e:
                         logger.error(f"[Stream-Mapparr] Failed to update channel '{channel['name']}': {e}")
                 
-                # Update progress
-                processed_groups += 1
-                progress = 20 + int((processed_groups / total_groups) * 60)  # 20-80%
-                if processed_groups % max(1, total_groups // 10) == 0:  # Update every 10%
-                    self._send_progress_update("add_streams_to_channels", 'running', progress,
-                                              f'Updated {channels_updated} channels so far...', context)
+                # Update progress tracker (automatically sends updates every minute with ETA)
+                progress_tracker.update(items_processed=1)
 
             # Log channel group statistics
             logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
@@ -3075,13 +3837,13 @@ class Plugin:
             if len(channel_groups) > 10:
                 logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
 
-            # CSV Export - create if setting is enabled
-            # Default to configured value if setting doesn't exist
+            # CSV Export - create if dry run OR if setting is enabled
             create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
             if isinstance(create_csv, str):
                 create_csv = create_csv.lower() in ('true', 'yes', '1')
             
-            if create_csv:
+            # Always create CSV in dry run mode
+            if dry_run or create_csv:
                 self._send_progress_update("add_streams_to_channels", 'running', 85, 'Generating CSV export...', context)
                 try:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -3157,6 +3919,8 @@ class Plugin:
 
                     with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                         header_comment = self._generate_csv_header_comment(settings, processed_data,
+                                                                          action_name="Match & Assign Streams",
+                                                                          is_scheduled=is_scheduled,
                                                                           total_visible_channels=channels_updated,
                                                                           total_matched_streams=total_streams_added,
                                                                           low_match_channels=low_match_channels,
@@ -3178,15 +3942,22 @@ class Plugin:
             else:
                 csv_created = None
 
-            self._trigger_frontend_refresh(settings, logger)
+            # Only trigger frontend refresh if not dry run
+            if not dry_run:
+                self._trigger_frontend_refresh(settings, logger)
 
             # Send final completion notification with CSV info
-            success_msg = f"Updated {channels_updated} channels with {total_streams_added} streams."
+            if dry_run:
+                success_msg = f"✅ PREVIEW COMPLETED (DRY RUN)\n\nWould update {channels_updated} channels with {total_streams_added} streams."
+            else:
+                success_msg = f"✅ MATCH & ASSIGN COMPLETED\n\nUpdated {channels_updated} channels with {total_streams_added} streams."
+            
             if csv_created:
-                success_msg += f" CSV saved to {csv_created}"
+                success_msg += f"\n📄 Report: {csv_created}"
             if channels_skipped > 0:
-                success_msg += f" Skipped {channels_skipped} deleted channel(s)."
-                logger.info(f"[Stream-Mapparr] {success_msg}")
+                success_msg += f"\n⚠️ Skipped {channels_skipped} deleted channel(s)."
+            
+            logger.info(f"[Stream-Mapparr] {success_msg}")
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context)
 
             return {"status": "success", "message": success_msg}
@@ -3194,6 +3965,684 @@ class Plugin:
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error adding streams: {str(e)}")
             return {"status": "error", "message": f"Error adding streams: {str(e)}"}
+
+    def match_us_ota_only_action(self, settings, logger, context=None):
+        """Match and assign streams to US OTA channels using callsign matching only.
+        
+        This action:
+        1. Builds US callsign database from US_channels.json
+        2. Loads channels from Dispatcharr (filtered by profile/groups)
+        3. For each channel, extracts callsign and matches against US database
+        4. Searches streams for uppercase callsign occurrences only
+        5. Assigns matched streams (or previews if dry run enabled)
+        """
+        try:
+            # Check dry run mode
+            dry_run = settings.get('dry_run_mode', False)
+            if isinstance(dry_run, str):
+                dry_run = dry_run.lower() in ('true', 'yes', '1')
+            
+            mode_label = "PREVIEW" if dry_run else "LIVE"
+            logger.info(f"[Stream-Mapparr] ========== US OTA MATCHING STARTED ({mode_label} MODE) ==========")
+            
+            # Build US callsign database
+            logger.info("[Stream-Mapparr] Building US callsign database from US_channels.json...")
+            us_callsign_db = self._build_us_callsign_database(logger)
+            
+            if not us_callsign_db:
+                error_msg = "Failed to build US callsign database. Check that US_channels.json exists and is valid."
+                logger.error(f"[Stream-Mapparr] {error_msg}")
+                return {"status": "error", "message": error_msg}
+            
+            logger.info(f"[Stream-Mapparr] Loaded {len(us_callsign_db)} unique US callsigns")
+            
+            # Validate settings
+            validation_result = self.validate_settings_action(settings, logger)
+            if validation_result.get('status') != 'success':
+                return validation_result
+            
+            # Get API token
+            logger.info("[Stream-Mapparr] Authenticating with Dispatcharr API...")
+            token, error = self.get_or_refresh_api_token(settings, logger)
+            if error or not token:
+                return {"status": "error", "message": f"Failed to authenticate with Dispatcharr API: {error}"}
+            
+            # Get rate limiter
+            rate_limiting = settings.get("rate_limiting", PluginConfig.DEFAULT_RATE_LIMITING)
+            limiter = SmartRateLimiter(rate_limiting, logger)
+            
+            # Load channels (same logic as load_process_channels_action for profile/group filtering)
+            logger.info("[Stream-Mapparr] Loading channels from Dispatcharr...")
+            
+            profile_names_str = settings.get("profile_name") or ""
+            profile_names_str = profile_names_str.strip() if profile_names_str else ""
+            selected_groups_str = settings.get("selected_groups") or ""
+            selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
+            
+            profile_names = [name.strip() for name in profile_names_str.split(',') if name.strip()]
+            
+            # Fetch profiles
+            profiles = self._get_api_data("/api/channels/profiles/", token, settings, logger, limiter=limiter)
+            
+            target_profiles = []
+            profile_ids = []
+            for profile_name in profile_names:
+                found_profile = None
+                for profile in profiles:
+                    if profile.get('name', '').lower() == profile_name.lower():
+                        found_profile = profile
+                        break
+                if not found_profile:
+                    return {"status": "error", "message": f"Profile '{profile_name}' not found."}
+                target_profiles.append(found_profile)
+                profile_ids.append(found_profile['id'])
+            
+            # Fetch groups if group filtering is specified
+            if selected_groups_str:
+                all_groups = []
+                page = 1
+                while True:
+                    try:
+                        api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger, limiter=limiter)
+                    except Exception as e:
+                        if page > 1:
+                            break
+                        else:
+                            raise
+                    
+                    if isinstance(api_groups, dict) and 'results' in api_groups:
+                        results = api_groups['results']
+                        if not results:
+                            break
+                        all_groups.extend(results)
+                        if not api_groups.get('next'):
+                            break
+                        page += 1
+                    elif isinstance(api_groups, list):
+                        if not api_groups:
+                            break
+                        all_groups.extend(api_groups)
+                        break
+                    else:
+                        break
+                
+                group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
+            
+            # Fetch all channels
+            all_channels = self._get_api_data("/api/channels/channels/", token, settings, logger, limiter=limiter)
+            
+            # Filter channels by profile (enabled=True in profile)
+            channels_in_profile = []
+            for channel in all_channels:
+                channel_id = channel['id']
+                is_in_profile = ChannelProfileMembership.objects.filter(
+                    channel_id=channel_id,
+                    channel_profile_id__in=profile_ids,
+                    enabled=True
+                ).exists()
+                if is_in_profile:
+                    channels_in_profile.append(channel)
+            
+            # Filter by groups if specified
+            if selected_groups_str:
+                selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
+                valid_group_ids = [group_name_to_id[name] for name in selected_groups if name in group_name_to_id]
+                if not valid_group_ids:
+                    return {"status": "error", "message": "None of the specified groups were found."}
+                
+                filtered_channels = [ch for ch in channels_in_profile if ch.get('channel_group_id') in valid_group_ids]
+                channels = filtered_channels
+                logger.info(f"[Stream-Mapparr] Filtered to {len(channels)} channels in groups: {', '.join(selected_groups)}")
+            else:
+                channels = channels_in_profile
+                logger.info(f"[Stream-Mapparr] Using all channels from profile (no group filter)")
+            
+            if not channels:
+                error_msg = "No channels found. Check profile and group filters."
+                logger.error(f"[Stream-Mapparr] {error_msg}")
+                return {"status": "error", "message": error_msg}
+            
+            logger.info(f"[Stream-Mapparr] Loaded {len(channels)} channels")
+            
+            # Load all streams
+            logger.info("[Stream-Mapparr] Loading all streams...")
+            all_streams = []
+            page = 1
+            while True:
+                endpoint = f"/api/channels/streams/?page={page}&page_size=100"
+
+                try:
+                    streams_response = self._get_api_data(endpoint, token, settings, logger, limiter=limiter)
+                except Exception as e:
+                    # If we get an error (e.g., 404 for non-existent page), we've reached the end
+                    if page > 1:
+                        logger.debug(f"[Stream-Mapparr] No more pages available (attempted page {page})")
+                        break
+                    else:
+                        # If error on first page, re-raise
+                        raise
+
+                # Handle both paginated and non-paginated responses
+                if isinstance(streams_response, dict) and 'results' in streams_response:
+                    results = streams_response['results']
+
+                    # Check if we got empty results
+                    if not results:
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        break
+
+                    all_streams.extend(results)
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(results)} streams (total so far: {len(all_streams)})")
+
+                    # Stop if this page had fewer results than page_size (last page)
+                    if len(results) < 100:
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
+                        break
+
+                    page += 1
+                elif isinstance(streams_response, list):
+                    # Check if we got empty results
+                    if not streams_response:
+                        logger.debug("[Stream-Mapparr] Reached last page of streams (empty results)")
+                        break
+
+                    # List response - could still be paginated
+                    all_streams.extend(streams_response)
+                    logger.debug(f"[Stream-Mapparr] Fetched page {page}: {len(streams_response)} streams (total so far: {len(all_streams)})")
+
+                    # If we got exactly 100 results, there might be more pages
+                    if len(streams_response) == 100:
+                        page += 1
+                    else:
+                        logger.debug("[Stream-Mapparr] Reached last page of streams")
+                        break
+                else:
+                    logger.warning("[Stream-Mapparr] Unexpected streams response format")
+                    break
+            
+            if not all_streams:
+                error_msg = "No streams found in Dispatcharr"
+                logger.error(f"[Stream-Mapparr] {error_msg}")
+                return {"status": "error", "message": error_msg}
+            
+            logger.info(f"[Stream-Mapparr] Loaded {len(all_streams)} streams")
+            
+            # Filter dead streams if enabled
+            filter_dead = settings.get('filter_dead_streams', False)
+            if isinstance(filter_dead, str):
+                filter_dead = filter_dead.lower() in ('true', 'yes', '1')
+            
+            working_streams = all_streams
+            if filter_dead:
+                logger.info("[Stream-Mapparr] Filtering dead streams (0x0 resolution)...")
+                working_streams = self._filter_working_streams(all_streams, logger)
+                logger.info(f"[Stream-Mapparr] {len(working_streams)} working streams (filtered out {len(all_streams) - len(working_streams)} dead)")
+            
+            # Initialize fuzzy matcher for callsign extraction
+            if not self.fuzzy_matcher:
+                match_threshold = settings.get("fuzzy_match_threshold", PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
+                if isinstance(match_threshold, str):
+                    match_threshold = int(match_threshold)
+                self._initialize_fuzzy_matcher(match_threshold)
+            
+            # Match channels using US OTA callsign database
+            logger.info("[Stream-Mapparr] Matching channels using US OTA callsign database...")
+            logger.info("[Stream-Mapparr] Note: Only channels with valid US callsigns will be matched")
+            
+            matched_channels = []
+            skipped_no_callsign = 0
+            skipped_not_in_db = 0
+            skipped_no_streams = 0
+            
+            for idx, channel in enumerate(channels, 1):
+                channel_name = channel.get('name', '')
+                channel_id = channel.get('id')
+                
+                if idx % 100 == 0:
+                    logger.info(f"[Stream-Mapparr] Processing channel {idx}/{len(channels)}...")
+                
+                # Extract callsign from Dispatcharr channel name using fuzzy_matcher
+                callsign = self.fuzzy_matcher.extract_callsign(channel_name)
+                
+                if not callsign:
+                    logger.debug(f"[Stream-Mapparr] Skipping '{channel_name}' - no US callsign found")
+                    skipped_no_callsign += 1
+                    continue
+                
+                # Normalize to base callsign (remove suffixes like -TV, -DT)
+                base_callsign = self.fuzzy_matcher.normalize_callsign(callsign)
+                
+                # Check if callsign exists in US database
+                if base_callsign not in us_callsign_db:
+                    logger.debug(f"[Stream-Mapparr] Skipping '{channel_name}' - callsign '{base_callsign}' not in US database")
+                    skipped_not_in_db += 1
+                    continue
+                
+                # Search streams for callsign (uppercase only)
+                matching_streams = []
+                
+                # Create regex pattern for base callsign + variations
+                # Matches: WKRG, WKRG-DT, WKRG-DT2, etc. (case-sensitive)
+                callsign_pattern = r'\b' + re.escape(base_callsign) + r'(?:-[A-Z]{2}\d?)?\b'
+                
+                for stream in working_streams:
+                    stream_name = stream.get('name', '')
+                    
+                    # Search for uppercase callsign occurrences only
+                    if re.search(callsign_pattern, stream_name):
+                        matching_streams.append(stream)
+                
+                if not matching_streams:
+                    logger.debug(f"[Stream-Mapparr] No streams found for '{channel_name}' (callsign: {base_callsign})")
+                    skipped_no_streams += 1
+                    continue
+                
+                # Sort streams by quality
+                sorted_streams = self._sort_streams_by_quality(matching_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams)
+                
+                # Add to matched channels list
+                matched_channels.append({
+                    'channel_id': channel_id,
+                    'channel_name': channel_name,
+                    'callsign': base_callsign,
+                    'stream_ids': [s['id'] for s in sorted_streams],
+                    'stream_names': [s['name'] for s in sorted_streams],
+                    'match_type': f'US OTA callsign: {base_callsign}'
+                })
+                
+                logger.debug(f"[Stream-Mapparr] Matched '{channel_name}' ({base_callsign}) with {len(sorted_streams)} stream(s)")
+            
+            # Log summary
+            logger.info(f"[Stream-Mapparr] ===== US OTA Matching Summary =====")
+            logger.info(f"[Stream-Mapparr] Total channels processed: {len(channels)}")
+            logger.info(f"[Stream-Mapparr] Channels matched: {len(matched_channels)}")
+            logger.info(f"[Stream-Mapparr] Skipped (no callsign): {skipped_no_callsign}")
+            logger.info(f"[Stream-Mapparr] Skipped (not in US database): {skipped_not_in_db}")
+            logger.info(f"[Stream-Mapparr] Skipped (no matching streams): {skipped_no_streams}")
+            
+            if not matched_channels:
+                error_msg = "No channels matched. All channels were skipped (no callsigns or not in US database)."
+                logger.warning(f"[Stream-Mapparr] {error_msg}")
+                return {"status": "error", "message": error_msg}
+            
+            # Generate CSV export
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"stream_mapparr_us_ota_{timestamp}.csv"
+            csv_filepath = os.path.join(PluginConfig.EXPORTS_DIR, csv_filename)
+            
+            logger.info(f"[Stream-Mapparr] Generating CSV export: {csv_filename}")
+            
+            try:
+                os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
+                
+                # Create processed_data for CSV header
+                processed_data = {
+                    'profile_name': profile_names_str,
+                    'selected_groups': [selected_groups_str] if selected_groups_str else [],
+                    'selected_stream_groups': [],
+                    'selected_m3us': []
+                }
+                
+                with open(csv_filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                    # Write header comment
+                    csvfile.write(self._generate_csv_header_comment(
+                        settings=settings,
+                        processed_data=processed_data,
+                        action_name="Match US OTA Only",
+                        is_scheduled=False
+                    ))
+                    
+                    # Write CSV data
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['will_update', 'channel_id', 'channel_name', 'callsign', 'matched_streams', 'stream_names'])
+                    
+                    for channel_data in matched_channels:
+                        will_update = "yes" if not dry_run else "preview"
+                        stream_names = "; ".join(channel_data['stream_names'])
+                        
+                        writer.writerow([
+                            will_update,
+                            channel_data['channel_id'],
+                            channel_data['channel_name'],
+                            channel_data['callsign'],
+                            len(channel_data['stream_ids']),
+                            stream_names
+                        ])
+                
+                logger.info(f"📄 [Stream-Mapparr] CSV export created: {csv_filepath}")
+                
+            except Exception as csv_error:
+                logger.error(f"[Stream-Mapparr] Error creating CSV: {str(csv_error)}")
+            
+            # If dry run, stop here
+            if dry_run:
+                logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING PREVIEW COMPLETED")
+                logger.info(f"[Stream-Mapparr] Matched {len(matched_channels)} channels")
+                logger.info(f"[Stream-Mapparr] CSV preview: {csv_filepath}")
+                
+                return {
+                    "status": "success",
+                    "message": f"✅ US OTA Matching Preview Complete\n\n"
+                               f"📊 Matched {len(matched_channels)} channels\n"
+                               f"📄 CSV: {csv_filename}\n\n"
+                               f"💡 Disable 'Dry Run Mode' to actually assign streams."
+                }
+            
+            # Assign streams to channels (LIVE MODE using Django ORM)
+            overwrite = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
+            if isinstance(overwrite, str):
+                overwrite = overwrite.lower() in ('true', 'yes', '1')
+            
+            success_count = 0
+            error_count = 0
+            
+            for idx, channel_data in enumerate(matched_channels, 1):
+                try:
+                    channel_id = channel_data['channel_id']
+                    stream_ids = channel_data['stream_ids']
+                    
+                    if idx % 50 == 0:
+                        logger.info(f"[Stream-Mapparr] Assigning streams {idx}/{len(matched_channels)}...")
+                    
+                    # Delete existing streams if overwrite is enabled
+                    if overwrite:
+                        ChannelStream.objects.filter(channel_id=channel_id).delete()
+                    
+                    # Create new stream assignments with quality-based ordering
+                    existing_stream_ids = set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
+                    for order, stream_id in enumerate(stream_ids):
+                        if not overwrite and stream_id in existing_stream_ids:
+                            continue
+                        ChannelStream.objects.create(channel_id=channel_id, stream_id=stream_id, order=order)
+                    
+                    success_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"[Stream-Mapparr] Error assigning streams to channel {channel_data['channel_name']}: {e}")
+                    error_count += 1
+            
+            logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING COMPLETED")
+            logger.info(f"[Stream-Mapparr] Successfully assigned: {success_count} channels")
+            if error_count > 0:
+                logger.warning(f"[Stream-Mapparr] Errors: {error_count} channels")
+            logger.info(f"[Stream-Mapparr] CSV export: {csv_filepath}")
+            
+            return {
+                "status": "success",
+                "message": f"✅ US OTA Matching Complete\n\n"
+                           f"📊 Matched {len(matched_channels)} channels\n"
+                           f"✅ Successfully assigned: {success_count}\n"
+                           f"{'⚠️ Errors: ' + str(error_count) if error_count > 0 else ''}\n"
+                           f"📄 CSV: {csv_filename}"
+            }
+            
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error in US OTA matching: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {"status": "error", "message": f"Error in US OTA matching: {str(e)}"}
+
+    def sort_streams_action(self, settings, logger, context=None):
+        """Sort existing alternate streams by quality for all channels"""
+        try:
+            # Check dry run mode
+            dry_run = settings.get('dry_run_mode', False)
+            if isinstance(dry_run, str):
+                dry_run = dry_run.lower() in ('true', 'yes', '1')
+            
+            mode_label = "DRY RUN (Preview)" if dry_run else "LIVE MODE"
+            logger.info(f"[Stream-Mapparr] === SORT STREAMS ACTION STARTED ({mode_label}) ===")
+            
+            # Get settings
+            profile_name = settings.get('profile_name', '').strip()
+            if not profile_name:
+                return {"status": "error", "message": "Profile name is required"}
+            
+            selected_groups_str = settings.get('selected_groups', '').strip()
+            
+            # Get API token
+            token, error = self.get_or_refresh_api_token(settings, logger)
+            if error:
+                return {"status": "error", "message": error}
+            
+            # Fetch all channels for the profile
+            logger.info(f"[Stream-Mapparr] Fetching channels for profile: {profile_name}")
+            
+            # Get profile IDs
+            all_profiles = self._get_api_data("/api/channels/profiles/", token, settings, logger, None)
+            profile_names = [p.strip() for p in profile_name.split(',')]
+            profile_ids = []
+            for profile in all_profiles:
+                if profile['name'] in profile_names:
+                    profile_ids.append(profile['id'])
+            
+            if not profile_ids:
+                return {"status": "error", "message": f"Profile(s) not found: {profile_name}"}
+            
+            # Fetch channel groups if filtering is needed
+            group_name_to_id = {}
+            if selected_groups_str:
+                logger.info(f"[Stream-Mapparr] Fetching channel groups for filtering...")
+                all_groups = []
+                page = 1
+                while True:
+                    try:
+                        api_groups = self._get_api_data(f"/api/channels/groups/?page={page}", token, settings, logger, None)
+                    except Exception as e:
+                        if page > 1:
+                            logger.debug(f"[Stream-Mapparr] No more group pages available (attempted page {page})")
+                            break
+                        else:
+                            raise
+                    
+                    if isinstance(api_groups, dict) and 'results' in api_groups:
+                        results = api_groups['results']
+                        if not results:
+                            break
+                        all_groups.extend(results)
+                        if not api_groups.get('next'):
+                            break
+                        page += 1
+                    elif isinstance(api_groups, list):
+                        if not api_groups:
+                            break
+                        all_groups.extend(api_groups)
+                        break
+                    else:
+                        break
+                
+                group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
+            
+            # Fetch ALL channels from API
+            all_channels = self._get_api_data("/api/channels/channels/", token, settings, logger, None)
+            logger.info(f"[Stream-Mapparr] Fetched {len(all_channels)} total channels from API")
+            
+            # Filter to channels in the specified profile(s) using Django ORM
+            channels_in_profile = []
+            for channel in all_channels:
+                channel_id = channel['id']
+                is_in_profile = ChannelProfileMembership.objects.filter(
+                    channel_id=channel_id,
+                    channel_profile_id__in=profile_ids,
+                    enabled=True
+                ).exists()
+                if is_in_profile:
+                    channels_in_profile.append(channel)
+            
+            logger.info(f"[Stream-Mapparr] Found {len(channels_in_profile)} channels in profile(s): {', '.join(profile_names)}")
+            
+            # Filter by channel groups if specified
+            if selected_groups_str:
+                selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
+                valid_group_ids = [group_name_to_id[name] for name in selected_groups if name in group_name_to_id]
+                
+                if not valid_group_ids:
+                    return {"status": "error", "message": f"None of the specified channel groups were found: {selected_groups_str}"}
+                
+                # Filter channels by group
+                filtered_channels = [ch for ch in channels_in_profile if ch.get('channel_group_id') in valid_group_ids]
+                channels_in_profile = filtered_channels
+                logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
+            
+            # Get channels with multiple streams using Django ORM
+            channels_with_multiple_streams = []
+            for channel in channels_in_profile:
+                channel_id = channel['id']
+                # Query ChannelStream relationships to get stream count
+                stream_ids = list(ChannelStream.objects.filter(channel_id=channel_id).order_by('order').values_list('stream_id', flat=True))
+                
+                if len(stream_ids) > 1:
+                    # Fetch stream details including stats
+                    streams = []
+                    for stream_id in stream_ids:
+                        try:
+                            stream = Stream.objects.get(id=stream_id)
+                            streams.append({
+                                'id': stream.id,
+                                'name': stream.name,
+                                'stats': stream.stream_stats or {}
+                            })
+                        except Stream.DoesNotExist:
+                            logger.warning(f"[Stream-Mapparr] Stream {stream_id} no longer exists, skipping")
+                    
+                    if len(streams) > 1:
+                        channel['streams'] = streams
+                        channels_with_multiple_streams.append(channel)
+            
+            if not channels_with_multiple_streams:
+                message = "No channels found with multiple streams to sort."
+                logger.info(f"[Stream-Mapparr] {message}")
+                return {"status": "success", "message": message}
+            
+            # Sort streams for each channel
+            sorted_count = 0
+            changes = []
+            already_sorted_count = 0
+            
+            for channel in channels_with_multiple_streams:
+                channel_id = channel['id']
+                channel_name = channel['name']
+                streams = channel.get('streams', [])
+                
+                # Sort streams by quality
+                sorted_streams = self._sort_streams_by_quality(streams)
+                
+                # Check if order changed
+                original_ids = [s['id'] for s in streams]
+                sorted_ids = [s['id'] for s in sorted_streams]
+                
+                if original_ids != sorted_ids:
+                    sorted_count += 1
+                    
+                    # Log the reordering
+                    stream_names = [s['name'] for s in sorted_streams]
+                    logger.info(f"[Stream-Mapparr] Channel '{channel_name}': Reordered {len(sorted_streams)} streams")
+                    logger.debug(f"[Stream-Mapparr]   Order: {' → '.join(stream_names[:3])}")
+                    
+                    changes.append({
+                        'channel_id': channel_id,
+                        'channel_name': channel_name,
+                        'stream_count': len(sorted_streams),
+                        'stream_names': stream_names
+                    })
+                    
+                    # Apply changes if not dry run
+                    if not dry_run:
+                        # Delete existing ChannelStream relationships
+                        ChannelStream.objects.filter(channel_id=channel_id).delete()
+                        
+                        # Create new relationships with correct order
+                        for index, stream in enumerate(sorted_streams):
+                            ChannelStream.objects.create(
+                                channel_id=channel_id,
+                                stream_id=stream['id'],
+                                order=index
+                            )
+                else:
+                    already_sorted_count += 1
+            
+            # Log summary with clarification
+            logger.info(f"[Stream-Mapparr] Sorted streams for {sorted_count} channels ({already_sorted_count} already in correct order)")
+            
+            # Create CSV if dry run OR if export setting enabled
+            create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
+            if isinstance(create_csv, str):
+                create_csv = create_csv.lower() in ('true', 'yes', '1')
+            
+            csv_created = None
+            if dry_run or create_csv:
+                try:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"stream_mapparr_sorted_{timestamp}.csv" if not dry_run else f"stream_mapparr_preview_{timestamp}.csv"
+                    filepath = os.path.join("/data/exports", filename)
+                    os.makedirs("/data/exports", exist_ok=True)
+                    
+                    # Build processed_data dict for header generator
+                    selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()] if selected_groups_str else []
+                    processed_data_for_header = {
+                        'profile_name': profile_name,
+                        'selected_groups': selected_groups,
+                        'selected_stream_groups': [],
+                        'selected_m3us': [],
+                        'ignore_tags': [],
+                        'visible_channel_limit': 1,
+                        'ignore_quality': True,
+                        'ignore_regional': True,
+                        'ignore_geographic': True,
+                        'ignore_misc': True,
+                        'filter_dead_streams': False
+                    }
+                    
+                    with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                        # Write comprehensive header using standard generator
+                        header_comment = self._generate_csv_header_comment(
+                            settings,
+                            processed_data_for_header,
+                            action_name="Sort Alternate Streams",
+                            is_scheduled=False,  # Sort Streams is always manual
+                            total_visible_channels=sorted_count,
+                            total_matched_streams=0
+                        )
+                        csvfile.write(header_comment)
+                        
+                        fieldnames = ['channel_id', 'channel_name', 'stream_count', 'stream_names']
+                        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                        writer.writeheader()
+                        
+                        for change in changes:
+                            writer.writerow({
+                                'channel_id': change['channel_id'],
+                                'channel_name': change['channel_name'],
+                                'stream_count': change['stream_count'],
+                                'stream_names': '; '.join(change['stream_names'])
+                            })
+                    
+                    logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
+                    csv_created = filepath
+                except Exception as e:
+                    logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
+            
+            # Build success message
+            if dry_run:
+                message = f"✅ PREVIEW COMPLETED (DRY RUN)\n\nWould sort {sorted_count} channel(s) with multiple streams."
+            else:
+                message = f"✅ SORT STREAMS COMPLETED\n\nSorted {sorted_count} channel(s) with multiple streams."
+                # Trigger frontend refresh
+                self._trigger_frontend_refresh(settings, logger)
+            
+            if csv_created:
+                message += f"\n📄 Report: {csv_created}"
+            
+            logger.info(f"[Stream-Mapparr] {message}")
+            
+            return {"status": "success", "message": message}
+            
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error in sort_streams_action: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {"status": "error", "message": f"Error sorting streams: {str(e)}"}
 
     def manage_channel_visibility_action(self, settings, logger, context=None):
         """Disable all channels, then enable only channels with 1 or more streams."""
@@ -3241,6 +4690,7 @@ class Plugin:
             ignore_regional = processed_data.get('ignore_regional', True)
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
+            filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
 
             for channel in channels:
                 channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
@@ -3306,4 +4756,39 @@ class Plugin:
             return {"status": "success", "message": f"Deleted {deleted_count} CSV files."}
         except Exception as e:
             return {"status": "error", "message": f"Error clearing CSV exports: {e}"}
+
+    def clear_operation_lock_action(self, settings, logger):
+        """Manually clear the operation lock file"""
+        try:
+            lock_file = PluginConfig.OPERATION_LOCK_FILE
+            
+            if not os.path.exists(lock_file):
+                return {"status": "success", "message": "No operation lock found."}
+            
+            # Read lock info before deleting
+            try:
+                with open(lock_file, 'r') as f:
+                    lock_data = json.load(f)
+                action_name = lock_data.get('action', 'unknown')
+                lock_time_str = lock_data.get('start_time')
+                if lock_time_str:
+                    lock_time = datetime.fromisoformat(lock_time_str)
+                    age_minutes = (datetime.now() - lock_time).total_seconds() / 60
+                    lock_info = f"{action_name} (started {age_minutes:.1f} minutes ago)"
+                else:
+                    lock_info = action_name
+            except:
+                lock_info = "unknown operation"
+            
+            # Delete the lock file
+            os.remove(lock_file)
+            logger.info(f"[Stream-Mapparr] Operation lock cleared manually: {lock_info}")
+            
+            return {
+                "status": "success",
+                "message": f"✅ Operation lock cleared.\n\nRemoved lock for: {lock_info}\n\nYou can now run operations normally."
+            }
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Error clearing operation lock: {e}")
+            return {"status": "error", "message": f"Error clearing lock: {e}"}
 

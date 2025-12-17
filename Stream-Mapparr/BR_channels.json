@@ -1,612 +1,3582 @@
 {
   "country_code": "BR",
   "country_name": "Brazil",
-  "version": "2025-11-11",
+  "version": "2025-12-08",
   "channels": [
     {
-      "channel_name": "TV Globo",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Globo São Paulo",
-      "category": "Entertainment",
+      "channel_name": "A Fazenda",
+      "category": "Brazil",
       "type": "Regional"
-    },
-    {
-      "channel_name": "TV Tribuna (Santos)",
-      "category": "Entertainment",
-      "type": "Local"
-    },
-    {
-      "channel_name": "TV Globo Rio de Janeiro",
-      "category": "Entertainment",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "Record",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "SBT",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Gazeta",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Band",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "RedeTV!",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Cultura",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Brasil",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Warner Channel",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "USA Network",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Woohoo",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "GloboNews",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CNN Brasil",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CNN Brasil Money",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Record News",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "BandNews TV",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Jovem Pan News",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Cazé TV",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "SporTV",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "SporTV 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "SporTV 3",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN 3",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN 4",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN 5",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "ESPN 6",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "OFF",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "BandSports",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere Clubes",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 3",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 4",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 5",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 6",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 7",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Premiere 8",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Combate",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Multishow",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "GNT",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "Modo Viagem",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "Lifetime",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "HGTV",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "Viva",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal Brasil",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Futura",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Premium",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Action",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Pipoca",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Fun",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Cult",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Telecine Touch",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Gloob",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Tooncast",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "DumDum",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Gloobinho",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Cartoon Network",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Cartoonito",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery Kids",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Nickelodeon",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Nick Jr.",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Disney Channel",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery Channel",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery World",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery Science",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery Turbo",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery Theater",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "ID",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Animal Planet",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Discovery H&H",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "National Geographic",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "History",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Arte 1",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Prime Box Brazil",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Terra Viva",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "Travel Box Brazil",
-      "category": "Lifestyle",
-      "type": "National"
-    },
-    {
-      "channel_name": "MTV Live",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "MTV",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "MTV 00s",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Music Box Brazil",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Bis",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Comedy Central",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Syfy",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "TNT",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "TNT Novelas",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Globoplay Novelas",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Universal TV",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Studio Universal",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Paramount Network",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Cinemax ",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO 2",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Plus",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Family",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Signature",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Pop",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Mundi",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "HBO Xtreme",
-      "category": "Movies",
-      "type": "National"
     },
     {
       "channel_name": "A&E",
-      "category": "Entertainment",
-      "type": "National"
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "Sony Channel",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "A&E HD",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "AXN",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "Adult Swim",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Adult Swim",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AgroBrasil TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Agromais HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Jazeera HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Amazon Sat",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Amazon Sat HD",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
       "channel_name": "AMC",
-      "category": "Movies",
-      "type": "National"
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "Space",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "AMC",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "E!",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Animal Planet",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "Fish TV",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Animal Planet",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "Food Network",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Arte 1",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "TNT Series",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Arte 1 HD",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "Megapix",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "AXN",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "TLC",
-      "category": "Lifestyle",
-      "type": "National"
+      "channel_name": "AXN HD",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "AgroMais",
-      "category": "Agro",
-      "type": "National"
+      "channel_name": "Band",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Amazonas (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Amazonas HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Bahia (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Bahia HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band BH HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Brasília (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Brasília HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Ceará (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Curitiba (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Curitiba HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Maceió (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Maceió HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Mato Grosso HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Minas (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Minas HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Natal HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Piauí HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Rio (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Rio Grande do Sul (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Rio Grande do Sul HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band RJ HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band Roraima HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band São Luís - TV Maranhão (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band São Luís - TV Maranhão HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band TV Goiânia (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Band TV Goiânia HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BandNews",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BandNews HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BandSports",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BandSports HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 1 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 10 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 2 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 3 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 4 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 5 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 6 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 7 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 8 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBB 9 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC World News",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BH News TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Big Brother Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BIS",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BIS HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BM&C",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boa Vontade TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boa Vontade TV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Box Kids",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Brasileiro 1",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Brasileiro 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Candangão",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Paulista 1",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Paulista 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Campeonato Sergipano",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Brasil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal do Boi",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Educação",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal FDR HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal GOV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal L!ke",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
       "channel_name": "Canal Rural",
-      "category": "Agro",
-      "type": "National"
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Universitário CNU",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Universitário TV UFSC",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Universitário TV UNIFOR",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canção Nova",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canção Nova HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoon Network Brazil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV 3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV 5",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CazéTV 6",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CBI",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CBI HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ChefTV+",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CineBrasil TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinemax",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinemax",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Sports",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Sports",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Sports",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN en Español",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN en Español",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN International",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNT Bahía",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNT Bahía HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNT HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Combate",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Combate 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Combate HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cultura",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cultura HD (CULTURA)",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
       "channel_name": "Curta!",
-      "category": "Documentary",
-      "type": "National"
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 1",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Curta! HD",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 2",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Discovery Channel",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 3",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Discovery Channel",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 4",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Discovery Home & Health",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 5",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Discovery Home & Health",
+      "category": "Brazil",
+      "type": "Regional"
     },
     {
-      "channel_name": "A Fazenda 6",
-      "category": "Reality",
-      "type": "National"
+      "channel_name": "Discovery Kids",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Kids",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Science HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Sciene HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Theater",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Turbo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Turbo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery World HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DOGTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DOGTV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dreamworks",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dreamworks HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DumDum",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DumDum HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "E!",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "E! HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EPTV Sul de Minas HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 5",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 5",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 6",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Esporte Interativo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurochannel Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fashion TV Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FashionTV Brazil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Film & Arts",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Film & Arts",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fish TV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FishTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Food Network",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Food Network HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox News Channel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Futura",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Futura HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gazeta HD (GAZ)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Belo Horizonte (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Belo Horizonte HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Brasília (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Brasília HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Nordeste HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Rio (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo Rio HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo São Paulo (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globo São Paulo HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GloboNews",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GloboNews HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globoplay Novelas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globoplay Novelas HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gloob",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gloob HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gloobinho",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GLOOBINHO HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GNT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GNT HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golf Channel HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golf Channel Latin America",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gospel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Family",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Family",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 09",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 10",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 11",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 12",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 13",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 14",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 15",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA 16",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Max LA B",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Mundi",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Mundi SD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Plus",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Plus",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Plus Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Plus Panregional HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Pop",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Pop SD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Signature",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Signature",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Xtreme",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO Xtreme SD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HBO2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HGTV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "History",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "History 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "History 2 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "History HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Horizonte TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ideal TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Inova TV HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "InterTV Cabugi (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "InterTV Cabugi HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "InterTV Grande Minas HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Investigação Discovery",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Investigação Discovery",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Joga nas 11",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Jovem Pan News",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kanal D Drama",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lifetime HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LMC+",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Loading",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MaxPrime Panregional",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MaxPrime Panregional HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Megapix",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Megapix HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Meio Norte",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Meio Norte HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Modo Viagem",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Modo Viagem",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico Big Brother Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 00s",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Live",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Live HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Live HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Multicultura",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Multishow",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Multishow HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Music Box Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Music Box Brasil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NBA TV International HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDTV (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDTV HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World Premium",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NordesTV HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Blumenau HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Chapecó HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Criciúma (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Florianópolis (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Florianópolis HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NSC TV Joinville HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Off",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Off HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Channel HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PLAY TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Playboy",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PlayBoy HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Polishop",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ponto Jus",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Power Couple Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 2 - HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 2 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 3 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 3 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 4 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 5 Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 5 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 6",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 6 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 7",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 7 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 8",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 8 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 9",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere 9 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere Clubes",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere Clubes HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere HD 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Premiere HD 5",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Prime Box Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Prime Box Brazil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PUC TV Goiás HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai Italia",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBA TV (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBA TV HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBI",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBI HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBS TV Porto Alegre (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBS TV Porto Alegre HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBS TV Rio Grande HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Bahia (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Bahia HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Belém (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Brasília (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Goiás (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Guaíba (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Guaíba (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Interior RJ (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record Litoral HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Manaus (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Minas (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record News",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record News HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD Rio (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD São Paulo (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record TV HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record TV Minas HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record TV Rio Preto HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Belém HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Brasília HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Cabrália HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Cuiabá (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Cuiabá HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Goiás HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Interior SP HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Paulista HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RecordTV Rio HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede 21",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede 21 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Amazônica Manaus (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Amazônica Manaus HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Amazônica Rio Branco (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Amazônica Rio Branco HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Boas Novas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Boas Novas HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Brasil (REDEBR)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Brasil HD (REDEBR)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Difusora HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Familia",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Gazeta",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Gospel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Gospel HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Gênesis",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Gênesis HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Mais Família",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Minas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Minas HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Mundial",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Mundial [Curitiba]",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede NGT Nova Geracao de Televisao",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Record Maceio HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Record Porto Alegre (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Super",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Super HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Século 21 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede TV Belem HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede TV Sul",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Belo Horizonte",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Belo Horizonte HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Cascavel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Cascavel HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Cuiaba",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Cuiaba HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Goiania",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Goiania HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Porto Alegre",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Porto Alegre HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Recife",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Recife HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Sao Luis",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Sao Luis HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Vitoria",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rede Vida Vitoria HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV!",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Belo Horizonte (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Belo Horizonte HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Belém (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Fortaleza (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Fortaleza HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Natal (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Porto Velho (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Porto Velho HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Recife HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Rio de Janeiro HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! Rôndonia HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! São Paulo (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RedeTV! São Paulo HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RFTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RIC Record TV Curitiba (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RIC TV Curitiba HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RIC TV Florianópolis HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RIT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RIT HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rondovisão (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rondovisão HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Curitiba (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Curitiba HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Foz do Iguaçu HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Maringá HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Paranavaí HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RPC Ponta Grossa HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP Internacional",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTPi RadioTV Portuguesa Int'l",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rádio Sociedade (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sabor & Arte",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBN",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Belem HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Brasília (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Brasília HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Cuiabá (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Cuiabá HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT MS HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Pará (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Rio (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Rio HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT RS (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT RS HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Santa Catarina (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Santa Catarina HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Sergipe (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Sergipe HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT São Paulo (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Tocantins (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SBT Tocantins HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SescTV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SexPrivé",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sextreme Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sexy Hot",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC Internacional Europa",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC TV (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC TV HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SonLife Broadcasting Network",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony Channel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony Channel HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SporTV 4",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SporTV 5",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv2 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sportv3 HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SportyNet",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SportyNet +1",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SportyNet +2",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SportyNet +3",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Studio Universal",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Studio Universal HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SundanceTV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SYFY",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TBS",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Action",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Action HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Cult",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Cult HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Fun",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Fun HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Pipoca",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Pipoca HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Premium",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Premium HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Touch",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecine Touch HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telefe Internacional",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Terraviva (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Terraviva HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Novelas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Novelas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Series",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Séries",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tooncast",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Travel Box Brazil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Travel Box Brazil HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV 5 (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV A Crítica (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV A Crítica HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV AL",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aldeia",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV ALESP",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Allamanda (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Allamanda HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Alterosa (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Alterosa HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Alvorada do Sul HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Amapá (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Amapá HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Amazônia (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Amazônia HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ambiental",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Anhanguera (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Anhanguera HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Anhanguera Palmas (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Anhanguera Palmas HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Antena 10 (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Antena 10 HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aparecida",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aparecida HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aperipê",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aperipê HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Apoio HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Arapuan (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Arapuan HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aratu (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Aratu HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Asa Branca Alagoas HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Asa Branca Alagoas SD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Assembleia de Minas Gerais",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Atalaia (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Atalaia HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Bahia (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Bahia HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Barriga Verde - TVBV (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Boa Vista HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Brasil",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Brasil HD (TVEB)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV BRASIL RIO DE JANEIRO (TVEB)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV BRASIL RIO DE JANEIRO HD (TVEB)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV BRASIL SÃO PAULO (TVEB)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Brasília (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Brasília HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cabo Branco (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cabo Branco HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Capixaba (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Capixaba HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Catarina HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ceará",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ceará HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Centro América Cuiabá (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Centro América Cuiabá HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidadania",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade São Luis HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade Verde (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade Verde (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Cidade Verde HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Clube (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Clube HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Comunicações Interativas HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Comunitária",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Correio (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Correio HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Câmara",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Câmara HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Difusora São Luís (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Diário",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Diário (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Diário HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Educativa (CULTURA)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Educativa da Bahia HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Educativa de Porto Alegre HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Equinócio (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Equinócio HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Feliz HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Gazeta HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Gazeta Rio Branco (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Gazeta Rio Branco HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Gazeta Sul (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Globo Nordeste (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Guanandi (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Guararapes (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Guararapes HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Guará HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Iguaçu (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Iguaçu HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Imperial (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Imperial HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Interativa HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jangadeiro (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jangadeiro HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jornal (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jornal HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jovem (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV JUSTIÇA",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Liberal (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Liberal HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Macapá HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Manaira HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Manaíra (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mar Alagoas",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Maranhense HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mirante São Luis HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mirante São Luís (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Morena (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Morena HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV MS (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV MS HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mundial",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mundial HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Norte Amazonas (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Novo Tempo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Novo Tempo HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pai Eterno",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pajuçara (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pajuçara HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pampa (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pampa HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pantanal (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pantanal HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Paraná Turismo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Paraíba HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ponta Negra (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ponta Negra HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ponta Verde (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ponta Verde HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rio Branco (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rio Branco HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rio Sul HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rondônia (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rondônia HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Roraima HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rá Tim Bum!",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rá Tim Bum! HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Santa Cruz HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Senado",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Senado HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Sergipe (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Sergipe HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Serra Dourada (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Serra Dourada HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV São Luis HD (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV São Luís (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tambaú (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tambaú HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna HD (BAND)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tribuna HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tropical (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tropical (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tropical HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tropical HD (SBT)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tucuju (REDETV)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV UFSC HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Universidade de Porto Alegre",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV União",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV União HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Verdade",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Verdes Mares (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Verdes Mares HD (REDEGL)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Vitória (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Vitória HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5Monde",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVB Campinas HD (RREC)",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCI-TV COMUNICACOES INTERATIVAS LTDA",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE Bahia",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Universal TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Universal TV HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Univesp TV",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "USA",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "USA",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Venus TV SD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Verdes Mares",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1 Euro",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1 Megahits",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner Channel",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WooHoo",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WooHoo HD",
+      "category": "Brazil",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Xsports",
+      "category": "Brazil",
+      "type": "Regional"
     }
   ]
 }

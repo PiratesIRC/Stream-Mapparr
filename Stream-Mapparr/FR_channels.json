@@ -1,657 +1,4447 @@
 {
   "country_code": "FR",
   "country_name": "France",
-  "version": "2025-11-25",
+  "version": "2025-12-08",
   "channels": [
     {
-      "channel_name": "TF1",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "France 2",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "France 3",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "France 3 Paris",
-      "category": "Entertainment",
+      "channel_name": "1-2-3.tv",
+      "category": "France",
       "type": "Regional"
     },
     {
-      "channel_name": "France 3 Lyon",
-      "category": "Entertainment",
+      "channel_name": "1-2-3.tv HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "13éme Rue HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "13éme Rue HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "2M Maroc",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "2M Monde",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "360 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "360 TuneBox",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "3A Telesud - Afrotainment Television",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "3sat",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "3sat HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "6ter",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "6ter HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "8 Mont-Blanc",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "8 Mont-Blanc HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A Bola TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A Spor HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A+",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "a2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AB 1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Abu Dhabi TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Action HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Africanews",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "After Foot TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Aoula International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Arabiya",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Araby TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Jazeera",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Jazeera (Arabic)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Jazeera HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Maghribia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Al Masriyah",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "All Flamenco 4K",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Alpe d'Huez TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Andalucia TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Animaux",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Animaux HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ANIXE HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ANIXE+",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ant1 Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena 3 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antenne Réunion HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARD-alpha HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Aristo.TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Armenia 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Armenia 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Asharq News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Astrocenter TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Athlé TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Atreseries",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Atreseries",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ATV Avrupa",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Augsburg.tv HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Automoto HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "B4U Movies",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "B4U Music",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Babestation 24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Babestation 24 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Baby TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Baden TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bayerisches Fernsehen Nord HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bayerisches Fernsehen Süd HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News Europe HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Beijing TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "beIn IZ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "beIN MOVIES TURK",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "beIN Movies Turk HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS 1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS 2 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS 3 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 10 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 4 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 5 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 6 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 7 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 8 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BeIN SPORTS Max 9 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Belarus Tomorrow",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Benfica TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BET HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Alsace",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Business",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Business HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Lyon",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Paris",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM Paris HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bibel TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bibel TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg Television",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg TV HD (UK)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boomerang",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boomerang +1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boomerang HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boomerang HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BR Fernsehen Nord (BRGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BR Fernsehen Süd (BRGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Brazzers TV Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Brionnais TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BunnyClub 24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BVN",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bénin TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "C Music TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 24H",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Algerie",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal de las Estrellas",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Extremadura",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal J HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Q",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Vasco ETB Sat",
+      "category": "France",
       "type": "Regional"
     },
     {
       "channel_name": "Canal+",
-      "category": "Entertainment",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "France 5",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Box Office HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "M6",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Arte",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "C8",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "W9",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TMC",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TFX",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "NRJ 12",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "LCP",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "France 4",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "BFMTV",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CNews",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CStar",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Gulli",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "TF1 Séries Films",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "L'Équipe",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "6ter",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "RMC Story",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "RMC Découverte",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "Chérie 25",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "LCI",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Franceinfo",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "France 24",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Euronews",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Sport",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "Canal+ Box-Office UHD",
+      "category": "France",
+      "type": "Regional"
     },
     {
       "channel_name": "Canal+ Cinéma",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "beIN Sports 1",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "beIN Sports 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "RMC Sport 1",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "RMC Sport 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Eurosport 1",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Eurosport 2",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV5 Monde",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Box Office",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Grand Écran",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "OCS",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Ciné+ Frisson",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Ciné+ Émotion",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Ciné+ Family",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Ciné+ Festival",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Ciné+ Classic",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Paramount Network",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Action",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "TCM Cinéma",
-      "category": "Movies",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Séries",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Polar+",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Série Club",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Warner TV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Breizh",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "RTL9",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "AB1",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Novelas TV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Sport 360",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Foot",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Infosport+",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "beIN Sports 3",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Golf+",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Automoto",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Equidia",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Sport en France",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Cheval TV",
-      "category": "Sports",
-      "type": "National"
-    },
-    {
-      "channel_name": "Comédie+",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Olympia TV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Paris Première",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Téva",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "BET",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "TLC",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "MTV",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "MCM",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Comedy Central",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "J-One",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Mangas",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Game One",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "MGG TV",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Warner TV Next",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "La Chaîne Météo",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "BFM Business",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CNN",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Bloomberg",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "CNBC",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "i24 News",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "KTO",
-      "category": "Entertainment",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
       "channel_name": "Canal+ Docs",
-      "category": "Documentary",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Planète+",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Docs HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Planète+ Crime",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Foot HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Planète+ Aventure",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "CANAL+ Grand Écran HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Museum TV",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Ushuaïa TV",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Kids HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Histoire TV",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Series",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Toute l'Histoire",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Series HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Discovery Channel",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Sport",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Discovery Investigation",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Sport HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Seasons",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+ Sport360 HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Chasse et Pêche",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Canal+Sport360",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Animaux",
-      "category": "Documentary",
-      "type": "National"
-    },
-    {
-      "channel_name": "TV Monaco",
-      "category": "Entertainment",
-      "type": "National"
-    },
-    {
-      "channel_name": "Le Figaro TV",
-      "category": "News",
-      "type": "National"
-    },
-    {
-      "channel_name": "Europe 2 TV",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "M6 Music",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "NRJ Hits",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Trace Urban",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "RFM TV",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Melody",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Mezzo",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Mezzo Live",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Deutsche Grammophon+",
-      "category": "Music",
-      "type": "National"
-    },
-    {
-      "channel_name": "Canal+ Kids",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Piwi+",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "Nickelodeon Junior",
-      "category": "Kids",
-      "type": "National"
-    },
-    {
-      "channel_name": "TiJi",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "Cartoon Network HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
       "channel_name": "Cartoonito",
-      "category": "Kids",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Boomerang",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "Cartoonito HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Télétoon+",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "CCTV4-China Central TV",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Cartoon Network",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "CGTN",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Documentary HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Français",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Français HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Channel 21 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Channel21",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Chasse et Peche",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Chasse et Peche HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cheddar",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "China Global Television Network HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cine+ Classic HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cine+ Frisson HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ciné Western",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+ Classic",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ciné+ Classic HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ciné+ Emotion HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+ Family",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+ Festival",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+ Frisson",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+ Émotion",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+Family HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINÉ+Festival HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Classica HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Clipmobile",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Club MTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Clubbing TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Clubbing TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CMTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNBC HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNews",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNews HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN International HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Colors",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Colors Rishtey",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedie+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Crime District",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Crime District HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Crime Time",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CRTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CSTAR",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CSTAR HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CTC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cubavisión Internacional",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CultureBox HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Current Time HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Das Erste",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Das Erste HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Date Line",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Daystar",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN Combat",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN Women's Football",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN YT FR 01",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "De Pelicula",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Dance by Kontor",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Flashback",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Music TV Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Rap",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Rock",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Demain TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Demain TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DetectiveJam HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DF1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Die neue Zeit TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel +1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel +1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Junior France HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Djazz TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMAX Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMC Drama",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMF",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DokuSat",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dorcel TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dorcel TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dorcel XXX HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dreamworks HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dubai TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DW",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DW HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "E! HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "El Wataniya 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Enquêtes de choc",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Equidia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Equidia Live HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Erox",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 1 - Euskal Telebista",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 3 - Euskal Telebista",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB Basque",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Euro D",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurochannel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Euronews F HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EUROPE 2 POP TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 2 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 4",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 5",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 6",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 7",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 8",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EuroStar",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EVTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EWTN Katholisches Fernsehen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Family TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FIFA+",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fight Nation",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Folx TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Food Network HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fotohandy",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 2 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 2 UHD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 Arabic",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 Arabic HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 English HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 Español HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Alpes (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Alpes HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Alsace (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Alsace HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Aquitane (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Aquitane HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Auvergne (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Auvergne HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Basse-Normandie (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Basse-Normandie HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Bourgogne (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Bourgogne HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Bretagne (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Bretagne HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Centre (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Centre HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Champagne-Ardenne (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Champagne-Ardenne HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Corse Via Stella (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Corse Via Stella HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Côte d'Azur (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Côte D'Azur HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Franche-Comté (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Franche-Comté HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Haute-Normandie (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Haute-Normandie HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Languedoc (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Languedoc HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Limousin (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Limousin HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Lorraine (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Lorraine HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Midi-Pyrénées (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Midi-Pyrénées HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Nord-Pas de Calais (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Nord-Pas de Calais HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Paris Ile-de-France",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Paris Ile-de-France HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Pays de la Loire (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Pays de la Loire HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Picardie (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Picardie HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Poitou-Charentes (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Poitou-Charentes HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Provence-Alpes (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Provence-Alpes HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Rhone Alpes (FR3FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 Rhône Alpes HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 3 UHD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 4",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 4 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 5",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 5 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France Culture",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France Info",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France Musique",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France TV Docs",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France TV Séries",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Franceinfo HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Franken Plus HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FREEDOM",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fréquence Novelas",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FTV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FUEL TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fuel TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fusion TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Futsal Zone",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Galicia TV Europa",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Game One +1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Game One +1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Game One HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gametoon HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gay Chat TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Genius exklusiv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Genius family",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Genius Trend",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GeniusPlusTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Geo News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GEO TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golf+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gong",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gong Max TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GORDON Live",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Great Wall Elite",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Guadeloupe 1ère HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gulli",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gulli HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Guyane 1ère HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Habertürk TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Handystar",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Handystar TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HealthTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Heiss und Sexy TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Histoire HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Hitradio OE3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Home & Garden TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Homicide",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HOPE Channel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "hr-fernsehen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "hr-fernsehen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE EXTRA",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE EXTRA HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE TREND",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HT1 Innviertel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Hustler TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Hustler TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HÖHENRAUSCH",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News English",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News English HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "iConcerts",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "iConcerts HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ina",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "infosport+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Investigation Discovery HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "IOTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "IQRA TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Iqraa International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Israel Plus",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ITVN Extra",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "J-One HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Jiangsu International Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Just Cooking HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Just Fishing HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Juwelo HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Juwelo TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "K-TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins Doku",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kabel eins Doku",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kalac TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kanal 7 Avrupa",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kanal EU24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KBS World",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KiKA",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KiKA HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KMT",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kourou TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "krone.tv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KTO",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KTO HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KURIER TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kuwait TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kwezi TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "L'Équipe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "L'Équipe HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "L-TV Landesfernsehen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Chaîne Ligue 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Chaîne Météo",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Guinée Fé",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La trois",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Une",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LangLab",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LBC Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCI",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCI HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCP",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCP 100%",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCP HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCP/Public Sénat HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Le Média TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lilo TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LingoToons",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LT1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lucky Jack.tv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lucky Jack.tv HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Luxe TV 4K",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Luxe TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6 Music HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Maennersache TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Man-X",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mandeka",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mangas",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mangas HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Martinique 1ère HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 4",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 5",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 6",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 7",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Match 8",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mayotte 1ère HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MB Live TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MBC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MBC MASR",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM Top",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM Top HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen (MDRGERH)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen-Anhalt (MDRGERH)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen-Anhalt HD (MDRGERH)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Thüringen (MDRGERH)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Thüringen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mediaset Italia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mediaset TGCOM24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MediaShop - Immer etwas Neues",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MediaShop - Meine Einkaufswelt",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MediaShop - Neuheiten",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "meinTVshop (MTVS)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Melodie Express",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Melodie TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Melody HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Men's UP TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Men's UP TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo Live",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MGGTV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "mieux",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mobile Sex",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Molotov Channels Drôles de dames",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Molotov Channels Ma sorcière bien-aimée",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Molotov Culture Pub",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 00s Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 80s",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 90s",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Deutschland",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Hits HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Murr TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Museum TV 4K UHD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "My Dirty Mobile",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MyZen.tv HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "München TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "n-tv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "n-tv Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "N24 Doku",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic Wild HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nautical Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nautical Channel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NBN (International)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen HH (NDRFRN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen HH HD (NDRFRN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen MV (NDRFRN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen MV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen NDS (NDRFRN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen NDS HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen SH (NDRFRN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen SH HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NetViet",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "New Tang Dynasty TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NFL Network HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World Europe HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World Premium",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nicer Dicer TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick toons France HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick/Comedy Central +1",
+      "category": "France",
+      "type": "Regional"
     },
     {
       "channel_name": "Nickelodeon",
-      "category": "Kids",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Canal J",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "Nickelodeon +1",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Nicktoons",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "Nickelodeon +1 HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "T18",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Nickelodeon HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Novo19",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Nickelodeon Junior HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon Ukraine Pluto TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Niederbayern TV Deggendorf / Straubing HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nina Novelas HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nitro",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nitro Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nollywood TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NOURSAT (International)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Novelas TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Novo19 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRJ 12",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRJ 12 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRJ Hits HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OBERFRANKEN TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OCS City HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OCS HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OCS HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OE24 TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ol Play",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Olympia TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "one",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "one HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "One Terra",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ORF 2 Europa",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ORTM Office de Radiodiffusion -Télévision du Mali",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OstWest",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OTVA HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Padel Time TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Panorama Drama",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Channel Décalé",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Channel Décalé HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Channel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paris Première",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paris Première HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pearl.tv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pearl.tv HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Penthouse Gold",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Penthouse Passion",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PENTHOUSE REALITY TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Peretz",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PHOENIX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PHOENIX HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Phoenix Info News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pink Extra",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pink Film",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pink Music",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pink Plus",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pink X",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Piwi+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PLANETE+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Planète+ Aventure HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Planète+ Crime HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Playboy TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Playboy TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Polar+ HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Private TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pro TV int",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben MAXX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben MAXX Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Public Senat",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Public Sénat HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pulaagu",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Style",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Style HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC UHD (Germany)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Zwei",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Zwei HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Zwei UHD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "R9 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Radio Bremen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai Italia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai News 24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai Scuola",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai Storia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Berlin Fernsehen (RBBBRAN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Berlin Fernsehen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Brandenburg Fernsehen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Brandenburg HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Real Madrid TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Reality Kings TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record Europa (RREC)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Red Bull TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Redlight HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "REGIO TV SCHWABEN",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RFM TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RFM TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "rheinmainTV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RiC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RMC Découverte",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RMC Découverte HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
       "channel_name": "RMC Life",
-      "category": "Entertainment",
-      "type": "National"
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "HBO Max - L'actu",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "RMC Life HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Ligue 1+",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "RMC Sport 1 HD",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Free TV la chaine",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "RMC Sport Access 1",
+      "category": "France",
+      "type": "Regional"
     },
     {
-      "channel_name": "Free Ciné",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "RMC Sport Access 1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RMC Sport Live 2 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RMC Story",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RMC Story HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rotana Cinéma +FR",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rotana Plus HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTI 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL Bayern (RTLGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL Bremen/Niedersachsen (RTLGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL Schleswig-Holstein (RTLGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL West (RTLGER)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL9",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL9 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLup",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLup Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTNC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP Internacional Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rugby Zone",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Réunion 1ère HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SACHSEN EINS",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Saisons HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Bayern (SAT1)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Gold",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Gold Österreich",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Hamburg & Schleswig-Holstein (SAT1)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Niedersachsen/Bremen (SAT1)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SAT.1 Rheinland-Pfalz & Hessen (SAT1)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Österreich",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Schlager Deluxe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Science et Vie TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SEASONS [LES]",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Serie Club HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Serien+",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Shop 24 Direct",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Shop LC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Shop LC HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Show Max",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Show Turk",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Show Turk HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC Internacional",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC Notícias",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sixx",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sixx Austria",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sky News",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SonLife Broadcasting Network",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sonnenklar.TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sonnenklar.TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony MAX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "souvenirs from earth HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sport en France",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sport en France HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SR Fernsehen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SR Fernsehen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR Plus",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stimmungsgarten TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stingray Festival 4K",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Super RTL",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Super RTL Österreich",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SVOBODA",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SVOBODA NEWS",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen BW",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen BW HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen RP (SW3BWG)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen RP HD (SW3BWG)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SyFy Universal HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SyFy Universal HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "T18 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tagesschau24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tagesschau24 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM Cinema",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tele 5",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tele Kreol",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tele Melody",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 2",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 3",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 4",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 5",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 6",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 7",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEFOOT STADIUM 8",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telegold HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telehit Música",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemadrid",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemadrid HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TeleSur",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TeleSur HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TF1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TF1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TF1 Séries Films",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TF1 Séries Films HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TFX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TFX HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TGRT EU",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The Explorers",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The Museum Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The Museum Channel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tiji HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TinyTeen",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC (Austria)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tlnovelas",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TMC",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TMC HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Toggo Plus",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Top Sci-Fi",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Toute L'Histoire",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Toute L'Histoire HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE AFRICA",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Caribbean HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Gospel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Gospel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Latina",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Latina HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE Sport Stars",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE Sport Stars HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Urban",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Urban HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE Vanilla",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE Vanilla HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Travel Channel",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trek",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trek HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT 1",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT Belgesel HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT Cocuk",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT Turk",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT World",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT World HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Turner Classic Movies",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Breizh",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Breizh HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV MONACO",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rain",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tarn",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Trwam",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Vendée",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tv.ingolstadt HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV1 Oberösterreich",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV3CAT",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde (FBSM)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde Europe HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde HD (FBSM)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde Pacifique HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV8 International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVA Ostbayern HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE Internacional",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVI International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVN 24",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVN International Europe",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP Polonia",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVR International",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVRI",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Télé Congo",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Télé Maroc",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TéléTOON + HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TéléToon +1 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Téva",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Téva HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ULUSAL Kanal",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Un Si Grand Soleil",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ushuaia TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Utsav Bharat",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Utsav Gold HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Utsav Plus HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Utsav Vijay",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "V+ TVI",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VISIT-X.tv",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VIXEN",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VIXEN HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "viàMoselle TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Volksmusik",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOX",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Vox Africa",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOXup",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "W Sport HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "W9",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "W9 HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV (FR)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV Next",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV Next HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Wasabi",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Aachen (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Aachen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Bielefeld (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Bielefeld HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Bonn HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Dortmund (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Dortmund HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Duisburg (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Duisburg HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Düsseldorf (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Düsseldorf HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Essen (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Essen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Fernsehen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Köln (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Köln HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Münster (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Münster HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Siegen (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Siegen HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Wuppertal (WDRFERN)",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Wuppertal HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Welt",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Winamax",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "XPLORE HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "XXL",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "XXL HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFinfo",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFinfo HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFneo",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFneo HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee Cinema",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zee TV HD",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zitata TV",
+      "category": "France",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ÜLKE TV",
+      "category": "France",
+      "type": "Regional"
     }
   ]
 }

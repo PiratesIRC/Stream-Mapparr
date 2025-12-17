@@ -1,187 +1,2737 @@
 {
   "country_code": "ES",
   "country_name": "Spain",
-  "version": "2025-11-10",
+  "version": "2025-12-08",
   "channels": [
     {
-      "channel_name": "La 1",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "#Vamos",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "TVE La 1",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "1 Plus 1 International",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "La 2",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "1+1 International",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "TVE La 2",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "1-2-3.tv",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "24h",
-      "category": "News",
-      "type": "National"
+      "channel_name": "1-2-3.tv HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "TVE 24h",
-      "category": "News",
-      "type": "National"
+      "channel_name": "2M Maroc",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Teledeporte",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "3CatInfo",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "TDP",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "3sat",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Clan",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "3sat HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Antena 3",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Achtung Sexy TV",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "laSexta",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "acontra+ CINE",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Neox",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Al Jazeera",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Nova",
-      "category": "Lifestyle",
-      "type": "National"
+      "channel_name": "Al Jazeera (Arabic)",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Mega",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Al Jazeera HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "All Flamenco 4K",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "allgäu.tv",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC Break",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC Break HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC Crime",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Andalucia TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Anime Visión",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ANIXE HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ANIXE+",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena 3 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Aragon TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Archivos Forenses",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARD-alpha",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARD-alpha HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Aristo.TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
       "channel_name": "Atreseries",
-      "category": "Entertainment",
-      "type": "National"
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Telecinco",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Atreseries",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Cuatro",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Atreseries HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "FDF",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "ATV",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Boing",
-      "category": "Kids",
-      "type": "National"
+      "channel_name": "AXN",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Divinity",
-      "category": "Lifestyle",
-      "type": "National"
+      "channel_name": "AXN HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Energy",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "AXN Movies",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Be Mad",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "AXN Movies HD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "DMAX",
-      "category": "Documentary",
-      "type": "National"
+      "channel_name": "Babestation 24",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Paramount Network",
-      "category": "Movies",
-      "type": "National"
+      "channel_name": "Baby TV",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Trece",
-      "category": "Entertainment",
-      "type": "National"
+      "channel_name": "Baden TV",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "Real Madrid TV",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "Barca TV",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "TV3",
-      "category": "Entertainment",
+      "channel_name": "Bayerisches Fernsehen Nord HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bayerisches Fernsehen Süd HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BB-MV Lokal-TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC Earth",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC Lifestyle",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC News Europe HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC Series",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC World News",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Be Mad TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Be Mad TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bibel TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bibel TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg TV HD (UK)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boing HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bom",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BR Fernsehen Nord (BRGER)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BR Fernsehen Süd (BRGER)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Buenviaje!",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BunnyClub 24",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Calle 13 Universal",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Calle 13 Universal HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 24H",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 24H HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 33",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Algerie",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Cocina",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Cocina HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal de las Estrellas",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Extremadura",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Hollywood",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Hollywood HD",
+      "category": "Spain",
       "type": "Regional"
     },
     {
       "channel_name": "Canal Sur",
-      "category": "Entertainment",
+      "category": "Spain",
       "type": "Regional"
     },
     {
-      "channel_name": "ETB 1",
-      "category": "Entertainment",
+      "channel_name": "Canal Sur 2",
+      "category": "Spain",
       "type": "Regional"
     },
     {
-      "channel_name": "ETB 2",
-      "category": "Entertainment",
+      "channel_name": "Canal Sur Andalucia",
+      "category": "Spain",
       "type": "Regional"
     },
     {
-      "channel_name": "TVG",
-      "category": "Entertainment",
+      "channel_name": "Canal Sur HD",
+      "category": "Spain",
       "type": "Regional"
     },
     {
-      "channel_name": "Telemadrid",
-      "category": "Entertainment",
+      "channel_name": "Canal Vasco ETB Sat",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CARACOL INTERNATIONAL",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Castilla-La Mancha Media",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Castilla-La Mancha Media HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Caza y Pesca",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Caza y Pesca HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cazavisión",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Documentary HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Español",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN Français",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Channel 21 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Channel21",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cines Verdi Feel Good TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cines Verdi TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Clan TVE HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Clipmobile",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Club MTV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNews HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN International",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cosmopolitan TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cosmopolitan TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Crimines Reales",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cuatro HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cubavisión Internacional",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CyLTV Global",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dark",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dark/Dorcel TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Das Erste",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Das Erste HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Date Line",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN F1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN La Liga",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Decasa",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Decasa HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Deluxe Music TV Europe",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Die neue Zeit TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Channel HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Junior",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Divinity HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Dizi - Spain",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DJAZZ HD (EUROPE)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Djazz Spain",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DKiss HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMAX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DMAX Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DW",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "El Ocho Tv",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "El Toro TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Energy HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Escapa TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Esport 3 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 1 - Euskal Telebista",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 2 - Euskal Telebista",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 3 - Euskal Telebista",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB 4 - Euskal Telebista",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB Basque",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ETB HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "euronews",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 1 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 2 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 6",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 7",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Eurosport 360 HD 8",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EWTN Español",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EWTN Katholisches Fernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Extreme Sports",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Factoría de Ficción HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fashion 4K",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fast&FunBox HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fight Sports HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fotohandy",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox News Channel",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 English HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 Español",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Franken Fernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Freenet Shopping",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FunBox UHD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Galicia TV America",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Galicia TV Europa",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gametoon",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Garage TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gay Chat TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Genius Trend",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GeniusPlusTV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Geo TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GH 24h 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GH 24h 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gol TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gulli",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Handystar",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HealthTV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Heiss und Sexy TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Historia",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Historia HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Hitradio OE3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Home & Garden TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HOPE Channel HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "hr-fernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "hr-fernsehen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE EXTRA",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE EXTRA HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HSE TREND",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HT1 Innviertel",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "IB3 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Iberalia",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Iberalia HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Juwelo HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Juwelo TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "K-TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "kabel eins Doku",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kabel eins Doku",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kids Stars HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KiKA",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KiKA HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kuriakos TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KURIER TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "L-TV Landesfernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La 1 (LA1)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La 1 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La 2 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La 7 Televisión Región de Murcia",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Otra",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Sexta HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Tienda en Casa",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LALIGA EA SPORTS 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LALIGA EA SPORTS 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LALIGA EA SPORTS 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LALIGA EA SPORTS 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 10",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 11",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 12",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 6",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 7",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 8",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion 9",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion TV 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga Hypermotion TV 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LaLiga TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCI HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LCP HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lolly Kids",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LT1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6 Boutique & Co HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Maennersache TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen (MDRGERH)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen-Anhalt (MDRGERH)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Sachsen-Anhalt HD (MDRGERH)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Thüringen (MDRGERH)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MDR Thüringen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MediaShop - Neuheiten",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mega HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Melodie TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mezzo Live",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mobile Sex",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Moto ADV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Motorvision TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Acción",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Acción HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Cine Ñ",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Cine Ñ HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Comedia HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Deportes",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Deportes HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Drama HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Estrenos",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Estrenos HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Golf",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Golf HD",
+      "category": "Spain",
       "type": "Regional"
     },
     {
       "channel_name": "Movistar LaLiga",
-      "category": "Sports",
-      "type": "National"
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga 1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar LaLiga UHD",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
       "channel_name": "Movistar Liga de Campeones",
-      "category": "Sports",
-      "type": "National"
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "DAZN LaLiga",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "Movistar Liga de Campeones 1",
+      "category": "Spain",
+      "type": "Regional"
     },
     {
-      "channel_name": "DAZN 1",
-      "category": "Sports",
-      "type": "National"
+      "channel_name": "Movistar Liga de Campeones 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones 3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones 4",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones 6",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones 8",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Liga de Campeones UHD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Movistar Series 2 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mr Bean Live Action",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 00s",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 80s",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 90S",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Deutschland",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV España",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV España HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Hits",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Live HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Music",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "My Dirty Mobile",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MyZen.tv HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "München TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "n-tv",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "n-tv HD Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "N24 Doku",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "N24 Doku Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic Wild",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic Wild HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen HH (NDRFRN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen HH HD (NDRFRN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen MV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen NDS (NDRFRN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen NDS HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen SH (NDRFRN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NDR Fernsehen SH HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Negocios TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Neox HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nesting TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World Europe HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK World TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick Music",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon Ukraine Pluto TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Niederbayern TV Deggendorf / Straubing",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Niederbayern TV Landshut",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Niederbayern TV Passau",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nitro",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nitro Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nova HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Oberpfalz TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Odisea HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OE24 TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "one",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "one HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ORF 2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ORF 2 Wien (ORF2OSR)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Out TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Network HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pearl.tv",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pearl.tv HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PHOENIX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PHOENIX HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Playboy TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pro TV int",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben MAXX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ProSieben MAXX Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Public Sénat HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Puls 24 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Style",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Style HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC UHD (Germany)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Zwei",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "QVC Zwei HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "R9 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Radio Bremen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rai News 24",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Berlin Fernsehen (RBBBRAN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Berlin Fernsehen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Brandenburg Fernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RBB Brandenburg HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Real Madrid TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Real Madrid TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record Europa (RREC)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Record Europa HD (RREC)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Red Bull Batalla",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Red Bull TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "REGIO TV SCHWABEN",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Regio TV Schwaben",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Regionalfernsehen Oberbayern",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "rheinmainTV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RiC",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RT en español",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RT France HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RT in Spanish HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL Bayern (RTLGER)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL Bremen/Niedersachsen (RTLGER)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL West (RTLGER)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLup",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTLZWEI",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP Internacional Europe",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP Internacional Spanish",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Bayern HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Gold",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Gold Österreich",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Hamburg & Schleswig-Holstein (SAT1)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Niedersachsen/Bremen (SAT1)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SAT.1 Rheinland-Pfalz & Hessen (SAT1)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sat.1 Österreich",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Series por Movistar Plus+",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Series por Movistar Plus+ HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Shop 24 Direct",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sixx",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sixx Austria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sky News",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sky Sport News",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sky Sport News HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Snapped",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Somos",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Somos HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SonLife Broadcasting Network",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sonnenklar.TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "sonnenklar.TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sophia TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT1",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Squirrel HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SR Fernsehen",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SR Fernsehen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Star Channel",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Star Channel HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stingray Classica HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stingray DJAZZ 4K",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stingray Festival 4K",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Stingray iConcerts 4K",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sundance",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sundance HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SUPER 3 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Super RTL",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Super RTL Österreich",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen BW",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen BW HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen RP (SW3BWG)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SWR Fernsehen RP HD (SW3BWG)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SyFy Universal",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SyFy Universal HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tagesschau24",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tagesschau24 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TBN España",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tele 5",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecinco HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teledeporte",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teledeporte HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemadrid",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemadrid HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TeleMadrid internacional",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TeleSur",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Televigo",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ten HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Toggo Plus",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TPA7",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TPA9 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Latina",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Sport Stars",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trace Urban",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trading TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Trece HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT World HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Canaria",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Canaria HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Chile",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mainfranken HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Trwam",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "tv.ingolstadt HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV3",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV3 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV3CAT",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde (FBSM)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde Europe",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde Europe HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVA Ostbayern",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCortos (Spain)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE Internacional",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG2",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVG2 HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP Polonia",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVR",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "U-Beat HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Unbeaten",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VinTV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VISIT-X.tv",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Vive Kanal D Drama",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Vizner TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOX",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VOXup",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner TV HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Aachen (WDRFERN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Bielefeld HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Bonn (WDRFERN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Dortmund HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Duisburg (WDRFERN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Düsseldorf HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Essen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Köln (WDRFERN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Köln HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Münster HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Siegen HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WDR Wuppertal (WDRFERN)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Welt",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Welt der Wunder",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WORLD OF RED BULL (GLOBAL)",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "XTRM",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "XTRM HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Yu Gi Oh!",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFinfo",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFinfo HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFneo",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDFneo HD",
+      "category": "Spain",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "À Punt internacional",
+      "category": "Spain",
+      "type": "Regional"
     }
   ]
 }

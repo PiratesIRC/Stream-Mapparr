@@ -12,7 +12,7 @@ import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.333.1800"
+__version__ = "25.343.1430"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -324,6 +324,18 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
+        # CRITICAL FIX: Normalize spacing around numbers FIRST, before any other processing
+        # This ensures "ITV1" and "ITV 1" are treated identically during matching
+        # Pattern: Insert space before number if preceded by letter, and after number if followed by letter
+        # Examples: "ITV1" -> "ITV 1", "BBC2" -> "BBC 2", "E4" -> "E 4"
+        name = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', name)  # Letter followed by digit
+        name = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', name)  # Digit followed by letter
+        
+        # CRITICAL FIX: Normalize hyphens to spaces for better token matching
+        # This ensures "UK-ITV" becomes "UK ITV" and matches properly
+        # Common patterns: "UK-ITV 1", "US-CNN", etc.
+        name = re.sub(r'-', ' ', name)  # Digit followed by letter
+        
         # Remove ALL leading parenthetical prefixes like (US) (PRIME2), (SP2), (D1), etc.
         # Loop until no more leading parentheses are found
         while name.lstrip().startswith('('):
@@ -339,7 +351,7 @@ class FuzzyMatcher:
             quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
 
             # Check for 2-3 letter prefix with colon or space at start
-            # Fixed regex: [:\s] instead of [:|\s] (pipe and backslash were incorrect)
+            # Fixed regex: [:\s] instead of [:|\\s] (pipe and backslash were incorrect)
             prefix_match = re.match(r'^([A-Z]{2,3})[:\s]\s*', name)
             if prefix_match:
                 prefix = prefix_match.group(1).upper()
@@ -504,6 +516,7 @@ class FuzzyMatcher:
         Normalize a string for token-sort fuzzy matching.
         Lowercases, removes accents, removes punctuation, sorts tokens.
         Properly handles Unicode characters (e.g., French accents).
+        Normalizes spacing around numbers to handle "ITV1" vs "ITV 1" cases.
         """
         # First, normalize Unicode to decomposed form (NFD)
         # This separates base characters from accent marks
@@ -516,6 +529,11 @@ class FuzzyMatcher:
         
         # Convert to lowercase
         s = s.lower()
+        
+        # Normalize spacing around numbers: add space before numbers if not already present
+        # This makes "itv1" and "itv 1" equivalent after tokenization
+        # Pattern: letter followed immediately by digit -> insert space between them
+        s = re.sub(r'([a-z])(\d)', r'\1 \2', s)
         
         # Replace non-alphanumeric with space
         cleaned_s = ""
