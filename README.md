@@ -19,34 +19,51 @@ Before installing or using this plugin, it is **highly recommended** that you cr
 
 ---
 
-## 🚨 V0.6.0+ Important: Background Operations & Monitoring
-**Please Read Carefully:** Starting with v0.6.0, this plugin uses **Background Threading** to prevent browser timeouts during long operations. This changes how you interact with the plugin:
+## 🚨 Important: Background Operations & Monitoring
+**Please Read Carefully:** This plugin uses **Background Threading** to prevent browser timeouts during long operations. This changes how you interact with the plugin:
 
-1.  **No "Completed" Pop-up:** The frontend will show a green "✅ Started in background" notification immediately. This does **NOT** mean the task is finished.
-2.  **Buttons Re-enable Immediately:** Do not click the button again. The task is running in the background.
-3.  **Check Docker Logs:** To see progress and completion status, you **must** check your Docker logs.
+1.  **Instant Notification:** The frontend will show a green "✅ Started in background" notification immediately. This does **NOT** mean the task is finished.
+2.  **Immediate Re-enabling:** Buttons re-enable instantly so the UI remains responsive. Do not click the button again; the task is active in the background.
+3.  **Real-Time Monitoring:** To see progress, ETAs, and completion status, you **must** check your Docker logs.
 
-**To monitor operations, open your terminal and run:**
-Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" in the logs to know when it is done.
+**To monitor operations, run this in your terminal:**
+`docker logs -f dispatcharr | grep Stream-Mapparr`
+
+Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" to know when the process is finished.
 
 ---
 
 ## Features
-* **Background Processing Engine** *(NEW v0.6.0)*: Operations run in background threads to prevent HTTP timeouts and "broken pipe" errors on large datasets.
-* **Smart Rate Limiting** *(NEW v0.6.0)*: Configurable API rate limiting with exponential backoff to prevent server overload and 429/5xx errors.
-* **Integrated Scheduler** *(NEW v0.6.0)*: Configure automated daily runs directly within the plugin settings (supports Timezones and custom HHMM times).
-* **Token Mismatch Analysis** *(NEW v0.6.0)*: CSV exports now analyze why channels didn't match and provide specific recommendations (e.g., "Add 'UK' to ignore tags").
-* **Advanced Fuzzy Matching**: Automatically finds and assigns streams to channels using an advanced fuzzy-matching engine.
-* **Multi-Country Support**: Support for multiple `*_channels.json` databases (US, UK, CA, etc.).
-* **Quality Prioritization**: Sorts matched streams by quality (4K → FHD → HD → SD).
-* **Channel Visibility Management**: Automatically enables/disables channels based on stream assignments.
-* **Preview Mode**: Dry-run CSV export to review matches before applying changes.
+
+### Automation & Scheduling
+* **Background Processing Engine**: Operations run in threads to prevent HTTP timeouts and "broken pipe" errors on large datasets.
+* **Integrated Scheduler**: Configure automated daily runs directly in settings with custom Timezone and HHMM time support.
+* **Smart Rate Limiting**: Configurable API throttling with exponential backoff to prevent server overload and 429/5xx errors.
+* **Operation Lock System**: Prevents concurrent tasks from running and allows manual clearing of stuck locks after system restarts.
+
+### Matching & Accuracy
+* **Advanced Fuzzy Matching**: Automatically finds and assigns streams using an advanced matching engine.
+* **Strict Numeric Matching**: Prevents false positives between numbered channels (e.g., ensuring "Sports 1" does not match "Sports 2").
+* **US OTA Specialized Matching**: Dedicated action to match US broadcast channels by callsign using authoritative databases.
+* **Multi-Country Support**: Support for multiple regional databases (US, UK, CA, NL, etc.) to refine matching accuracy.
+* **Customizable Ignore Tags**: Filter out unwanted keywords like `[Backup]` or `West` during the matching process.
+
+### Quality & Stream Health
+* **IPTV Checker Integration**: Automatically filters out "dead" streams with 0x0 resolution using metadata from the IPTV Checker plugin.
+* **Resolution & FPS Ranking**: Automatically sorts alternate streams by physical quality (Resolution/FPS) to ensure the best source is primary.
+* **Auto-Deduplication**: Automatically removes duplicate stream names during assignment to keep channel lists clean.
+
+### Reporting & Visibility
+* **Live Progress Tracking**: Real-time progress engine providing accurate ETAs and minute-by-minute reporting in the logs.
+* **Intelligent CSV Analysis**: Reports analyze why channels didn't match and provide specific recommendations (e.g., "Add 'UK' to ignore tags").
+* **Dry Run Mode**: Global toggle to preview match results and export reports without making any database changes.
+* **Channel Visibility Management**: Automatically enables channels with valid streams and disables those without assignments.
 
 ## Requirements
 * Active Dispatcharr installation
 * Admin username and password for API access
 * **A Channels Profile other than "All"**
-* Multiple streams of the same channel available in your setup
+* Multiple streams of the same channel are available in your setup
 
 ## Installation
 1.  Log in to Dispatcharr's web UI.
