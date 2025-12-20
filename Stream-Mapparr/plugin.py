@@ -63,7 +63,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.7.0"
+    PLUGIN_VERSION = "0.7.1"
 
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
@@ -415,11 +415,11 @@ class Plugin:
             },
             {
                 "id": "selected_m3us",
-                "label": "📡 M3U Sources (comma-separated)",
+                "label": "📡 M3U Sources (comma-separated, prioritized)",
                 "type": "string",
                 "default": PluginConfig.DEFAULT_SELECTED_M3US,
                 "placeholder": "IPTV Provider 1, Local M3U, Sports",
-                "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas.",
+                "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality.",
             },
             {
                 "id": "ignore_tags",
@@ -1536,20 +1536,29 @@ class Plugin:
         return ""
 
     def _sort_streams_by_quality(self, streams):
-        """Sort streams by quality using stream_stats (resolution + FPS).
+        """Sort streams by M3U priority first, then by quality using stream_stats (resolution + FPS).
         
         Priority:
-        1. Valid streams with good quality (>=1280x720 and >=30 FPS)
-        2. Valid streams with lower quality
-        3. Streams with no stats (unknown quality)
-        4. Dead streams (0x0 resolution)
+        1. M3U source priority (if specified - lower priority number = higher precedence)
+        2. Quality tier (High > Medium > Low > Unknown > Dead)
+        3. Resolution (higher = better)
+        4. FPS (higher = better)
+        
+        Quality tiers:
+        - Tier 0: High quality (>=1280x720 and >=30 FPS)
+        - Tier 1: Medium quality (either HD or good FPS)
+        - Tier 2: Low quality (below HD and below 30 FPS)
+        - Tier 3: Dead streams (0x0 resolution)
         """
         def get_stream_quality_score(stream):
             """Calculate quality score for sorting.
-            Returns tuple: (tier, -resolution_pixels, -fps)
-            Lower tier = higher priority
+            Returns tuple: (m3u_priority, tier, -resolution_pixels, -fps)
+            Lower values = higher priority
             Negative resolution/fps for descending sort
             """
+            # Get M3U priority (0 = highest, 999 = lowest/unspecified)
+            m3u_priority = stream.get('_m3u_priority', 999)
+            
             stats = stream.get('stats', {})
             
             # Check for dead stream (0x0)
@@ -1558,7 +1567,7 @@ class Plugin:
             
             if width == 0 or height == 0:
                 # Tier 3: Dead streams (0x0) - lowest priority
-                return (3, 0, 0)
+                return (m3u_priority, 3, 0, 0)
             
             # Calculate total pixels
             resolution_pixels = width * height
@@ -1580,11 +1589,12 @@ class Plugin:
                 # Tier 2: Low quality (below HD and below 30 FPS)
                 tier = 2
             
-            # Return tuple for sorting: (tier, -pixels, -fps)
+            # Return tuple for sorting: (m3u_priority, tier, -pixels, -fps)
+            # M3U priority first, then quality tier, then resolution, then FPS
             # Negative values so higher resolution/fps sorts first within tier
-            return (tier, -resolution_pixels, -fps)
+            return (m3u_priority, tier, -resolution_pixels, -fps)
         
-        # Sort streams by quality score
+        # Sort streams by M3U priority first, then quality score
         return sorted(streams, key=get_stream_quality_score)
 
     def _filter_working_streams(self, streams, logger):
@@ -3180,7 +3190,7 @@ class Plugin:
                 selected_stream_groups = []
                 stream_group_filter_info = " (all stream groups)"
 
-            # Filter streams by selected M3U sources
+            # Filter streams by selected M3U sources and add priority metadata
             if selected_m3us_str:
                 selected_m3us = [m.strip() for m in selected_m3us_str.split(',') if m.strip()]
                 valid_m3u_ids = [m3u_name_to_id[name] for name in selected_m3us if name in m3u_name_to_id]
@@ -3188,15 +3198,32 @@ class Plugin:
                     logger.warning("[Stream-Mapparr] None of the specified M3U sources were found. Using all streams.")
                     selected_m3us = []
                     m3u_filter_info = " (all M3U sources - specified M3Us not found)"
+                    # Add default priority to all streams (no prioritization)
+                    for stream in all_streams_data:
+                        stream['_m3u_priority'] = 999  # Low priority for unspecified M3Us
                 else:
-                    # Filter streams by m3u_account (which is the M3U account ID)
-                    filtered_streams = [s for s in all_streams_data if s.get('m3u_account') in valid_m3u_ids]
+                    # Create M3U ID to priority mapping (0 = highest priority)
+                    m3u_priority_map = {m3u_id: idx for idx, m3u_id in enumerate(valid_m3u_ids)}
+                    
+                    # Filter streams by m3u_account (which is the M3U account ID) and add priority
+                    filtered_streams = []
+                    for s in all_streams_data:
+                        m3u_id = s.get('m3u_account')
+                        if m3u_id in valid_m3u_ids:
+                            # Add priority metadata based on order in selected_m3us list
+                            s['_m3u_priority'] = m3u_priority_map[m3u_id]
+                            filtered_streams.append(s)
+                    
                     logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on M3U sources: {', '.join(selected_m3us)}")
+                    logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(selected_m3us)])}")
                     all_streams_data = filtered_streams
                     m3u_filter_info = f" in M3U sources: {', '.join(selected_m3us)}"
             else:
                 selected_m3us = []
                 m3u_filter_info = " (all M3U sources)"
+                # Add default priority to all streams (no prioritization when no M3U filter)
+                for stream in all_streams_data:
+                    stream['_m3u_priority'] = 999  # Low priority for unspecified M3Us
 
             self.loaded_channels = channels_to_process
             self.loaded_streams = all_streams_data
@@ -4485,6 +4512,25 @@ class Plugin:
                 channels_in_profile = filtered_channels
                 logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
             
+            # Build M3U priority map if M3U sources are specified
+            selected_m3us_str = settings.get('selected_m3us', '').strip()
+            m3u_priority_map = {}
+            if selected_m3us_str:
+                # Fetch M3U sources
+                try:
+                    all_m3us = self._get_api_data("/api/m3u/accounts/", token, settings, logger, None)
+                    m3u_name_to_id = {m['name']: m['id'] for m in all_m3us if 'name' in m and 'id' in m}
+                    
+                    selected_m3us = [m.strip() for m in selected_m3us_str.split(',') if m.strip()]
+                    valid_m3u_ids = [m3u_name_to_id[name] for name in selected_m3us if name in m3u_name_to_id]
+                    
+                    if valid_m3u_ids:
+                        # Create M3U ID to priority mapping (0 = highest priority)
+                        m3u_priority_map = {m3u_id: idx for idx, m3u_id in enumerate(valid_m3u_ids)}
+                        logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(selected_m3us)])}")
+                except Exception as e:
+                    logger.warning(f"[Stream-Mapparr] Could not fetch M3U sources for prioritization: {e}")
+            
             # Get channels with multiple streams using Django ORM
             channels_with_multiple_streams = []
             for channel in channels_in_profile:
@@ -4493,15 +4539,25 @@ class Plugin:
                 stream_ids = list(ChannelStream.objects.filter(channel_id=channel_id).order_by('order').values_list('stream_id', flat=True))
                 
                 if len(stream_ids) > 1:
-                    # Fetch stream details including stats
+                    # Fetch stream details including stats and M3U account
                     streams = []
                     for stream_id in stream_ids:
                         try:
                             stream = Stream.objects.get(id=stream_id)
+                            
+                            # Get M3U priority for this stream
+                            m3u_account_id = stream.m3u_account_id
+                            if m3u_account_id and m3u_account_id in m3u_priority_map:
+                                m3u_priority = m3u_priority_map[m3u_account_id]
+                            else:
+                                # Stream not from a prioritized M3U source
+                                m3u_priority = 999
+                            
                             streams.append({
                                 'id': stream.id,
                                 'name': stream.name,
-                                'stats': stream.stream_stats or {}
+                                'stats': stream.stream_stats or {},
+                                '_m3u_priority': m3u_priority
                             })
                         except Stream.DoesNotExist:
                             logger.warning(f"[Stream-Mapparr] Stream {stream_id} no longer exists, skipping")
