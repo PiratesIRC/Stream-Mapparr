@@ -15,7 +15,7 @@ A Dispatcharr plugin that automatically matches and assigns streams to channels 
 ## ⚠️ Important: Backup Your Database
 Before installing or using this plugin, it is **highly recommended** that you create a backup of your Dispatcharr database. This plugin makes significant changes to your channel and stream assignments.
 
-**[Click here for instructions on how to back up your database.](https://dispatcharr.github.io/Dispatcharr-Docs/troubleshooting/?h=backup#how-can-i-make-a-backup-of-the-database)**
+**[Click here for instructions on how to back up your database.](https://dispatcharr.github.io/Dispatcharr-Docs/user-guide/?h=backup#backup-restore)**
 
 ---
 
