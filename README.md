@@ -27,6 +27,8 @@ Before installing or using this plugin, it is **highly recommended** that you cr
 3.  **Real-Time Monitoring:** To see progress, ETAs, and completion status, you **must** check your Docker logs.
 
 **To monitor operations, run this in your terminal:**
+`docker logs -n 20 -f Dispatcharr | grep plugins`
+or
 `docker logs -f dispatcharr | grep Stream-Mapparr`
 
 Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" to know when the process is finished.
@@ -50,6 +52,7 @@ Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" to know w
 
 ### Quality & Stream Health
 * **IPTV Checker Integration**: Automatically filters out "dead" streams with 0x0 resolution using metadata from the IPTV Checker plugin.
+* **M3U Source Prioritization**: Prioritize streams from specific M3U providers (e.g., premium sources over backup sources) regardless of quality metrics.
 * **Resolution & FPS Ranking**: Automatically sorts alternate streams by physical quality (Resolution/FPS) to ensure the best source is primary.
 * **Auto-Deduplication**: Automatically removes duplicate stream names during assignment to keep channel lists clean.
 
