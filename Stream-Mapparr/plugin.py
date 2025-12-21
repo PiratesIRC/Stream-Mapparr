@@ -63,7 +63,8 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.7.1"
+    PLUGIN_VERSION = "0.7.2"
+    FUZZY_MATCHER_MIN_VERSION = "25.354.1835"  # Requires complete regional patterns support
 
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)

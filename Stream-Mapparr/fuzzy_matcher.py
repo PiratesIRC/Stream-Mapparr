@@ -12,7 +12,7 @@ import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.343.1430"
+__version__ = "25.354.1835"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -43,10 +43,32 @@ QUALITY_PATTERNS = [
     r'\s+\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s+',
 ]
 
-# Regional indicator patterns: East, West, etc.
+# Regional indicator patterns: East, West, Pacific, Central, Mountain, Atlantic
 REGIONAL_PATTERNS = [
-    # Regional: " East" or " east"
+    # Regional: " East" or " east" (word with space prefix)
     r'\s[Ee][Aa][Ss][Tt]',
+    # Regional: " West" or " west" (word with space prefix)
+    r'\s[Ww][Ee][Ss][Tt]',
+    # Regional: " Pacific" or " pacific" (word with space prefix)
+    r'\s[Pp][Aa][Cc][Ii][Ff][Ii][Cc]',
+    # Regional: " Central" or " central" (word with space prefix)
+    r'\s[Cc][Ee][Nn][Tt][Rr][Aa][Ll]',
+    # Regional: " Mountain" or " mountain" (word with space prefix)
+    r'\s[Mm][Oo][Uu][Nn][Tt][Aa][Ii][Nn]',
+    # Regional: " Atlantic" or " atlantic" (word with space prefix)
+    r'\s[Aa][Tt][Ll][Aa][Nn][Tt][Ii][Cc]',
+    # Regional: (East) or (EAST) (parenthesized format)
+    r'\s*\([Ee][Aa][Ss][Tt]\)\s*',
+    # Regional: (West) or (WEST) (parenthesized format)
+    r'\s*\([Ww][Ee][Ss][Tt]\)\s*',
+    # Regional: (Pacific) or (PACIFIC) (parenthesized format)
+    r'\s*\([Pp][Aa][Cc][Ii][Ff][Ii][Cc]\)\s*',
+    # Regional: (Central) or (CENTRAL) (parenthesized format)
+    r'\s*\([Cc][Ee][Nn][Tt][Rr][Aa][Ll]\)\s*',
+    # Regional: (Mountain) or (MOUNTAIN) (parenthesized format)
+    r'\s*\([Mm][Oo][Uu][Nn][Tt][Aa][Ii][Nn]\)\s*',
+    # Regional: (Atlantic) or (ATLANTIC) (parenthesized format)
+    r'\s*\([Aa][Tt][Ll][Aa][Nn][Tt][Ii][Cc]\)\s*',
 ]
 
 # Geographic prefix patterns: US:, USA:, etc.
@@ -431,12 +453,12 @@ class FuzzyMatcher:
         quality_tags = []
         
         # Extract regional indicator
-        regional_pattern_paren = r'\((East|West)\)'
+        regional_pattern_paren = r'\((East|West|Pacific|Central|Mountain|Atlantic)\)'
         regional_match = re.search(regional_pattern_paren, name, re.IGNORECASE)
         if regional_match:
             regional = regional_match.group(1).capitalize()
         else:
-            regional_pattern_word = r'\b(East|West)\b(?!.*\b(East|West)\b)'
+            regional_pattern_word = r'\b(East|West|Pacific|Central|Mountain|Atlantic)\b(?!.*\b(East|West|Pacific|Central|Mountain|Atlantic)\b)'
             regional_match = re.search(regional_pattern_word, name, re.IGNORECASE)
             if regional_match:
                 regional = regional_match.group(1).capitalize()
@@ -457,7 +479,7 @@ class FuzzyMatcher:
             tag_upper = tag.upper()
             
             # Skip regional indicators
-            if tag_upper in ['EAST', 'WEST']:
+            if tag_upper in ['EAST', 'WEST', 'PACIFIC', 'CENTRAL', 'MOUNTAIN', 'ATLANTIC']:
                 continue
             
             # Skip callsigns
