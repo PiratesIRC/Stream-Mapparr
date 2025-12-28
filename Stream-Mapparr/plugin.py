@@ -21,6 +21,8 @@ import threading
 
 # Import FuzzyMatcher from the same directory
 from .fuzzy_matcher import FuzzyMatcher
+# Import fuzzy_matcher version for CSV header
+from . import fuzzy_matcher
 
 # Django model imports - same approach as Event Channel Managarr
 from apps.channels.models import Channel, ChannelProfileMembership, ChannelStream, Stream
@@ -63,8 +65,8 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.7.2"
-    FUZZY_MATCHER_MIN_VERSION = "25.354.1835"  # Requires complete regional patterns support
+    PLUGIN_VERSION = "0.7.3"
+    FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
@@ -2021,7 +2023,9 @@ class Plugin:
         if self.fuzzy_matcher:
             stream_names = [stream['name'] for stream in working_streams]
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
-                channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max
+                channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
+                ignore_quality=ignore_quality, ignore_regional=ignore_regional,
+                ignore_geographic=ignore_geographic, ignore_misc=ignore_misc
             )
 
             if matched_stream_name:
@@ -2055,10 +2059,16 @@ class Plugin:
                     
                     # Substring match: stream contains channel OR channel contains stream
                     if stream_lower in channel_lower or channel_lower in stream_lower:
-                        # Calculate similarity to ensure it meets threshold
-                        similarity = self.fuzzy_matcher.calculate_similarity(stream_lower, channel_lower)
-                        if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
-                            matching_streams.append(stream)
+                        # CRITICAL FIX: Add length ratio requirement to prevent false positives
+                        # like "story" matching "history" (story is 5 chars, history is 7 chars)
+                        # Require strings to be within 75% of same length for substring match
+                        # This ensures substring matches are semantically meaningful
+                        length_ratio = min(len(stream_lower), len(channel_lower)) / max(len(stream_lower), len(channel_lower))
+                        if length_ratio >= 0.75:
+                            # Calculate similarity to ensure it meets threshold
+                            similarity = self.fuzzy_matcher.calculate_similarity(stream_lower, channel_lower)
+                            if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
+                                matching_streams.append(stream)
                         continue
                     
                     # Token-based matching: check if significant tokens overlap
@@ -2245,7 +2255,9 @@ class Plugin:
             try:
                 stream_names = [stream['name'] for stream in all_streams]
                 matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
-                    channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max
+                    channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
+                    ignore_quality=ignore_quality, ignore_regional=ignore_regional,
+                    ignore_geographic=ignore_geographic, ignore_misc=ignore_misc
                 )
                 
                 if matched_stream_name:
@@ -3279,6 +3291,7 @@ class Plugin:
         # Build header with all settings except login credentials
         header_lines = [
             f"# Stream-Mapparr Export v{self.version}",
+            f"# FuzzyMatcher Version: {fuzzy_matcher.__version__}",
             f"# Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "#",
             "# === Action Performed ===",

@@ -12,7 +12,7 @@ import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.354.1835"
+__version__ = "25.358.0200"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -398,7 +398,20 @@ class FuzzyMatcher:
             patterns_to_apply.extend(GEOGRAPHIC_PATTERNS)
 
         if ignore_misc:
-            patterns_to_apply.extend(MISC_PATTERNS)
+            # CRITICAL FIX: Only apply MISC_PATTERNS (which removes ALL parentheses) if we're also
+            # ignoring regional tags. Otherwise, MISC_PATTERNS would strip regional indicators like
+            # "(WEST)" even when the user has set ignore_regional=False.
+            # This ensures that "BBC America" won't match "BBC AMERICA (WEST)" when ignore_regional=False
+            if ignore_regional:
+                # Safe to remove ALL parentheses since regional indicators are already being ignored
+                patterns_to_apply.extend(MISC_PATTERNS)
+            else:
+                # User wants to preserve regional indicators - skip MISC_PATTERNS to avoid
+                # removing parenthetical content that might be regional indicators
+                # Note: This means some misc tags like (CX), (B), (PRIME) won't be removed
+                # when ignore_regional=False, but this is the correct behavior to preserve
+                # regional tags like (WEST), (EAST), etc.
+                pass
 
         # Apply selected hardcoded patterns
         for pattern in patterns_to_apply:
@@ -406,22 +419,42 @@ class FuzzyMatcher:
 
         # Apply user-configured ignored tags with improved handling
         for tag in user_ignored_tags:
+            escaped_tag = re.escape(tag)
+
             # Check if tag contains brackets or parentheses - if so, match literally
             if '[' in tag or ']' in tag or '(' in tag or ')' in tag:
-                # Literal match for bracketed/parenthesized tags
-                escaped_tag = re.escape(tag)
-                name = re.sub(escaped_tag, '', name, flags=re.IGNORECASE)
+                # Literal match for bracketed/parenthesized tags, remove with trailing whitespace
+                name = re.sub(escaped_tag + r'\s*', '', name, flags=re.IGNORECASE)
             else:
-                # Word boundary match for simple word tags to avoid partial matches
-                # e.g., "East" won't match the "east" in "Feast"
-                escaped_tag = re.escape(tag)
-                name = re.sub(r'\b' + escaped_tag + r'\b', '', name, flags=re.IGNORECASE)
+                # CRITICAL FIX: Word boundaries (\b) only work with alphanumeric characters
+                # Tags with Unicode/special characters (like ┃NLZIET┃) fail with word boundaries
+                # Check if tag contains only word characters (alphanumeric + underscore)
+                if re.match(r'^\w+$', tag):
+                    # Safe to use word boundaries for pure word tags
+                    # This prevents "East" from matching the "east" in "Feast"
+                    name = re.sub(r'\b' + escaped_tag + r'\b', '', name, flags=re.IGNORECASE)
+                else:
+                    # Tag contains special/Unicode characters - can't use word boundaries
+                    # Match the tag followed by optional whitespace
+                    name = re.sub(escaped_tag + r'\s*', '', name, flags=re.IGNORECASE)
         
         # Remove callsigns in parentheses
-        name = re.sub(r'\([KW][A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)
-        
-        # Remove other tags in parentheses
-        name = re.sub(r'\([A-Z0-9]+\)', '', name)
+        # CRITICAL FIX: Don't remove regional indicators like (WEST), (EAST), etc. when ignore_regional=False
+        # The callsign pattern \([KW][A-Z]{3}...\) accidentally matches (WEST), (WETA), (KOMO), etc.
+        # We need to exclude known regional indicators even when matching callsigns
+        if ignore_regional:
+            # Safe to remove callsigns without checking for regional indicators
+            name = re.sub(r'\([KW][A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)
+        else:
+            # Only remove callsigns that are NOT regional indicators
+            # Use negative lookahead to exclude WEST, EAST, etc.
+            # Pattern matches (K or W) + 3 letters, but NOT if those 3 letters form a regional word
+            name = re.sub(r'\([KW](?!EST\)|ACIFIC\)|ENTRAL\)|OUNTAIN\)|TLANTIC\))[A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)
+
+        # Remove other tags in parentheses (but only if we're also ignoring regional tags)
+        # Otherwise this would remove regional indicators like (WEST), (EAST), etc.
+        if ignore_regional:
+            name = re.sub(r'\([A-Z0-9]+\)', '', name)
         
         # Remove common pattern fixes
         name = re.sub(r'^The\s+', '', name, flags=re.IGNORECASE)
@@ -569,7 +602,8 @@ class FuzzyMatcher:
         tokens = sorted([token for token in cleaned_s.split() if token])
         return " ".join(tokens)
     
-    def find_best_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False):
+    def find_best_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False,
+                        ignore_quality=True, ignore_regional=True, ignore_geographic=True, ignore_misc=True):
         """
         Find the best fuzzy match for a name among a list of candidate names.
 
@@ -578,6 +612,10 @@ class FuzzyMatcher:
             candidate_names: List of candidate names to match against
             user_ignored_tags: User-configured tags to ignore
             remove_cinemax: If True, remove "Cinemax" from candidate names
+            ignore_quality: If True, remove ALL quality indicators during normalization
+            ignore_regional: If True, remove regional indicator patterns during normalization
+            ignore_geographic: If True, remove ALL country code patterns during normalization
+            ignore_misc: If True, remove ALL content within parentheses during normalization
 
         Returns:
             Tuple of (matched_name, score) or (None, 0) if no match found
@@ -589,7 +627,11 @@ class FuzzyMatcher:
             user_ignored_tags = []
 
         # Normalize the query (channel name - don't remove Cinemax from it)
-        normalized_query = self.normalize_name(query_name, user_ignored_tags)
+        normalized_query = self.normalize_name(query_name, user_ignored_tags,
+                                                ignore_quality=ignore_quality,
+                                                ignore_regional=ignore_regional,
+                                                ignore_geographic=ignore_geographic,
+                                                ignore_misc=ignore_misc)
         
         if not normalized_query:
             return None, 0
@@ -602,7 +644,12 @@ class FuzzyMatcher:
 
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
+                                                        ignore_quality=ignore_quality,
+                                                        ignore_regional=ignore_regional,
+                                                        ignore_geographic=ignore_geographic,
+                                                        ignore_misc=ignore_misc,
+                                                        remove_cinemax=remove_cinemax)
 
             # Skip candidates that normalize to empty or very short strings
             if not candidate_normalized or len(candidate_normalized) < 2:
@@ -623,7 +670,8 @@ class FuzzyMatcher:
         
         return None, 0
     
-    def fuzzy_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False):
+    def fuzzy_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False,
+                    ignore_quality=True, ignore_regional=True, ignore_geographic=True, ignore_misc=True):
         """
         Generic fuzzy matching function that can match any name against a list of candidates.
         This is the main entry point for fuzzy matching.
@@ -633,6 +681,10 @@ class FuzzyMatcher:
             candidate_names: List of candidate names to match against (stream names)
             user_ignored_tags: User-configured tags to ignore
             remove_cinemax: If True, remove "Cinemax" from candidate names (for channels with "max")
+            ignore_quality: If True, remove ALL quality indicators during normalization
+            ignore_regional: If True, remove regional indicator patterns during normalization
+            ignore_geographic: If True, remove ALL country code patterns during normalization
+            ignore_misc: If True, remove ALL content within parentheses during normalization
 
         Returns:
             Tuple of (matched_name, score, match_type) or (None, 0, None) if no match found
@@ -644,7 +696,11 @@ class FuzzyMatcher:
             user_ignored_tags = []
 
         # Normalize query (channel name - don't remove Cinemax from it)
-        normalized_query = self.normalize_name(query_name, user_ignored_tags)
+        normalized_query = self.normalize_name(query_name, user_ignored_tags,
+                                                ignore_quality=ignore_quality,
+                                                ignore_regional=ignore_regional,
+                                                ignore_geographic=ignore_geographic,
+                                                ignore_misc=ignore_misc)
         
         if not normalized_query:
             return None, 0, None
@@ -659,7 +715,12 @@ class FuzzyMatcher:
 
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
+                                                        ignore_quality=ignore_quality,
+                                                        ignore_regional=ignore_regional,
+                                                        ignore_geographic=ignore_geographic,
+                                                        ignore_misc=ignore_misc,
+                                                        remove_cinemax=remove_cinemax)
 
             # Skip candidates that normalize to empty or very short strings (< 2 chars)
             # This prevents false positives where multiple streams all normalize to ""
@@ -686,7 +747,12 @@ class FuzzyMatcher:
         # Stage 2: Substring matching
         for candidate in candidate_names:
             # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags, remove_cinemax=remove_cinemax)
+            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
+                                                        ignore_quality=ignore_quality,
+                                                        ignore_regional=ignore_regional,
+                                                        ignore_geographic=ignore_geographic,
+                                                        ignore_misc=ignore_misc,
+                                                        remove_cinemax=remove_cinemax)
 
             # Skip candidates that normalize to empty or very short strings
             if not candidate_normalized or len(candidate_normalized) < 2:
@@ -696,18 +762,29 @@ class FuzzyMatcher:
 
             # Check if one is a substring of the other
             if normalized_query_lower in candidate_lower or candidate_lower in normalized_query_lower:
-                # Calculate similarity score
-                ratio = self.calculate_similarity(normalized_query_lower, candidate_lower)
-                if ratio > best_ratio:
-                    best_match = candidate
-                    best_ratio = ratio
-                    match_type = "substring"
+                # CRITICAL FIX: Add length ratio requirement to prevent false positives
+                # like "story" matching "history" (story is 5 chars, history is 7 chars)
+                # Require strings to be within 75% of same length for substring match
+                # This ensures substring matches are semantically meaningful
+                length_ratio = min(len(normalized_query_lower), len(candidate_lower)) / max(len(normalized_query_lower), len(candidate_lower))
+                if length_ratio >= 0.75:
+                    # Calculate similarity score
+                    ratio = self.calculate_similarity(normalized_query_lower, candidate_lower)
+                    if ratio > best_ratio:
+                        best_match = candidate
+                        best_ratio = ratio
+                        match_type = "substring"
 
         if best_match and int(best_ratio * 100) >= self.match_threshold:
             return best_match, int(best_ratio * 100), match_type
 
         # Stage 3: Fuzzy matching with token sorting
-        fuzzy_match, score = self.find_best_match(query_name, candidate_names, user_ignored_tags, remove_cinemax=remove_cinemax)
+        fuzzy_match, score = self.find_best_match(query_name, candidate_names, user_ignored_tags,
+                                                   remove_cinemax=remove_cinemax,
+                                                   ignore_quality=ignore_quality,
+                                                   ignore_regional=ignore_regional,
+                                                   ignore_geographic=ignore_geographic,
+                                                   ignore_misc=ignore_misc)
         if fuzzy_match:
             return fuzzy_match, score, f"fuzzy ({score})"
         
