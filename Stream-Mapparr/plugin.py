@@ -85,6 +85,7 @@ class PluginConfig:
     DEFAULT_SELECTED_GROUPS = ""                # Empty = all groups
     DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
     DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
+    DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
 
     # === API SETTINGS ===
     DEFAULT_DISPATCHARR_URL = ""                # Required by user
@@ -423,6 +424,13 @@ class Plugin:
                 "default": PluginConfig.DEFAULT_SELECTED_M3US,
                 "placeholder": "IPTV Provider 1, Local M3U, Sports",
                 "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality.",
+            },
+            {
+                "id": "prioritize_quality",
+                "label": "⭐ Prioritize Quality Before Source",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_PRIORITIZE_QUALITY,
+                "help_text": "When enabled, alternate streams will be sorted by quality first and then by M3U source priority. When disabled, M3U source priority is applied before quality.",
             },
             {
                 "id": "ignore_tags",
@@ -1592,10 +1600,13 @@ class Plugin:
                 # Tier 2: Low quality (below HD and below 30 FPS)
                 tier = 2
             
-            # Return tuple for sorting: (m3u_priority, tier, -pixels, -fps)
-            # M3U priority first, then quality tier, then resolution, then FPS
-            # Negative values so higher resolution/fps sorts first within tier
-            return (m3u_priority, tier, -resolution_pixels, -fps)
+            # Return tuple for sorting. Behavior depends on user preference:
+            # - Default: (m3u_priority, tier, -pixels, -fps) -> source first, then quality
+            # - If prioritize quality first: (tier, m3u_priority, -pixels, -fps)
+            if getattr(self, '_prioritize_quality', False):
+                return (tier, m3u_priority, -resolution_pixels, -fps)
+            else:
+                return (m3u_priority, tier, -resolution_pixels, -fps)
         
         # Sort streams by M3U priority first, then quality score
         return sorted(streams, key=get_stream_quality_score)
@@ -2996,6 +3007,12 @@ class Plugin:
             visible_channel_limit_str = settings.get("visible_channel_limit", str(PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT))
             visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT
 
+            # New option: prioritize quality before M3U source priority when sorting alternates
+            prioritize_quality = settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)
+            if isinstance(prioritize_quality, str):
+                prioritize_quality = prioritize_quality.lower() in ('true', 'yes', '1')
+            self._prioritize_quality = bool(prioritize_quality)
+
             ignore_quality = settings.get("ignore_quality_tags", PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS)
             ignore_regional = settings.get("ignore_regional_tags", PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS)
             ignore_geographic = settings.get("ignore_geographic_tags", PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS)
@@ -3308,6 +3325,7 @@ class Plugin:
             "# === Matching Settings ===",
             f"# Fuzzy Match Threshold: {current_threshold}",
             f"# Overwrite Streams: {settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)}",
+            f"# Prioritize Quality: {settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
             f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)}",
             "#",
             "# === Tag Filter Settings ===",
