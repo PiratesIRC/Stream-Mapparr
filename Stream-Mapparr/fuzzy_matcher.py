@@ -12,7 +12,7 @@ import unicodedata
 from glob import glob
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "25.358.0200"
+__version__ = "26.018.0100"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -346,17 +346,26 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
-        # CRITICAL FIX: Normalize spacing around numbers FIRST, before any other processing
+        # CRITICAL FIX (v25.019.0100): Apply quality patterns FIRST, before space normalization
+        # This prevents space normalization from breaking quality tags like "4K" -> "4 K"
+        # which would then fail to match quality patterns looking for "4K"
+        # Bug: Streams with "4K" suffix were not matching because "4K" was split to "4 K"
+        # by the space normalization step, then quality patterns couldn't find "4K" at end
+        if ignore_quality:
+            for pattern in QUALITY_PATTERNS:
+                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+
+        # Normalize spacing around numbers (AFTER quality patterns are removed)
         # This ensures "ITV1" and "ITV 1" are treated identically during matching
         # Pattern: Insert space before number if preceded by letter, and after number if followed by letter
         # Examples: "ITV1" -> "ITV 1", "BBC2" -> "BBC 2", "E4" -> "E 4"
         name = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', name)  # Letter followed by digit
         name = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', name)  # Digit followed by letter
-        
-        # CRITICAL FIX: Normalize hyphens to spaces for better token matching
+
+        # Normalize hyphens to spaces for better token matching
         # This ensures "UK-ITV" becomes "UK ITV" and matches properly
         # Common patterns: "UK-ITV 1", "US-CNN", etc.
-        name = re.sub(r'-', ' ', name)  # Digit followed by letter
+        name = re.sub(r'-', ' ', name)
         
         # Remove ALL leading parenthetical prefixes like (US) (PRIME2), (SP2), (D1), etc.
         # Loop until no more leading parentheses are found
@@ -386,10 +395,9 @@ class FuzzyMatcher:
             name = re.sub(r'\bCinemax\b\s*', '', name, flags=re.IGNORECASE)
 
         # Build list of patterns to apply based on category flags
+        # NOTE: Quality patterns are now applied earlier (before space normalization)
+        # to prevent "4K" from being split to "4 K" before removal
         patterns_to_apply = []
-
-        if ignore_quality:
-            patterns_to_apply.extend(QUALITY_PATTERNS)
 
         if ignore_regional:
             patterns_to_apply.extend(REGIONAL_PATTERNS)
