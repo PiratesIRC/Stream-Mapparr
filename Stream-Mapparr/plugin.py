@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.8.0a"
+    PLUGIN_VERSION = "0.8.0b"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # === MATCHING SETTINGS ===
@@ -1066,7 +1066,7 @@ class Plugin:
     def _get_all_streams(self, logger):
         """Fetch all streams via Django ORM, returning dicts compatible with existing processing logic."""
         return list(Stream.objects.all().values(
-            'id', 'name', 'm3u_account', 'channel_group', 'group_title'
+            'id', 'name', 'm3u_account', 'channel_group', 'channel_group__name'
         ))
 
     def _get_all_m3u_accounts(self, logger):
@@ -1076,7 +1076,7 @@ class Plugin:
 
     def _get_stream_groups(self, logger):
         """Fetch distinct stream group titles via Django ORM."""
-        group_titles = Stream.objects.values_list('group_title', flat=True).distinct()
+        group_titles = Stream.objects.values_list('channel_group__name', flat=True).distinct()
         return [g for g in group_titles if g]
 
     def _trigger_frontend_refresh(self, settings, logger):
