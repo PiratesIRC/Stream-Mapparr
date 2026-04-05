@@ -11,8 +11,15 @@ import logging
 import unicodedata
 from glob import glob
 
+# Optional C-accelerated Levenshtein (20-50x faster when available)
+try:
+    from rapidfuzz.distance import Levenshtein as _rf_lev
+    _USE_RAPIDFUZZ = True
+except ImportError:
+    _USE_RAPIDFUZZ = False
+
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "26.018.0100"
+__version__ = "26.095.0100"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -123,6 +130,13 @@ class FuzzyMatcher:
         self.premium_channels_full = []  # Full channel objects with category
         self.channel_lookup = {}  # Callsign -> channel data mapping
         self.country_codes = None  # Track which country databases are currently loaded
+
+        # Normalization cache for performance (avoids redundant normalize_name calls)
+        self._norm_cache = {}          # raw_name -> normalized_lower
+        self._norm_nospace_cache = {}   # raw_name -> normalized with spaces/&/- removed
+        self._processed_cache = {}     # raw_name -> process_string_for_matching result
+        self._cached_ignore_tags = None  # user_ignored_tags used during precompute
+        self._cached_flags = {}        # ignore_quality/regional/geographic/misc used during precompute
 
         # Load all channel databases if plugin_dir is provided
         if self.plugin_dir:
@@ -322,6 +336,61 @@ class FuzzyMatcher:
             callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
         return callsign
     
+    def precompute_normalizations(self, names, user_ignored_tags=None,
+                                   ignore_quality=True, ignore_regional=True,
+                                   ignore_geographic=True, ignore_misc=True):
+        """
+        Pre-normalize a list of names and cache the results.
+        Call this once before matching loops to avoid redundant normalization
+        when matching many channels against the same stream list.
+        Flags must match the flags passed to fuzzy_match() for correct results.
+        """
+        self._norm_cache.clear()
+        self._norm_nospace_cache.clear()
+        self._processed_cache.clear()
+        self._cached_ignore_tags = user_ignored_tags
+        self._cached_flags = {
+            'ignore_quality': ignore_quality,
+            'ignore_regional': ignore_regional,
+            'ignore_geographic': ignore_geographic,
+            'ignore_misc': ignore_misc,
+        }
+
+        for name in names:
+            norm = self.normalize_name(name, user_ignored_tags,
+                                       ignore_quality=ignore_quality,
+                                       ignore_regional=ignore_regional,
+                                       ignore_geographic=ignore_geographic,
+                                       ignore_misc=ignore_misc)
+            if norm and len(norm) >= 2:
+                norm_lower = norm.lower()
+                self._norm_cache[name] = norm_lower
+                self._norm_nospace_cache[name] = re.sub(r'[\s&\-]+', '', norm_lower)
+                self._processed_cache[name] = self.process_string_for_matching(norm)
+
+        self.logger.info(f"Pre-normalized {len(self._norm_cache)} stream names (from {len(names)} total)")
+
+    def _get_cached_norm(self, name, user_ignored_tags=None):
+        """Get cached normalization or compute on the fly using stored flags."""
+        if name in self._norm_cache:
+            return self._norm_cache[name], self._norm_nospace_cache[name]
+        tags = user_ignored_tags if user_ignored_tags is not None else self._cached_ignore_tags
+        norm = self.normalize_name(name, tags, **self._cached_flags)
+        if not norm or len(norm) < 2:
+            return None, None
+        norm_lower = norm.lower()
+        return norm_lower, re.sub(r'[\s&\-]+', '', norm_lower)
+
+    def _get_cached_processed(self, name, user_ignored_tags=None):
+        """Get cached processed string or compute on the fly using stored flags."""
+        if name in self._processed_cache:
+            return self._processed_cache[name]
+        tags = user_ignored_tags if user_ignored_tags is not None else self._cached_ignore_tags
+        norm = self.normalize_name(name, tags, **self._cached_flags)
+        if not norm or len(norm) < 2:
+            return None
+        return self.process_string_for_matching(norm)
+
     def normalize_name(self, name, user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
                        ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
         """
@@ -539,23 +608,43 @@ class FuzzyMatcher:
         
         return regional, extra_tags, quality_tags
     
-    def calculate_similarity(self, str1, str2):
+    def calculate_similarity(self, str1, str2, threshold=None):
         """
         Calculate Levenshtein distance-based similarity ratio between two strings.
+
+        Args:
+            str1: First string
+            str2: Second string
+            threshold: Optional minimum similarity (0.0-1.0). When set, returns 0.0
+                       early if the score cannot possibly meet this threshold.
+                       Used with rapidfuzz's score_cutoff and for pure-Python early termination.
 
         Returns:
             Similarity ratio between 0.0 and 1.0
         """
+        if len(str1) == 0 or len(str2) == 0:
+            return 0.0
+
+        # Fast path: use C-accelerated rapidfuzz when available
+        if _USE_RAPIDFUZZ:
+            cutoff = threshold if threshold is not None else 0.0
+            return _rf_lev.normalized_similarity(str1, str2, score_cutoff=cutoff)
+
+        # Pure Python fallback with optional early termination
         if len(str1) < len(str2):
             str1, str2 = str2, str1
 
-        # Empty strings should not match anything (including other empty strings)
-        # This prevents false positives when normalization strips everything
-        if len(str2) == 0 or len(str1) == 0:
-            return 0.0
-        
+        total_len = len(str1) + len(str2)
+
+        # Early rejection: if strings differ in length too much, max possible
+        # similarity is bounded. Check before doing the full DP.
+        if threshold is not None:
+            max_possible = (total_len - abs(len(str1) - len(str2))) / total_len
+            if max_possible < threshold:
+                return 0.0
+
         previous_row = list(range(len(str2) + 1))
-        
+
         for i, c1 in enumerate(str1):
             current_row = [i + 1]
             for j, c2 in enumerate(str2):
@@ -563,16 +652,22 @@ class FuzzyMatcher:
                 deletions = current_row[j] + 1
                 substitutions = previous_row[j] + (c1 != c2)
                 current_row.append(min(insertions, deletions, substitutions))
+
+            # Early termination: check if minimum possible distance in this row
+            # already makes it impossible to meet the threshold
+            if threshold is not None:
+                min_distance_so_far = min(current_row)
+                # Best case: remaining chars all match perfectly
+                remaining = len(str1) - i - 1
+                best_possible_distance = max(0, min_distance_so_far - remaining)
+                best_possible_ratio = (total_len - best_possible_distance) / total_len
+                if best_possible_ratio < threshold:
+                    return 0.0
+
             previous_row = current_row
-        
+
         distance = previous_row[-1]
-        total_len = len(str1) + len(str2)
-        
-        if total_len == 0:
-            return 1.0
-        
-        ratio = (total_len - distance) / total_len
-        return ratio
+        return (total_len - distance) / total_len
     
     def process_string_for_matching(self, s):
         """
@@ -651,20 +746,22 @@ class FuzzyMatcher:
         best_match = None
 
         for candidate in candidate_names:
-            # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
-                                                        ignore_quality=ignore_quality,
-                                                        ignore_regional=ignore_regional,
-                                                        ignore_geographic=ignore_geographic,
-                                                        ignore_misc=ignore_misc,
-                                                        remove_cinemax=remove_cinemax)
+            # Use cached processed string when available
+            processed_candidate = self._get_cached_processed(candidate, user_ignored_tags)
+            if not processed_candidate:
+                # Fallback: normalize and process on the fly
+                candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
+                                                            ignore_quality=ignore_quality,
+                                                            ignore_regional=ignore_regional,
+                                                            ignore_geographic=ignore_geographic,
+                                                            ignore_misc=ignore_misc,
+                                                            remove_cinemax=remove_cinemax)
+                if not candidate_normalized or len(candidate_normalized) < 2:
+                    continue
+                processed_candidate = self.process_string_for_matching(candidate_normalized)
 
-            # Skip candidates that normalize to empty or very short strings
-            if not candidate_normalized or len(candidate_normalized) < 2:
-                continue
-
-            processed_candidate = self.process_string_for_matching(candidate_normalized)
-            score = self.calculate_similarity(processed_query, processed_candidate)
+            score = self.calculate_similarity(processed_query, processed_candidate,
+                                              threshold=self.match_threshold / 100.0)
 
             if score > best_score:
                 best_score = score
@@ -722,28 +819,17 @@ class FuzzyMatcher:
         normalized_query_nospace = re.sub(r'[\s&\-]+', '', normalized_query_lower)
 
         for candidate in candidate_names:
-            # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
-                                                        ignore_quality=ignore_quality,
-                                                        ignore_regional=ignore_regional,
-                                                        ignore_geographic=ignore_geographic,
-                                                        ignore_misc=ignore_misc,
-                                                        remove_cinemax=remove_cinemax)
-
-            # Skip candidates that normalize to empty or very short strings (< 2 chars)
-            # This prevents false positives where multiple streams all normalize to ""
-            if not candidate_normalized or len(candidate_normalized) < 2:
+            # Use cached normalization when available
+            candidate_lower, candidate_nospace = self._get_cached_norm(candidate, user_ignored_tags)
+            if not candidate_lower:
                 continue
 
-            candidate_lower = candidate_normalized.lower()
-            candidate_nospace = re.sub(r'[\s&\-]+', '', candidate_lower)
-
-            # Exact match
+            # Exact match (space/punctuation insensitive)
             if normalized_query_nospace == candidate_nospace:
                 return candidate, 100, "exact"
 
             # Very high similarity (97%+)
-            ratio = self.calculate_similarity(normalized_query_lower, candidate_lower)
+            ratio = self.calculate_similarity(normalized_query_lower, candidate_lower, threshold=0.97)
             if ratio >= 0.97 and ratio > best_ratio:
                 best_match = candidate
                 best_ratio = ratio
@@ -754,30 +840,17 @@ class FuzzyMatcher:
 
         # Stage 2: Substring matching
         for candidate in candidate_names:
-            # Normalize candidate (stream name) with Cinemax removal if requested
-            candidate_normalized = self.normalize_name(candidate, user_ignored_tags,
-                                                        ignore_quality=ignore_quality,
-                                                        ignore_regional=ignore_regional,
-                                                        ignore_geographic=ignore_geographic,
-                                                        ignore_misc=ignore_misc,
-                                                        remove_cinemax=remove_cinemax)
-
-            # Skip candidates that normalize to empty or very short strings
-            if not candidate_normalized or len(candidate_normalized) < 2:
+            # Use cached normalization when available
+            candidate_lower, _ = self._get_cached_norm(candidate, user_ignored_tags)
+            if not candidate_lower:
                 continue
-
-            candidate_lower = candidate_normalized.lower()
 
             # Check if one is a substring of the other
             if normalized_query_lower in candidate_lower or candidate_lower in normalized_query_lower:
-                # CRITICAL FIX: Add length ratio requirement to prevent false positives
-                # like "story" matching "history" (story is 5 chars, history is 7 chars)
-                # Require strings to be within 75% of same length for substring match
-                # This ensures substring matches are semantically meaningful
                 length_ratio = min(len(normalized_query_lower), len(candidate_lower)) / max(len(normalized_query_lower), len(candidate_lower))
                 if length_ratio >= 0.75:
-                    # Calculate similarity score
-                    ratio = self.calculate_similarity(normalized_query_lower, candidate_lower)
+                    ratio = self.calculate_similarity(normalized_query_lower, candidate_lower,
+                                                      threshold=self.match_threshold / 100.0)
                     if ratio > best_ratio:
                         best_match = candidate
                         best_ratio = ratio
@@ -787,15 +860,27 @@ class FuzzyMatcher:
             return best_match, int(best_ratio * 100), match_type
 
         # Stage 3: Fuzzy matching with token sorting
-        fuzzy_match, score = self.find_best_match(query_name, candidate_names, user_ignored_tags,
-                                                   remove_cinemax=remove_cinemax,
-                                                   ignore_quality=ignore_quality,
-                                                   ignore_regional=ignore_regional,
-                                                   ignore_geographic=ignore_geographic,
-                                                   ignore_misc=ignore_misc)
-        if fuzzy_match:
-            return fuzzy_match, score, f"fuzzy ({score})"
-        
+        processed_query = self.process_string_for_matching(normalized_query)
+        best_score = -1.0
+        best_fuzzy = None
+        threshold_ratio = self.match_threshold / 100.0
+
+        for candidate in candidate_names:
+            # Use cached processed string when available
+            processed_candidate = self._get_cached_processed(candidate, user_ignored_tags)
+            if not processed_candidate:
+                continue
+
+            score = self.calculate_similarity(processed_query, processed_candidate,
+                                              threshold=threshold_ratio)
+            if score > best_score:
+                best_score = score
+                best_fuzzy = candidate
+
+        percentage_score = int(best_score * 100)
+        if percentage_score >= self.match_threshold and best_fuzzy:
+            return best_fuzzy, percentage_score, f"fuzzy ({percentage_score})"
+
         return None, 0, None
     
     def match_broadcast_channel(self, channel_name):

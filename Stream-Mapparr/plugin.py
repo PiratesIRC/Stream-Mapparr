@@ -58,8 +58,16 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "0.8.0b"
+    PLUGIN_VERSION = "0.9.0"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
+
+    # Match sensitivity presets (maps select value to threshold number)
+    SENSITIVITY_MAP = {
+        "relaxed": 70,
+        "normal": 80,
+        "strict": 90,
+        "exact": 95,
+    }
 
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
@@ -112,7 +120,7 @@ class PluginConfig:
     OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
 
     # === PROGRESS TRACKING SETTINGS ===
-    ESTIMATED_SECONDS_PER_ITEM = 7.73  # Historical average time per item (from log analysis)
+    ESTIMATED_SECONDS_PER_ITEM = 0.1  # Avg time per item with rapidfuzz + normalization cache
 
     # === IPTV CHECKER INTEGRATION SETTINGS ===
     DEFAULT_FILTER_DEAD_STREAMS = False  # Filter streams with 0x0 resolution (requires IPTV Checker)
@@ -315,6 +323,16 @@ class Plugin:
         except Exception as e:
             LOGGER.debug(f"[Stream-Mapparr] Error checking version update: {e}")
 
+        # Discover channel profiles for dropdown
+        profile_options = []
+        try:
+            for p in ChannelProfile.objects.all().values('id', 'name'):
+                profile_options.append({"value": p['name'], "label": p['name']})
+        except Exception:
+            pass
+        if not profile_options:
+            profile_options = [{"value": "", "label": "(no profiles found)"}]
+
         static_fields = [
             {
                 "id": "version_status",
@@ -329,19 +347,25 @@ class Plugin:
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
             },
             {
-                "id": "fuzzy_match_threshold",
-                "label": "🎯 Fuzzy Match Threshold",
-                "type": "number",
-                "default": PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD,
-                "help_text": f"Minimum similarity score (0-100) for fuzzy matching. Higher values require closer matches. Default: {PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD}",
+                "id": "match_sensitivity",
+                "label": "Match Sensitivity",
+                "type": "select",
+                "default": "normal",
+                "options": [
+                    {"value": "relaxed", "label": "Relaxed (70) - more matches, more false positives"},
+                    {"value": "normal", "label": "Normal (80) - balanced"},
+                    {"value": "strict", "label": "Strict (90) - fewer matches, high confidence"},
+                    {"value": "exact", "label": "Exact (95) - near-exact matches only"},
+                ],
+                "help_text": "Controls how closely stream names must match channel names.",
             },
             {
                 "id": "profile_name",
-                "label": "📋 Profile Name",
-                "type": "string",
-                "default": PluginConfig.DEFAULT_PROFILE_NAME,
-                "placeholder": "Sports, Movies, News",
-                "help_text": "*** Required Field *** - The name(s) of existing Channel Profile(s) to process channels from. Multiple profiles can be specified separated by commas.",
+                "label": "Channel Profile",
+                "type": "select",
+                "default": "",
+                "options": profile_options,
+                "help_text": "Channel profile to process. Channels enabled in this profile will be matched.",
             },
             {
                 "id": "selected_groups",
@@ -383,32 +407,16 @@ class Plugin:
                 "help_text": "Tags to ignore when matching streams. Use quotes to preserve spaces/special chars (e.g., \" East\" for tags with leading space).",
             },
             {
-                "id": "ignore_quality_tags",
-                "label": "🎬 Ignore Quality Tags",
-                "type": "boolean",
-                "default": PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS,
-                "help_text": "If enabled, all quality indicators will be ignored in any format and position (e.g., 4K, [4K], (4K), FHD, [FHD], (FHD), HD, SD at beginning, middle, or end of name).",
-            },
-            {
-                "id": "ignore_regional_tags",
-                "label": "🌍 Ignore Regional Tags",
-                "type": "boolean",
-                "default": PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS,
-                "help_text": "If enabled, hardcoded regional tags like 'East' will be ignored during matching.",
-            },
-            {
-                "id": "ignore_geographic_tags",
-                "label": "🗺️ Ignore Geographic Tags",
-                "type": "boolean",
-                "default": PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS,
-                "help_text": "If enabled, all country codes will be ignored during matching (e.g., US, USA, US:, |FR|, FR -, [UK], etc.).",
-            },
-            {
-                "id": "ignore_misc_tags",
-                "label": "🏷️ Ignore Miscellaneous Tags",
-                "type": "boolean",
-                "default": PluginConfig.DEFAULT_IGNORE_MISC_TAGS,
-                "help_text": "If enabled, all content within parentheses will be ignored during matching (e.g., (CX), (B), (PRIME), (Backup)).",
+                "id": "tag_handling",
+                "label": "Tag Handling",
+                "type": "select",
+                "default": "strip_all",
+                "options": [
+                    {"value": "strip_all", "label": "Strip All Tags - best for most setups"},
+                    {"value": "keep_regional", "label": "Keep Regional Tags - preserve East/West/Pacific"},
+                    {"value": "keep_all", "label": "Keep All Tags - strict, exact matching only"},
+                ],
+                "help_text": "Controls which tags are removed during name matching. 'Strip All' removes quality, regional, geographic, and misc tags for best matching.",
             },
             {
                 "id": "visible_channel_limit",
@@ -513,32 +521,34 @@ class Plugin:
 
         try:
             databases = self._get_channel_databases()
-
             if databases:
+                db_options = [{"value": "_none", "label": "None - no channel database"}]
                 for db_info in databases:
-                    db_id = db_info['id']
-                    db_label = db_info['label']
-                    db_default = db_info['default']
-
-                    static_fields.append({
-                        "id": f"db_enabled_{db_id}",
-                        "type": "boolean",
-                        "label": f"Enable {db_label}",
-                        "help_text": f"Enable or disable the {db_label} channel database for matching.",
-                        "default": db_default
-                    })
+                    db_options.append({"value": db_info['id'], "label": db_info['label']})
+                if len(databases) > 1:
+                    db_options.append({"value": "_all", "label": "All databases"})
+                # Default to US if available, else first database
+                default_db = "US" if any(d['id'] == 'US' for d in databases) else databases[0]['id']
+                static_fields.append({
+                    "id": "channel_database",
+                    "label": "Channel Database",
+                    "type": "select",
+                    "default": default_db,
+                    "options": db_options,
+                    "help_text": "Channel name database for callsign and name matching.",
+                })
             else:
                 static_fields.append({
                     "id": "no_databases_found",
                     "type": "info",
-                    "label": "⚠️ No channel databases found. Place XX_channels.json files in the plugin directory.",
+                    "label": "No channel databases found. Place XX_channels.json files in the plugin directory.",
                 })
         except Exception as e:
             LOGGER.error(f"[Stream-Mapparr] Error loading channel databases for settings: {e}")
             static_fields.append({
                 "id": "database_error",
                 "type": "info",
-                "label": f"⚠️ Error loading channel databases: {e}",
+                "label": f"Error loading channel databases: {e}",
             })
 
         return static_fields
@@ -1025,6 +1035,62 @@ class Plugin:
             LOGGER.error(f"[Stream-Mapparr] Error scanning for channel databases: {e}")
         return databases
 
+    def _resolve_match_threshold(self, settings):
+        """Resolve match threshold from new match_sensitivity select or legacy fuzzy_match_threshold."""
+        sensitivity = settings.get("match_sensitivity", "")
+        threshold = PluginConfig.SENSITIVITY_MAP.get(sensitivity)
+        if threshold is not None:
+            return threshold
+        # Fallback: legacy numeric field
+        threshold = settings.get("fuzzy_match_threshold", PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
+        try:
+            return max(0, min(100, int(threshold)))
+        except (ValueError, TypeError):
+            return PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD
+
+    def _resolve_ignore_flags(self, settings):
+        """Resolve ignore flags from new tag_handling select or legacy individual booleans.
+        Returns (ignore_quality, ignore_regional, ignore_geographic, ignore_misc) tuple."""
+        tag_handling = settings.get("tag_handling", "")
+        if tag_handling == "strip_all":
+            return True, True, True, True
+        elif tag_handling == "keep_regional":
+            return True, False, True, True
+        elif tag_handling == "keep_all":
+            return False, False, False, False
+        # Fallback: legacy individual booleans
+        iq = settings.get("ignore_quality_tags", PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS)
+        ir = settings.get("ignore_regional_tags", PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS)
+        ig = settings.get("ignore_geographic_tags", PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS)
+        im = settings.get("ignore_misc_tags", PluginConfig.DEFAULT_IGNORE_MISC_TAGS)
+        if isinstance(iq, str): iq = iq.lower() in ('true', 'yes', '1')
+        if isinstance(ir, str): ir = ir.lower() in ('true', 'yes', '1')
+        if isinstance(ig, str): ig = ig.lower() in ('true', 'yes', '1')
+        if isinstance(im, str): im = im.lower() in ('true', 'yes', '1')
+        return bool(iq), bool(ir), bool(ig), bool(im)
+
+    def _resolve_enabled_databases(self, settings):
+        """Resolve which channel databases are enabled from new channel_database select or legacy db_enabled_XX booleans.
+        Returns set of enabled country codes (e.g., {'US', 'UK'}) or None for all."""
+        db_setting = settings.get("channel_database", "")
+        if db_setting == "_all":
+            return None  # None means all enabled
+        elif db_setting == "_none":
+            return set()  # Empty set means none enabled
+        elif db_setting:
+            return {db_setting.upper()}
+        # Fallback: legacy per-database booleans
+        databases = self._get_channel_databases()
+        enabled = set()
+        for db_info in databases:
+            setting_key = f"db_enabled_{db_info['id']}"
+            val = settings.get(setting_key, db_info['default'])
+            if isinstance(val, str):
+                val = val.lower() in ('true', 'yes', '1')
+            if val:
+                enabled.add(db_info['id'])
+        return enabled if enabled else None
+
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
         if self.fuzzy_matcher is None:
@@ -1476,19 +1542,10 @@ class Plugin:
                 logger.warning(f"[Stream-Mapparr] No *_channels.json files found in {plugin_dir}")
                 return channels_data
 
+            enabled_set = self._resolve_enabled_databases(settings) if settings else None
             enabled_databases = []
             for db_info in databases:
-                db_id = db_info['id']
-                setting_key = f"db_enabled_{db_id}"
-                if settings:
-                    is_enabled = settings.get(setting_key, db_info['default'])
-                    # Handle string boolean values
-                    if isinstance(is_enabled, str):
-                        is_enabled = is_enabled.lower() in ('true', 'yes', '1')
-                else:
-                    is_enabled = db_info['default']
-
-                if is_enabled:
+                if enabled_set is None or db_info['id'] in enabled_set:
                     enabled_databases.append(db_info)
 
             if not enabled_databases:
@@ -1751,11 +1808,13 @@ class Plugin:
                         length_ratio = min(len(stream_lower), len(channel_lower)) / max(len(stream_lower), len(channel_lower))
                         if length_ratio >= 0.75:
                             # Calculate similarity to ensure it meets threshold
-                            similarity = self.fuzzy_matcher.calculate_similarity(stream_lower, channel_lower)
+                            similarity = self.fuzzy_matcher.calculate_similarity(
+                                stream_lower, channel_lower,
+                                threshold=self.fuzzy_matcher.match_threshold / 100.0)
                             if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
                                 matching_streams.append(stream)
                         continue
-                    
+
                     # Token-based matching: check if significant tokens overlap
                     # This catches cases like "ca al jazeera" vs "al jazeera english"
                     # Split into tokens (words)
@@ -1817,7 +1876,9 @@ class Plugin:
                         
                         if should_check_similarity:
                             # Calculate full string similarity
-                            similarity = self.fuzzy_matcher.calculate_similarity(stream_lower, channel_lower)
+                            similarity = self.fuzzy_matcher.calculate_similarity(
+                                stream_lower, channel_lower,
+                                threshold=self.fuzzy_matcher.match_threshold / 100.0)
                             if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
                                 matching_streams.append(stream)
 
@@ -2154,11 +2215,7 @@ class Plugin:
                     settings = context['settings']
 
             # Initialize fuzzy matcher with configured threshold
-            match_threshold = settings.get("fuzzy_match_threshold", PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
-            try:
-                match_threshold = int(match_threshold)
-            except (ValueError, TypeError):
-                match_threshold = PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD
+            match_threshold = self._resolve_match_threshold(settings)
 
             self._initialize_fuzzy_matcher(match_threshold)
 
@@ -2403,19 +2460,12 @@ class Plugin:
                 validation_results.append("❌ Channel Databases: No files found")
                 has_errors = True
             else:
+                enabled_set = self._resolve_enabled_databases(settings)
                 enabled_databases = []
                 for db_info in databases:
-                    db_id = db_info['id']
-                    setting_key = f"db_enabled_{db_id}"
-                    is_enabled = settings.get(setting_key, db_info['default'])
-                    
-                    # Handle string boolean values
-                    if isinstance(is_enabled, str):
-                        is_enabled = is_enabled.lower() in ('true', 'yes', '1', 'on')
-                    
-                    if is_enabled:
+                    if enabled_set is None or db_info['id'] in enabled_set:
                         enabled_databases.append(db_info['label'])
-                
+
                 if not enabled_databases:
                     validation_results.append("❌ Channel Databases: None enabled")
                     has_errors = True
@@ -2477,16 +2527,7 @@ class Plugin:
                 prioritize_quality = prioritize_quality.lower() in ('true', 'yes', '1')
             self._prioritize_quality = bool(prioritize_quality)
 
-            ignore_quality = settings.get("ignore_quality_tags", PluginConfig.DEFAULT_IGNORE_QUALITY_TAGS)
-            ignore_regional = settings.get("ignore_regional_tags", PluginConfig.DEFAULT_IGNORE_REGIONAL_TAGS)
-            ignore_geographic = settings.get("ignore_geographic_tags", PluginConfig.DEFAULT_IGNORE_GEOGRAPHIC_TAGS)
-            ignore_misc = settings.get("ignore_misc_tags", PluginConfig.DEFAULT_IGNORE_MISC_TAGS)
-
-            # Handle boolean string conversions
-            if isinstance(ignore_quality, str): ignore_quality = ignore_quality.lower() in ('true', 'yes', '1')
-            if isinstance(ignore_regional, str): ignore_regional = ignore_regional.lower() in ('true', 'yes', '1')
-            if isinstance(ignore_geographic, str): ignore_geographic = ignore_geographic.lower() in ('true', 'yes', '1')
-            if isinstance(ignore_misc, str): ignore_misc = ignore_misc.lower() in ('true', 'yes', '1')
+            ignore_quality, ignore_regional, ignore_geographic, ignore_misc = self._resolve_ignore_flags(settings)
 
             profile_names = [name.strip() for name in profile_names_str.split(',') if name.strip()]
             ignore_tags = self._parse_tags(ignore_tags_str) if ignore_tags_str else []
@@ -2662,7 +2703,7 @@ class Plugin:
         selected_groups = processed_data.get('selected_groups', [])
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
         selected_m3us = processed_data.get('selected_m3us', [])
-        current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
+        current_threshold = self._resolve_match_threshold(settings)
 
         # Build header with all settings except login credentials
         header_lines = [
@@ -2702,17 +2743,9 @@ class Plugin:
         enabled_dbs = []
         try:
             databases = self._get_channel_databases()
+            enabled_set = self._resolve_enabled_databases(settings)
             for db_info in databases:
-                db_id = db_info['id']
-                setting_key = f"db_enabled_{db_id}"
-                # Try to get from settings first, fallback to default
-                is_enabled = settings.get(setting_key, db_info['default'])
-                
-                # Handle string boolean values
-                if isinstance(is_enabled, str):
-                    is_enabled = is_enabled.lower() in ('true', 'yes', '1', 'on')
-                
-                if is_enabled:
+                if enabled_set is None or db_info['id'] in enabled_set:
                     enabled_dbs.append(db_info['label'])
         except Exception as e:
             LOGGER.warning(f"[Stream-Mapparr] Could not determine enabled databases: {e}")
@@ -2947,6 +2980,14 @@ class Plugin:
             ignore_misc = processed_data.get('ignore_misc', True)
             filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
 
+            # Pre-normalize stream names for matching performance
+            if self.fuzzy_matcher and streams:
+                stream_names = list(set(s['name'] for s in streams))
+                self.fuzzy_matcher.precompute_normalizations(
+                    stream_names, ignore_tags,
+                    ignore_quality=ignore_quality, ignore_regional=ignore_regional,
+                    ignore_geographic=ignore_geographic, ignore_misc=ignore_misc)
+
             channel_groups = {}
             for channel in channels:
                 channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
@@ -2963,11 +3004,7 @@ class Plugin:
             total_channels_to_update = 0
             low_match_channels = []  # Track channels with few matches for recommendations
             threshold_data = {}  # Track threshold analysis for recommendations
-            current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
-            try:
-                current_threshold = int(current_threshold)
-            except (ValueError, TypeError):
-                current_threshold = 85
+            current_threshold = self._resolve_match_threshold(settings)
 
             self._send_progress_update("preview_changes", 'running', 30, f'Analyzing {len(channel_groups)} channel groups...', context)
 
@@ -3152,6 +3189,14 @@ class Plugin:
             ignore_misc = processed_data.get('ignore_misc', True)
             filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
 
+            # Pre-normalize stream names for matching performance
+            if self.fuzzy_matcher and streams:
+                stream_names = list(set(s['name'] for s in streams))
+                self.fuzzy_matcher.precompute_normalizations(
+                    stream_names, ignore_tags,
+                    ignore_quality=ignore_quality, ignore_regional=ignore_regional,
+                    ignore_geographic=ignore_geographic, ignore_misc=ignore_misc)
+
             channel_groups = {}
             for channel in channels:
                 channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
@@ -3266,11 +3311,7 @@ class Plugin:
                     csv_data = []
                     low_match_channels = []  # Track channels with few matches for recommendations
                     threshold_data = {}  # Track threshold analysis for recommendations
-                    current_threshold = settings.get('fuzzy_match_threshold', PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
-                    try:
-                        current_threshold = int(current_threshold)
-                    except (ValueError, TypeError):
-                        current_threshold = 85
+                    current_threshold = self._resolve_match_threshold(settings)
                     
                     for group_key, group_channels in channel_groups.items():
                         sorted_channels = self._sort_channels_by_priority(group_channels)
@@ -3499,11 +3540,9 @@ class Plugin:
             
             # Initialize fuzzy matcher for callsign extraction
             if not self.fuzzy_matcher:
-                match_threshold = settings.get("fuzzy_match_threshold", PluginConfig.DEFAULT_FUZZY_MATCH_THRESHOLD)
-                if isinstance(match_threshold, str):
-                    match_threshold = int(match_threshold)
+                match_threshold = self._resolve_match_threshold(settings)
                 self._initialize_fuzzy_matcher(match_threshold)
-            
+
             # Match channels using US OTA callsign database
             logger.info("[Stream-Mapparr] Matching channels using US OTA callsign database...")
             logger.info("[Stream-Mapparr] Note: Only channels with valid US callsigns will be matched")

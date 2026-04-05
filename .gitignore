@@ -44,3 +44,14 @@ htmlcov/
 # Data files (cache)
 /data/
 *.log
+
+# AI/Tool config
+.claude/
+.serena/
+GEMINI.md
+
+# Local session files
+*.zip
+*.txt
+C--Users-btoll-claude-dispatcharr-Stream-Mapparr/
+docs/superpowers/
