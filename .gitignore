@@ -48,6 +48,7 @@ htmlcov/
 # AI/Tool config
 .claude/
 .serena/
+CLAUDE.md
 GEMINI.md
 
 # Local session files
