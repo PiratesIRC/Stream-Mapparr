@@ -48,8 +48,19 @@ htmlcov/
 # AI/Tool config
 .claude/
 .serena/
+.cursor/
+.copilot/
+.codex/
+.aider*
+.continue/
+.codeium/
+.tabnine/
 CLAUDE.md
 GEMINI.md
+AGENTS.md
+.cursorrules
+.windsurfrules
+copilot-instructions.md
 
 # Local session files
 *.zip
