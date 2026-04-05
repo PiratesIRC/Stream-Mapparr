@@ -1,4 +1,4 @@
-# Stream Mapparr
+# Stream-Mapparr
 [![Dispatcharr plugin](https://img.shields.io/badge/Dispatcharr-plugin-8A2BE2)](https://github.com/Dispatcharr/Dispatcharr)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PiratesIRC/Stream-Mapparr)
 
@@ -10,187 +10,146 @@
 ![Last Commit](https://img.shields.io/github/last-commit/PiratesIRC/Stream-Mapparr)
 ![License](https://img.shields.io/github/license/PiratesIRC/Stream-Mapparr)
 
-A Dispatcharr plugin that automatically matches and assigns streams to channels based on advanced fuzzy matching, quality prioritization, and OTA callsign recognition.
+A Dispatcharr plugin that automatically matches and assigns streams to channels using fuzzy matching, quality prioritization, and OTA callsign recognition.
 
-## ⚠️ Important: Backup Your Database
-Before installing or using this plugin, it is **highly recommended** that you create a backup of your Dispatcharr database. This plugin makes significant changes to your channel and stream assignments.
+## Backup Your Database
 
-**[Click here for instructions on how to back up your database.](https://dispatcharr.github.io/Dispatcharr-Docs/user-guide/?h=backup#backup-restore)**
+Before installing or using this plugin, create a backup of your Dispatcharr database. This plugin modifies channel and stream assignments.
+
+**[Backup instructions](https://dispatcharr.github.io/Dispatcharr-Docs/user-guide/?h=backup#backup-restore)**
 
 ---
 
-## 🚨 Important: Background Operations & Monitoring
-**Please Read Carefully:** This plugin uses **Background Threading** to prevent browser timeouts during long operations. This changes how you interact with the plugin:
+## Background Operations
 
-1.  **Instant Notification:** The frontend will show a green "✅ Started in background" notification immediately. This does **NOT** mean the task is finished.
-2.  **Immediate Re-enabling:** Buttons re-enable instantly so the UI remains responsive. Do not click the button again; the task is active in the background.
-3.  **Real-Time Monitoring:** To see progress, ETAs, and completion status, you **must** check your Docker logs.
+This plugin uses background threading to prevent browser timeouts during long operations.
 
-**To monitor operations, run this in your terminal:**
-`docker logs -n 20 -f Dispatcharr | grep plugins`
-or
-`docker logs -f dispatcharr | grep Stream-Mapparr`
+- The frontend shows a green "Started in background" notification immediately — this does **not** mean the task is finished
+- Buttons re-enable instantly. Do not click again; the task is running
+- Monitor progress and completion in Docker logs:
 
-Look for "**✅ [ACTION] COMPLETED**" or "**📄 CSV EXPORT CREATED**" to know when the process is finished.
+```bash
+docker logs -f dispatcharr | grep Stream-Mapparr
+```
+
+Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finished.
 
 ---
 
 ## Features
 
-### Automation & Scheduling
-* **Background Processing Engine**: Operations run in threads to prevent HTTP timeouts and "broken pipe" errors on large datasets.
-* **Integrated Scheduler**: Configure automated daily runs directly in settings with custom Timezone and HHMM time support.
-* **Smart Rate Limiting**: Configurable API throttling with exponential backoff to prevent server overload and 429/5xx errors.
-* **Operation Lock System**: Prevents concurrent tasks from running and allows manual clearing of stuck locks after system restarts.
+### Matching
+- **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
+- **US OTA callsign matching**: Dedicated action for matching US broadcast channels by callsign against authoritative database (5,900+ callsigns)
+- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL
+- **Normalization cache**: Pre-normalizes stream names once for batch matching performance
+- **rapidfuzz acceleration**: Uses C-accelerated Levenshtein when available (20-50x faster), with pure Python early-termination fallback
 
-### Matching & Accuracy
-* **Advanced Fuzzy Matching**: Automatically finds and assigns streams using an advanced matching engine.
-* **Strict Numeric Matching**: Prevents false positives between numbered channels (e.g., ensuring "Sports 1" does not match "Sports 2").
-* **US OTA Specialized Matching**: Dedicated action to match US broadcast channels by callsign using authoritative databases.
-* **Multi-Country Support**: Support for multiple regional databases (US, UK, CA, NL, etc.) to refine matching accuracy.
-* **Customizable Ignore Tags**: Filter out unwanted keywords like `[Backup]` or `West` during the matching process.
+### Quality & Streams
+- **Quality-based stream sorting**: 4K > UHD > FHD > HD > SD, using probed resolution (from IPTV Checker) or name-based detection
+- **M3U source prioritization**: Prefer streams from specific M3U providers
+- **Dead stream filtering**: Skip streams with 0x0 resolution (requires IPTV Checker)
+- **Auto-deduplication**: Removes duplicate stream names during assignment
 
-### Quality & Stream Health
-* **IPTV Checker Integration**: Automatically filters out "dead" streams with 0x0 resolution using metadata from the IPTV Checker plugin.
-* **M3U Source Prioritization**: Prioritize streams from specific M3U providers (e.g., premium sources over backup sources) regardless of quality metrics.
-* **Resolution & FPS Ranking**: Automatically sorts alternate streams by physical quality (Resolution/FPS) to ensure the best source is primary.
-* **Auto-Deduplication**: Automatically removes duplicate stream names during assignment to keep channel lists clean.
+### Automation
+- **Built-in scheduler**: Configure daily runs with timezone and HHMM time support
+- **Rate limiting**: Configurable throttling (None/Low/Medium/High)
+- **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
+- **Dry run mode**: Preview results with CSV export without making changes
 
-### Reporting & Visibility
-* **Live Progress Tracking**: Real-time progress engine providing accurate ETAs and minute-by-minute reporting in the logs.
-* **Intelligent CSV Analysis**: Reports analyze why channels didn't match and provide specific recommendations (e.g., "Add 'UK' to ignore tags").
-* **Dry Run Mode**: Global toggle to preview match results and export reports without making any database changes.
-* **Channel Visibility Management**: Automatically enables channels with valid streams and disables those without assignments.
+### Reporting
+- **CSV exports**: Detailed reports with threshold recommendations and token mismatch analysis
+- **Channel visibility management**: Auto-enable channels with streams, disable those without
 
 ## Requirements
-* Active Dispatcharr installation
-* Admin username and password for API access
-* **A Channels Profile other than "All"**
-* Multiple streams of the same channel are available in your setup
+
+- Dispatcharr v0.20.0+
+- A Channel Profile (other than "All")
 
 ## Installation
-1.  Log in to Dispatcharr's web UI.
-2.  Navigate to **Plugins**.
-3.  Click **Import Plugin** and upload the plugin zip file.
-4.  Enable the plugin after installation.
 
-## Updating the Plugin
-To update Channel Mapparr from a previous version:
+1. Navigate to **Plugins** in Dispatcharr
+2. Click **Import Plugin** and upload the plugin zip
+3. Enable the plugin
 
-### 1. Remove Old Version
-1.  Navigate to **Plugins** in Dispatcharr.
-2.  Click the trash icon next to the old Stream Mapparr plugin.
-3.  Confirm deletion.
-
-### 2. Restart Dispatcharr
-1.  Log out of Dispatcharr.
-2.  Restart the Docker container:
-    ```bash
-    docker restart dispatcharr
-    ```
-
-### 3. Install New Version
-1.  Log back into Dispatcharr.
-2.  Navigate to **Plugins**.
-3.  Click **Import Plugin** and upload the new plugin zip file.
-4.  Enable the plugin after installation.
-
-### 4. Verify Installation
-1.  Check that the new version number appears in the plugin list.
-2.  Reconfigure your settings if needed.
-3.  Run **Load/Process Channels** to test the update.
-
-## Operations & Monitoring Guide
-
-Because this plugin processes potentially thousands of streams, operations can take 5-15+ minutes.
-
-### How to Run an Action
-1.  Open a terminal connected to your server.
-2.  Run `docker logs -f dispatcharr` to watch the logs.
-3.  In the browser, click an action button (e.g., "Add Stream(s) to Channels").
-4.  You will see a notification: **"✅ Operation started in background"**.
-5.  **Wait.** Do not close the browser or restart the container.
-6.  Watch the terminal logs for updates like:
-    * `[Stream-Mapparr] Progress: 20%...`
-    * `[Stream-Mapparr] Progress: 50%...`
-7.  The operation is finished when you see:
-    * `[Stream-Mapparr] ✅ ADD STREAMS TO CHANNELS COMPLETED`
-
-### Why can't I see progress in the UI?
-Dispatcharr's plugin system currently supports synchronous HTTP responses. Because we moved to asynchronous background threads (to fix timeouts), the frontend receives the "Started" signal but cannot listen for the "Completed" signal without core modifications to Dispatcharr. We prioritize **successful completion** over UI feedback.
-
-## Scheduling (New in v0.6.0)
-
-You can now schedule Stream-Mapparr to run automatically without setting up external Celery tasks.
-
-1.  Go to **Plugin Settings**.
-2.  **Timezone**: Select your local timezone (e.g., `US/Central`, `Europe/London`).
-3.  **Scheduled Run Times**: Enter times in 24-hour format, comma-separated (e.g., `0400, 1600`).
-    * Example: `0400` runs at 4:00 AM.
-    * Example: `0400,1600` runs at 4:00 AM and 4:00 PM.
-4.  **Enable CSV Export**: Check this to generate a report every time the scheduler runs.
-5.  Click **Update Schedule**.
-
-*Note: The scheduler runs in a background thread. If you restart the Dispatcharr container, the scheduler restarts automatically.*
-
-## Settings Reference
+## Settings
 
 | Setting | Type | Default | Description |
 |:---|:---|:---|:---|
-| **Overwrite Existing Streams** | `boolean` | True | If enabled, removes all existing streams and replaces with matched streams. |
-| **Fuzzy Match Threshold** | `number` | 85 | Minimum similarity score (0-100). Higher = stricter matching. |
-| **Dispatcharr URL/Creds** | `string` | - | Connection details for the API. |
-| **Profile Name** | `string` | - | Name of the Channel Profile to process. |
-| **Channel Groups** | `string` | - | Specific groups to process (empty = all). |
-| **Rate Limiting** *(v0.6.0)* | `select` | Medium | Controls API speed. Use 'High' if experiencing timeouts/errors. |
-| **Timezone** *(v0.6.0)* | `select` | US/Central | Timezone for scheduled runs. |
-| **Scheduled Run Times** | `string` | - | Times to run automatically (HHMM format). |
-| **Visible Channel Limit** | `number` | 1 | How many duplicate channels to enable per group. |
-| **Ignore Tags** | `string` | - | Tags to strip before matching (e.g., `[Dead], (Backup)`). |
+| **Overwrite Existing Streams** | boolean | True | Replace existing streams vs append-only |
+| **Match Sensitivity** | select | Normal (80) | Relaxed (70), Normal (80), Strict (90), Exact (95) |
+| **Channel Profile** | select | - | Profile to process channels from (dropdown from DB) |
+| **Channel Groups** | string | (all) | Specific groups to process, comma-separated |
+| **Stream Groups** | string | (all) | Specific stream groups to use, comma-separated |
+| **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
+| **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
+| **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
+| **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
+| **Channel Database** | select | US | Channel database for callsign and name matching |
+| **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams |
+| **Rate Limiting** | select | None | None / Low / Medium / High |
+| **Timezone** | select | US/Central | Timezone for scheduled runs |
+| **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
+| **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
+| **Dry Run Mode** | boolean | False | Preview without making database changes |
 
-## Channel Databases
+## Actions
 
-Stream-Mapparr uses `*_channels.json` files to improve OTA and cable channel matching.
+| Action | Description |
+|:---|:---|
+| **Validate Settings** | Check configuration, profiles, groups, databases |
+| **Load/Process Channels** | Load channel and stream data from database |
+| **Preview Changes** | Dry-run with CSV export |
+| **Match & Assign Streams** | Fuzzy match and assign streams to channels |
+| **Match US OTA Only** | Match US broadcast channels by callsign |
+| **Sort Alternate Streams** | Re-sort existing streams by quality |
+| **Manage Channel Visibility** | Enable/disable channels based on stream count |
+| **Clear CSV Exports** | Delete all plugin CSV files |
 
-1.  Navigate to **Settings**.
-2.  Scroll to **Channel Databases**.
-3.  Check the boxes for the countries you want to enable (e.g., `Enable US`, `Enable UK`).
-4.  If you need a custom database, create a JSON file (e.g., `CA_channels.json`) and place it in `/data/plugins/stream_mapparr/`.
+## Scheduling
 
-## CSV Reports & Recommendations
+1. Set **Timezone** (e.g., `US/Central`)
+2. Set **Scheduled Run Times** in 24-hour format (e.g., `0400,1600` for 4 AM and 4 PM)
+3. Enable **CSV Export** if desired
+4. Click **Update Schedule**
 
-When running **Preview Changes** or **Add Streams**, the plugin generates a CSV file in `/data/exports/`.
+The scheduler runs in a background thread and restarts automatically with the container.
 
-**New in v0.6.0**: Open the CSV file in a text editor or spreadsheet. The header contains detailed analysis:
-* **Threshold Recommendations**: "3 additional streams available at lower thresholds. Consider lowering to 75."
-* **Token Mismatches**: "Channel 'BBC One' vs Stream 'UK BBC One'. Mismatched token: 'UK'. Add 'UK' to Ignore Tags."
+## CSV Reports
+
+Preview and scheduled exports are saved to `/data/exports/`. Reports include:
+- Threshold recommendations ("3 additional streams available at lower thresholds")
+- Token mismatch analysis ("Add 'UK' to Ignore Tags")
+- Match type breakdown (exact, substring, fuzzy)
 
 ## Troubleshooting
 
-**Buttons are clickable but nothing happens?**
-Check the Docker logs. If an operation is already running, the logs will say: `❌ Cannot start... Another operation is already running`. Wait for the current operation to finish (lock expires after 10 mins).
+**Operation seems stuck?**
+Check Docker logs. If another operation is running, wait for completion (lock auto-expires after 10 min) or click **Clear Operation Lock**.
 
-**"API token expired" in logs**
-The plugin now automatically attempts to refresh tokens. If it fails, check your Username/Password in settings.
+**No matches found?**
+- Lower Match Sensitivity from Strict to Normal or Relaxed
+- For US OTA channels, use **Match US OTA Only** instead of fuzzy matching
+- Check that the correct Channel Database is selected
 
-**System/API is slow during scanning**
-Change the **Rate Limiting** setting to "High (Slow)". This adds a delay between API calls to reduce load on your server.
+**System slow during scanning?**
+Set Rate Limiting to Medium or High.
 
-**How to stop a running operation?**
-Restart the Dispatcharr container: `docker restart dispatcharr`.
-
-**Cleaning up old tasks**
-If you upgraded from an older version, run the **"Cleanup Orphaned Tasks"** action to remove old Celery schedules that might conflict with the new internal scheduler.
-
-## Debugging Commands
 ```bash
-# Monitor plugin activity (The most important command!)
-docker logs -f dispatcharr | grep "Stream-Mapparr"
+# Monitor plugin activity
+docker logs -f dispatcharr | grep Stream-Mapparr
 
-# Check generated CSVs
+# Check CSV exports
 docker exec dispatcharr ls -lh /data/exports/
 
 # Check plugin files
-docker exec dispatcharr ls -la /data/plugins/stream_mapparr/
-```bash
-docker logs -f dispatcharr | grep "Stream-Mapparr"
+docker exec dispatcharr ls -la /data/plugins/stream-mapparr/
+```
+
+## Changelog
+
+See [CHANGELOG.md](Stream-Mapparr/CHANGELOG.md) for full version history.
+
+## License
+
+MIT
