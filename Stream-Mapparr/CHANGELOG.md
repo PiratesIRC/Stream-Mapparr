@@ -1,5 +1,57 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1082140 (April 18, 2026)
+**Type**: Feature + Performance + UX Release. Version scheme switches to calver (`1.MAJOR.DDDHHMM`, UTC day-of-year + HHMM) to match the Lineuparr / Channel-Mapparr / EPG-Janitor / IPTV Checker cohort. Use `Stream-Mapparr/bump_version.py` to keep `plugin.json` and `plugin.py` versions in sync.
+
+### Features
+
+**Zone-based channel variants** (closes #25):
+- Channel JSON databases support a new `"zones": ["East", "West"]` array on premium channels.
+- The loader expands each zoned entry into per-zone variants at load time (`FX` → `FX East`, `FX West`) via `FuzzyMatcher._expand_zones`.
+- Non-list / empty / duplicate zone values are handled safely (warning logged; case-insensitive dedup).
+- 33 major US cable networks pre-populated with East/West zones: FX, FXX, FXM, USA Network, Syfy, TBS, TNT, Comedy Central, A&E, AMC, Disney Channel, Disney XD, Cartoon Network, Nickelodeon, MTV, VH1, HGTV, Food Network, History, TLC, Lifetime, Bravo, E!, Freeform, Paramount Network, BET, CMT, Animal Planet, National Geographic, Oxygen, Travel Channel.
+- Use **Tag Handling → Keep Regional Tags** + **Visible Channel Limit ≥ 2** to keep the zones distinct during matching.
+
+**Country-restricted matching** (opt-in, new `restrict_matching_to_country` setting):
+- When enabled, a channel only matches streams whose detected country matches the channel's group or name.
+- Covers all 11 shipped country DBs with a unified alias dictionary (US, UK, CA, AU, IN, DE, FR, NL, ES, MX, BR).
+- Detection handles `[US]` bracket prefixes, `USA: / USA-` punctuation prefixes (not whitespace, to avoid "IN THE NEWS" → India), and full country-name substring matching.
+- Two-letter aliases only detect via bracket/prefix forms to prevent English-word collisions.
+
+**Webhook completion notifications** (new `webhook_url` + `fire_webhook_on_completion` settings):
+- POSTs a JSON summary (plugin, event, action, status, message, timestamp, counts, CSV basename, dry_run flag) to any HTTP(S) endpoint on action completion.
+- Fires in a daemon thread — does not block the action return path.
+- Reserved payload keys (`plugin`, `event`, `action`, `status`, `message`, `timestamp`) are never clobbered by caller-supplied details.
+- Failures are logged as warnings; webhook delivery never masks a successful matching run.
+
+### Performance
+
+- **`bulk_create` for all ORM write paths** (`add_streams_to_channels`, `match_us_ota_only`, `sort_streams`). Collapses N serial `INSERT` round-trips into one query per channel — ~100× speedup on the write phase.
+- **CSV export reuses cached match results** from the main matching loop instead of re-running the full fuzzy-match pipeline + threshold variants. Previous bottleneck was ~108 redundant matches per action; now zero.
+- **ETA constant recalibrated** from `0.1 s/item` to `0.8 s/item` based on observed rapidfuzz timing (14s for 18 channels × 19k streams).
+- **Hybrid sync/background dispatch**: jobs estimated under 25 seconds run synchronously from `run()` so the Dispatcharr Mantine toast fires with the real completion message. Larger jobs stay background with webhook/WebSocket signalling. Threshold chosen to stay under gunicorn's 30s worker timeout with headroom for `load_process_channels` prelude + ORM + CSV.
+
+### UX
+
+- Action buttons in `plugin.json` and the class-level `Plugin.actions` list gain `button_variant`, `button_color`, `button_label`, and `confirm` dialogs matching the `iptv_checker` pattern.
+  - Primary matching action: filled blue.
+  - Semi-destructive (modifies channels/streams): orange.
+  - Destructive (deletes data): red.
+  - Read-only (Validate/Preview): outline blue.
+- Completion notification messages tightened to single-line plain text — better fit for Mantine toasts than the previous multi-line banners.
+- `manage_channel_visibility` now joins the sync-eligible set so its completion toast fires naturally.
+
+### Fixes
+
+- **Manual runs were incorrectly logged as `Scheduled`**. `add_streams_to_channels_action`'s positional signature `(settings, logger, is_scheduled=False, context=None)` was being called positionally as `(settings, logger, context)`, so the UI context dict was binding to `is_scheduled` (truthy). Now called with explicit `context=` keyword.
+- **`validate_settings` and `_send_progress_update` no longer dump multi-line content into the Mantine notification** — full validation detail is routed to logs, notification gets a single summary line.
+
+### Developer
+
+- **`bump_version.py` added** — ports the helper from `iptv_checker`, adapted for Stream-Mapparr's `PluginConfig.PLUGIN_VERSION` class-attribute style. Auto-generates calver or accepts an explicit version argument; verifies `plugin.json` and `plugin.py` stay in sync.
+- **`_get_all_channels` ORM fetch extended** to include `channel_group__name` (needed for country detection). Streams already had it.
+- **Hot-reload caveat**: Dispatcharr v0.23.0+ reloads plugins on `plugin.json` mtime changes, NOT on `plugin.py` changes alone. `bump_version.py` updates both files' version strings, which bumps `plugin.json` mtime and triggers reload on `docker cp`.
+
 ## v0.9.0 (April 4, 2026)
 **Type**: Performance & UI Enhancement Release
 
