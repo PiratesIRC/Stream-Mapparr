@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "0.9.0",
+  "version": "1.26.1082140",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -15,6 +15,7 @@
     {"id": "selected_stream_groups", "label": "Stream Groups", "type": "string", "default": ""},
     {"id": "selected_m3us", "label": "M3U Sources", "type": "string", "default": ""},
     {"id": "prioritize_quality", "label": "Prioritize Quality Before Source", "type": "boolean", "default": false},
+    {"id": "restrict_matching_to_country", "label": "Restrict Matching To Same Country", "type": "boolean", "default": false},
     {"id": "ignore_tags", "label": "Custom Ignore Tags", "type": "string", "default": ""},
     {"id": "tag_handling", "label": "Tag Handling", "type": "select", "default": "strip_all"},
     {"id": "channel_database", "label": "Channel Database", "type": "select", "default": "US"},
@@ -31,15 +32,98 @@
     {"id": "enable_scheduled_csv_export", "label": "Enable CSV Export", "type": "boolean", "default": true}
   ],
   "actions": [
-    {"id": "validate_settings", "label": "Validate Settings", "description": "Check database connectivity, profiles, groups, and channel databases"},
-    {"id": "update_schedule", "label": "Update Schedule", "description": "Save settings and restart background scheduler"},
-    {"id": "load_process_channels", "label": "Load/Process Channels", "description": "Load channel and stream data from database"},
-    {"id": "preview_changes", "label": "Preview Changes", "description": "Generate CSV preview without making changes"},
-    {"id": "add_streams_to_channels", "label": "Match & Assign Streams", "description": "Match and assign streams to channels"},
-    {"id": "match_us_ota_only", "label": "Match US OTA Only", "description": "Match US OTA channels by callsign"},
-    {"id": "sort_streams", "label": "Sort Alternate Streams", "description": "Sort existing alternate streams by quality"},
-    {"id": "manage_channel_visibility", "label": "Manage Channel Visibility", "description": "Enable/disable channels based on stream count"},
-    {"id": "clear_csv_exports", "label": "Clear CSV Exports", "description": "Delete all plugin CSV export files"},
-    {"id": "clear_operation_lock", "label": "Clear Operation Lock", "description": "Manually clear stuck operation lock"}
+    {
+      "id": "validate_settings",
+      "label": "\u2705 Validate Settings",
+      "description": "Check database connectivity, profiles, groups, and channel databases.",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\u2705 Validate"
+    },
+    {
+      "id": "update_schedule",
+      "label": "\ud83d\udcc5 Update Schedule",
+      "description": "Save settings and restart the background scheduler.",
+      "button_variant": "filled",
+      "button_color": "green",
+      "button_label": "\ud83d\udcbe Save Schedule"
+    },
+    {
+      "id": "load_process_channels",
+      "label": "\ud83d\udce5 Load/Process Channels",
+      "description": "Load channel and stream data from the database.",
+      "button_variant": "filled",
+      "button_color": "green",
+      "button_label": "\ud83d\udce5 Load Channels"
+    },
+    {
+      "id": "preview_changes",
+      "label": "\ud83d\udcca Preview Changes",
+      "description": "Generate a CSV preview without making changes.",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\ud83d\udcca Preview"
+    },
+    {
+      "id": "add_streams_to_channels",
+      "label": "\u25b6\ufe0f Match & Assign Streams",
+      "description": "Match and assign streams to channels.",
+      "button_variant": "filled",
+      "button_color": "blue",
+      "button_label": "\u25b6\ufe0f Match & Assign",
+      "confirm": {
+        "message": "This will modify channel-stream assignments based on the current settings. Continue?"
+      }
+    },
+    {
+      "id": "match_us_ota_only",
+      "label": "\ud83d\udcfa Match US OTA Only",
+      "description": "Match US OTA channels by callsign.",
+      "button_color": "orange",
+      "button_label": "\ud83d\udcfa Match OTA",
+      "confirm": {
+        "message": "This will modify channel-stream assignments for US OTA channels. Continue?"
+      }
+    },
+    {
+      "id": "sort_streams",
+      "label": "\u2195\ufe0f Sort Alternate Streams",
+      "description": "Sort existing alternate streams by quality.",
+      "button_color": "orange",
+      "button_label": "\ud83d\udd04 Sort Streams",
+      "confirm": {
+        "message": "This will reorder alternate streams on matched channels. Continue?"
+      }
+    },
+    {
+      "id": "manage_channel_visibility",
+      "label": "\ud83d\udc41\ufe0f Manage Channel Visibility",
+      "description": "Enable or disable channels based on stream count.",
+      "button_color": "orange",
+      "button_label": "\ud83d\udc41\ufe0f Manage Visibility",
+      "confirm": {
+        "message": "This will enable or disable channels based on the current settings. Continue?"
+      }
+    },
+    {
+      "id": "clear_csv_exports",
+      "label": "\ud83d\uddd1\ufe0f Clear CSV Exports",
+      "description": "Delete all CSV export files created by this plugin.",
+      "button_color": "red",
+      "button_label": "\ud83d\uddd1\ufe0f Clear Exports",
+      "confirm": {
+        "message": "This will delete all CSV files in /data/exports/. This action cannot be undone. Continue?"
+      }
+    },
+    {
+      "id": "clear_operation_lock",
+      "label": "\ud83d\udd13 Clear Operation Lock",
+      "description": "Manually clear a stuck operation lock.",
+      "button_color": "orange",
+      "button_label": "\ud83d\udd13 Clear Lock",
+      "confirm": {
+        "message": "Only clear the lock if you are sure no operation is currently running. Continue?"
+      }
+    }
   ]
 }

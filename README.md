@@ -20,19 +20,17 @@ Before installing or using this plugin, create a backup of your Dispatcharr data
 
 ---
 
-## Background Operations
+## Completion Notifications
 
-This plugin uses background threading to prevent browser timeouts during long operations.
+Small jobs (estimated under ~25 seconds) run **synchronously** — the Dispatcharr UI shows the completion notification with the real result (channel/stream counts + CSV filename). Typical 18-channel match runs finish in ~15 seconds.
 
-- The frontend shows a green "Started in background" notification immediately — this does **not** mean the task is finished
-- Buttons re-enable instantly. Do not click again; the task is running
-- Monitor progress and completion in Docker logs:
+Larger jobs run in a **background thread**. The UI shows a "started in background" notification up front; completion is reported via:
 
-```bash
-docker logs -f dispatcharr | grep Stream-Mapparr
-```
+- Docker logs: `docker logs -f dispatcharr | grep Stream-Mapparr` (look for `COMPLETED`)
+- Optional **webhook** POST to an HTTP(S) endpoint of your choice (see settings)
+- WebSocket event to the frontend
 
-Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finished.
+Buttons re-enable instantly. Do not click again while an operation is in flight — an operation lock prevents concurrent runs and auto-expires after 10 minutes.
 
 ---
 
@@ -42,8 +40,11 @@ Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finishe
 - **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
 - **US OTA callsign matching**: Dedicated action for matching US broadcast channels by callsign against authoritative database (5,900+ callsigns)
 - **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL
+- **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
+- **Country-restricted matching** (opt-in): Only match streams from the same detected country/group — e.g. `CANADA/CA` channels match only `CANADA/CA` streams
 - **Normalization cache**: Pre-normalizes stream names once for batch matching performance
 - **rapidfuzz acceleration**: Uses C-accelerated Levenshtein when available (20-50x faster), with pure Python early-termination fallback
+- **Bulk ORM writes**: Stream assignments go through `bulk_create`, collapsing per-row DB round-trips to one query per channel
 
 ### Quality & Streams
 - **Quality-based stream sorting**: 4K > UHD > FHD > HD > SD, using probed resolution (from IPTV Checker) or name-based detection
@@ -56,6 +57,7 @@ Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finishe
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
+- **Webhook notifications**: POST JSON summary (action, counts, CSV filename, dry-run flag) to any HTTP(S) endpoint on completion — wire into Discord, Slack, Home Assistant, ntfy, etc.
 
 ### Reporting
 - **CSV exports**: Detailed reports with threshold recommendations and token mismatch analysis
@@ -68,9 +70,21 @@ Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finishe
 
 ## Installation
 
-1. Navigate to **Plugins** in Dispatcharr
-2. Click **Import Plugin** and upload the plugin zip
+**From the Dispatcharr Plugin Hub (recommended):**
+
+1. In Dispatcharr, go to **Settings → Plugin Hub**
+2. Find **Stream-Mapparr** in the catalog and click **Install**
 3. Enable the plugin
+
+**Manual install:**
+
+1. Download the latest zip from [Releases](https://github.com/PiratesIRC/Stream-Mapparr/releases)
+2. In Dispatcharr, go to **Plugins → Import Plugin** and upload the zip
+3. Enable the plugin
+
+## Versioning
+
+This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — matching the Lineuparr / Channel-Mapparr / EPG-Janitor / IPTV Checker cohort. Run `python3 Stream-Mapparr/bump_version.py` to bump both `plugin.json` and `plugin.py` in sync.
 
 ## Settings
 
@@ -90,6 +104,9 @@ Look for `COMPLETED` or `CSV EXPORT CREATED` to know when the process is finishe
 | **Rate Limiting** | select | None | None / Low / Medium / High |
 | **Timezone** | select | US/Central | Timezone for scheduled runs |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
+| **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group |
+| **Webhook URL** | string | (blank) | HTTP(S) endpoint to POST JSON summary on completion (see below) |
+| **Fire Webhook On Completion** | boolean | False | Enable webhook delivery for Match & Assign / Match OTA / Sort Streams |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
 
@@ -118,9 +135,32 @@ The scheduler runs in a background thread and restarts automatically with the co
 ## CSV Reports
 
 Preview and scheduled exports are saved to `/data/exports/`. Reports include:
-- Threshold recommendations ("3 additional streams available at lower thresholds")
-- Token mismatch analysis ("Add 'UK' to Ignore Tags")
+- Threshold recommendations ("3 additional streams available at lower thresholds") — shown by **Preview Changes**
+- Token mismatch analysis ("Add 'UK' to Ignore Tags") — shown by **Preview Changes**
+- Per-channel match counts (shown by **Match & Assign Streams**)
 - Match type breakdown (exact, substring, fuzzy)
+
+## Webhooks
+
+Set **Webhook URL** to any HTTP(S) endpoint and enable **Fire Webhook On Completion**. On each `add_streams_to_channels`, `match_us_ota_only`, or `sort_streams` completion, the plugin POSTs a JSON payload in a daemon thread (fire-and-forget, does not block the action):
+
+```json
+{
+  "plugin": "stream-mapparr",
+  "event": "add_streams_to_channels.complete",
+  "action": "add_streams_to_channels",
+  "status": "success",
+  "message": "Matched and assigned 82 streams across 18 channels. Report: ...csv",
+  "timestamp": "2026-04-18T21:34:23Z",
+  "dry_run": false,
+  "channels_updated": 18,
+  "streams_assigned": 82,
+  "channels_skipped": 0,
+  "csv": "stream_mapparr_20260418_213422.csv"
+}
+```
+
+The URL is fetched server-side from Dispatcharr — only enter endpoints you trust.
 
 ## Troubleshooting
 

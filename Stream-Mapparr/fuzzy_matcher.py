@@ -142,6 +142,44 @@ class FuzzyMatcher:
         if self.plugin_dir:
             self._load_channel_databases()
     
+    def _expand_zones(self, channel):
+        """Expand a channel dict with a "zones" array into one dict per zone.
+
+        A channel declaring `"zones": ["East", "West"]` yields one entry per
+        zone with the zone suffix appended to `channel_name`. The base is NOT
+        emitted — under `strip_all` tag handling the variants collapse to the
+        same normalized key (so a zoneless stream still matches via fuzzy
+        similarity), and under `keep_regional` the variants stay distinct.
+        Emitting the base too would cause 3-way slot contention.
+
+        Channels without a `zones` field yield themselves unchanged.
+        """
+        zones = channel.get('zones')
+        if zones is None:
+            yield channel
+            return
+        if not isinstance(zones, list):
+            self.logger.warning(
+                f"Malformed 'zones' field (expected list) on channel "
+                f"{channel.get('channel_name')!r}: {zones!r} — treating as unzoned"
+            )
+            yield {k: v for k, v in channel.items() if k != 'zones'}
+            return
+        base = {k: v for k, v in channel.items() if k != 'zones'}
+        base_name = base.get('channel_name', '').strip()
+        if not zones:
+            yield base
+            return
+        seen = set()
+        for zone in zones:
+            zone = str(zone).strip()
+            if not zone or zone.lower() in seen:
+                continue
+            seen.add(zone.lower())
+            variant = dict(base)
+            variant['channel_name'] = f"{base_name} {zone}" if base_name else zone
+            yield variant
+
     def _load_channel_databases(self):
         """Load all *_channels.json files from the plugin directory."""
         pattern = os.path.join(self.plugin_dir, "*_channels.json")
@@ -166,30 +204,28 @@ class FuzzyMatcher:
                 file_broadcast = 0
                 file_premium = 0
 
-                for channel in channels_list:
-                    channel_type = channel.get('type', '').lower()
-                    
+                for raw_channel in channels_list:
+                    channel_type = raw_channel.get('type', '').lower()
+
                     if 'broadcast' in channel_type or channel_type == 'broadcast (ota)':
-                        # Broadcast channel with callsign
-                        self.broadcast_channels.append(channel)
+                        # Broadcast channel with callsign (zones not applied to OTA)
+                        self.broadcast_channels.append(raw_channel)
                         file_broadcast += 1
-                        
-                        # Create lookup by callsign
-                        callsign = channel.get('callsign', '').strip()
+
+                        callsign = raw_channel.get('callsign', '').strip()
                         if callsign:
-                            self.channel_lookup[callsign] = channel
-                            
-                            # Also store base callsign without suffix for easier matching
+                            self.channel_lookup[callsign] = raw_channel
                             base_callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
                             if base_callsign != callsign:
-                                self.channel_lookup[base_callsign] = channel
+                                self.channel_lookup[base_callsign] = raw_channel
                     else:
-                        # Premium/cable/national channel
-                        channel_name = channel.get('channel_name', '').strip()
-                        if channel_name:
-                            self.premium_channels.append(channel_name)
-                            self.premium_channels_full.append(channel)
-                            file_premium += 1
+                        # Premium/cable/national channel — expand zones into variants
+                        for channel in self._expand_zones(raw_channel):
+                            channel_name = channel.get('channel_name', '').strip()
+                            if channel_name:
+                                self.premium_channels.append(channel_name)
+                                self.premium_channels_full.append(channel)
+                                file_premium += 1
                 
                 total_broadcast += file_broadcast
                 total_premium += file_premium
@@ -256,30 +292,28 @@ class FuzzyMatcher:
                 file_broadcast = 0
                 file_premium = 0
 
-                for channel in channels_list:
-                    channel_type = channel.get('type', '').lower()
+                for raw_channel in channels_list:
+                    channel_type = raw_channel.get('type', '').lower()
 
                     if 'broadcast' in channel_type or channel_type == 'broadcast (ota)':
-                        # Broadcast channel with callsign
-                        self.broadcast_channels.append(channel)
+                        # Broadcast channel with callsign (zones not applied to OTA)
+                        self.broadcast_channels.append(raw_channel)
                         file_broadcast += 1
 
-                        # Create lookup by callsign
-                        callsign = channel.get('callsign', '').strip()
+                        callsign = raw_channel.get('callsign', '').strip()
                         if callsign:
-                            self.channel_lookup[callsign] = channel
-
-                            # Also store base callsign without suffix for easier matching
+                            self.channel_lookup[callsign] = raw_channel
                             base_callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
                             if base_callsign != callsign:
-                                self.channel_lookup[base_callsign] = channel
+                                self.channel_lookup[base_callsign] = raw_channel
                     else:
-                        # Premium/cable/national channel
-                        channel_name = channel.get('channel_name', '').strip()
-                        if channel_name:
-                            self.premium_channels.append(channel_name)
-                            self.premium_channels_full.append(channel)
-                            file_premium += 1
+                        # Premium/cable/national channel — expand zones into variants
+                        for channel in self._expand_zones(raw_channel):
+                            channel_name = channel.get('channel_name', '').strip()
+                            if channel_name:
+                                self.premium_channels.append(channel_name)
+                                self.premium_channels_full.append(channel)
+                                file_premium += 1
 
                 total_broadcast += file_broadcast
                 total_premium += file_premium

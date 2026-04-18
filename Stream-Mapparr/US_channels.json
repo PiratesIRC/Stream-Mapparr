@@ -61,7 +61,8 @@
     {
       "channel_name": "A&E",
       "category": "Documentary",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "A&E Crime 360",
@@ -201,7 +202,8 @@
     {
       "channel_name": "AMC",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "America TeVe",
@@ -256,7 +258,8 @@
     {
       "channel_name": "Animal Planet",
       "category": "Documentary",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Animax",
@@ -561,7 +564,8 @@
     {
       "channel_name": "BET",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "BET Gospel",
@@ -676,7 +680,8 @@
     {
       "channel_name": "Bravo",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Bravo Vault",
@@ -771,7 +776,8 @@
     {
       "channel_name": "Cartoon Network",
       "category": "Kids",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Catchy Comedy",
@@ -991,7 +997,8 @@
     {
       "channel_name": "CMT",
       "category": "Music",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "CMT Music",
@@ -1036,7 +1043,8 @@
     {
       "channel_name": "Comedy Central",
       "category": "Comedy",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Comedy Central Pluto TV",
@@ -1271,7 +1279,8 @@
     {
       "channel_name": "Disney Channel",
       "category": "Kids",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Disney Junior",
@@ -1281,7 +1290,8 @@
     {
       "channel_name": "Disney XD",
       "category": "Kids",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Divorce Court",
@@ -1341,7 +1351,8 @@
     {
       "channel_name": "E!",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "E! Keeping Up",
@@ -1596,7 +1607,8 @@
     {
       "channel_name": "Food Network",
       "category": "Lifestyle",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Food52",
@@ -1676,7 +1688,8 @@
     {
       "channel_name": "Freeform",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Fubo Sports Network",
@@ -1706,7 +1719,8 @@
     {
       "channel_name": "FX",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "FX Movie Channel",
@@ -1716,12 +1730,14 @@
     {
       "channel_name": "FXM",
       "category": "Movies",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "FXX",
       "category": "Comedy",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "FYI",
@@ -1991,7 +2007,8 @@
     {
       "channel_name": "HGTV",
       "category": "Lifestyle",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Hi-YAH!",
@@ -2016,7 +2033,8 @@
     {
       "channel_name": "History",
       "category": "Documentary",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "History en Espanol",
@@ -2326,7 +2344,8 @@
     {
       "channel_name": "Lifetime",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Lifetime Movie Network",
@@ -2711,7 +2730,8 @@
     {
       "channel_name": "MTV",
       "category": "Music",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "MTV Biggest Pop",
@@ -2821,7 +2841,8 @@
     {
       "channel_name": "National Geographic",
       "category": "Documentary",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "NBA League Pass",
@@ -3036,7 +3057,8 @@
     {
       "channel_name": "Nickelodeon",
       "category": "Kids",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "NickMusic",
@@ -3141,7 +3163,8 @@
     {
       "channel_name": "Oxygen",
       "category": "Crime",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Oxygen True Crimes Archive",
@@ -3166,7 +3189,8 @@
     {
       "channel_name": "Paramount Network",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Paranormal File",
@@ -3986,7 +4010,8 @@
     {
       "channel_name": "Syfy",
       "category": "Sci-Fi",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Tai Seng Sat TV",
@@ -4031,7 +4056,8 @@
     {
       "channel_name": "TBS",
       "category": "Comedy",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "TCM",
@@ -4326,12 +4352,14 @@
     {
       "channel_name": "TLC",
       "category": "Documentary",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "TNT",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Today All Day",
@@ -4371,7 +4399,8 @@
     {
       "channel_name": "Travel Channel",
       "category": "Lifestyle",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Tri-State Christian Television",
@@ -4626,7 +4655,8 @@
     {
       "channel_name": "USA Network",
       "category": "Entertainment",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "USA Today",
@@ -4651,7 +4681,8 @@
     {
       "channel_name": "VH1",
       "category": "Music",
-      "type": "National"
+      "type": "National",
+      "zones": ["East", "West"]
     },
     {
       "channel_name": "Vice",
