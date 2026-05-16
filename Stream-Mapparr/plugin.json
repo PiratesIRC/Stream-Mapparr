@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.1082140",
+  "version": "1.26.1362048",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -29,7 +29,12 @@
     {"id": "scheduled_times", "label": "Scheduled Run Times", "type": "string", "default": ""},
     {"id": "scheduled_sort_streams", "label": "Schedule Sort Streams", "type": "boolean", "default": false},
     {"id": "scheduled_match_streams", "label": "Schedule Match Streams", "type": "boolean", "default": true},
-    {"id": "enable_scheduled_csv_export", "label": "Enable CSV Export", "type": "boolean", "default": true}
+    {"id": "enable_scheduled_csv_export", "label": "Enable CSV Export", "type": "boolean", "default": true},
+    {"id": "enable_throughput_sorting", "label": "Enable Throughput-Based Sorting", "type": "boolean", "default": true},
+    {"id": "probe_duration_seconds", "label": "Probe Duration (seconds)", "type": "number", "default": 8},
+    {"id": "probe_cache_ttl_minutes", "label": "Probe Cache TTL (minutes)", "type": "number", "default": 30},
+    {"id": "probe_rate_per_minute", "label": "Probe Rate (probes / minute)", "type": "number", "default": 6},
+    {"id": "bitrate_safety_margin", "label": "Bitrate Safety Margin", "type": "string", "default": "1.10"}
   ],
   "actions": [
     {
@@ -93,6 +98,16 @@
       "button_label": "\ud83d\udd04 Sort Streams",
       "confirm": {
         "message": "This will reorder alternate streams on matched channels. Continue?"
+      }
+    },
+    {
+      "id": "probe_throughput",
+      "label": "🚀 Probe Stream Throughput",
+      "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting.",
+      "button_color": "blue",
+      "button_label": "🚀 Probe Throughput",
+      "confirm": {
+        "message": "This will open short HTTP connections to streams currently assigned to channels in the selected profile (one at a time per M3U account). Continue?"
       }
     },
     {

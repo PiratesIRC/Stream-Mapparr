@@ -12,7 +12,7 @@ import urllib.request
 import urllib.error
 import time
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from django.db import transaction
 import threading
@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1082140"
+    PLUGIN_VERSION = "1.26.1362048"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -132,6 +132,35 @@ class PluginConfig:
     DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS = 6  # Maximum hours to wait for IPTV Checker
     IPTV_CHECKER_PROGRESS_FILE = "/data/iptv_checker_progress.json"  # IPTV Checker progress file
     IPTV_CHECKER_CHECK_INTERVAL = 60  # Check IPTV Checker status every 60 seconds
+
+    # === THROUGHPUT PROBE SETTINGS ===
+    DEFAULT_ENABLE_THROUGHPUT_SORTING = True   # Probe + sort by measured throughput
+    DEFAULT_PROBE_DURATION_SECONDS = 8         # Window over which bytes are summed
+    DEFAULT_PROBE_CACHE_TTL_MINUTES = 30       # Re-probe interval
+    DEFAULT_PROBE_RATE_PER_MINUTE = 6          # Global cap on probes/min per run
+    DEFAULT_BITRATE_SAFETY_MARGIN = 1.10       # Margin over nominal to count as healthy
+    DEFAULT_PROBE_PER_ACCOUNT_DELAY = 1.0      # Min seconds between probes for same M3U account
+    DEFAULT_PROBE_USER_AGENT = "VLC/3.0.20 LibVLC/3.0.20"
+    THROUGHPUT_CACHE_FILE = "/data/stream_mapparr_throughput_cache.json"
+    PROBE_HEALTHY_MARGIN_MULTIPLIER = 1.5      # > nominal*1.5 -> healthy; between 1.10..1.5 -> marginal
+
+    # Nominal bitrate (Mbps) heuristics keyed by (height_bucket, fps_band).
+    # These are coarse — only used to decide if a measured throughput is "enough".
+    # height_bucket: 2160, 1080, 720, 480, 360 (closest match floors down)
+    # fps_band: "low" (<35), "high" (>=35)
+    NOMINAL_BITRATE_TABLE = {
+        (2160, "low"):  16.0,
+        (2160, "high"): 25.0,
+        (1080, "low"):  4.0,
+        (1080, "high"): 6.0,
+        (720,  "low"):  2.5,
+        (720,  "high"): 4.0,
+        (480,  "low"):  1.5,
+        (480,  "high"): 2.0,
+        (360,  "low"):  0.8,
+        (360,  "high"): 1.2,
+    }
+    NOMINAL_BITRATE_FALLBACK_MBPS = 2.5  # When stats are missing, assume ~720p30
 
     # === QUALITY TAG ORDERING ===
     # Order for prioritizing channels (higher quality first)
@@ -335,7 +364,7 @@ class Plugin:
         except Exception:
             pass
         if not profile_options:
-            profile_options = [{"value": "", "label": "(no profiles found)"}]
+            profile_options = [{"value": "_none", "label": "(no profiles found - create one in Dispatcharr)"}]
 
         static_fields = [
             {
@@ -543,6 +572,42 @@ class Plugin:
                 "default": PluginConfig.DEFAULT_ENABLE_CSV_EXPORT,
                 "help_text": "If enabled, a CSV file will be created when streams are matched, sorted, or assigned (both manual and scheduled runs). Always creates CSV in dry run mode regardless of this setting.",
             },
+            {
+                "id": "enable_throughput_sorting",
+                "label": "🚀 Enable Throughput-Based Sorting",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_ENABLE_THROUGHPUT_SORTING,
+                "help_text": "When enabled, alternate streams are sorted by a measured-throughput tier (healthy/marginal/unknown/insufficient) before the existing resolution/FPS sort. Probes run via the 'Probe Stream Throughput' action — sorting falls back to resolution/FPS only for streams without a fresh probe.",
+            },
+            {
+                "id": "probe_duration_seconds",
+                "label": "⏱️ Probe Duration (seconds)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_PROBE_DURATION_SECONDS,
+                "help_text": "Length of each throughput probe. Long enough to clear TCP slow-start, short enough to not stall ranking.",
+            },
+            {
+                "id": "probe_cache_ttl_minutes",
+                "label": "🗄️ Probe Cache TTL (minutes)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES,
+                "help_text": "How long a cached throughput measurement is considered fresh. Older entries are re-probed.",
+            },
+            {
+                "id": "probe_rate_per_minute",
+                "label": "📈 Probe Rate (probes / minute)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_PROBE_RATE_PER_MINUTE,
+                "help_text": "Maximum probes initiated per minute during a single run. Probes are also serialized per M3U account to avoid concurrent-connection limits.",
+            },
+            {
+                "id": "bitrate_safety_margin",
+                "label": "📏 Bitrate Safety Margin",
+                "type": "string",
+                "default": str(PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN),
+                "placeholder": "1.10",
+                "help_text": "Multiplier applied to the stream's nominal bitrate. Streams below nominal × this value are tagged 'insufficient' and ranked last.",
+            },
         ]
 
         try:
@@ -639,6 +704,18 @@ class Plugin:
                 "required": True,
                 "title": "Match US OTA Only?",
                 "message": "This will match and assign (or preview if dry run enabled) streams to US OTA channels using callsign matching only. Channels without valid US callsigns will be skipped. Continue?"
+            }
+        },
+        {
+            "id": "probe_throughput",
+            "label": "🚀 Probe Stream Throughput",
+            "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting. Probes are serialized per M3U account and capped by 'Probe Rate'. Monitor Docker logs for progress.",
+            "button_color": "blue",
+            "button_label": "🚀 Probe Throughput",
+            "confirm": {
+                "required": True,
+                "title": "Probe Stream Throughput?",
+                "message": "This will open short HTTP connections to streams currently assigned to channels in the selected profile (one at a time per M3U account). Continue?"
             }
         },
         {
@@ -1429,70 +1506,278 @@ class Plugin:
                 return tag
         return ""
 
+    def _prime_throughput_state(self, settings):
+        """Refresh throughput-sort flags + cache from a settings dict (idempotent)."""
+        if settings is None:
+            settings = {}
+        flag = settings.get('enable_throughput_sorting', PluginConfig.DEFAULT_ENABLE_THROUGHPUT_SORTING)
+        if isinstance(flag, str):
+            flag = flag.strip().lower() in ('true', 'yes', '1', 'on')
+        self._throughput_sorting_enabled = bool(flag)
+        try:
+            self._bitrate_safety_margin = float(
+                settings.get('bitrate_safety_margin', PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN)
+            )
+        except (TypeError, ValueError):
+            self._bitrate_safety_margin = PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN
+        try:
+            self._probe_cache_ttl_minutes = int(
+                settings.get('probe_cache_ttl_minutes', PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES)
+            )
+        except (TypeError, ValueError):
+            self._probe_cache_ttl_minutes = PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES
+        self._load_throughput_cache()
+        self._throughput_state_primed = True
+
     def _sort_streams_by_quality(self, streams):
-        """Sort streams by M3U priority first, then by quality using stream_stats (resolution + FPS).
-        
-        Priority:
-        1. M3U source priority (if specified - lower priority number = higher precedence)
-        2. Quality tier (High > Medium > Low > Unknown > Dead)
-        3. Resolution (higher = better)
-        4. FPS (higher = better)
-        
-        Quality tiers:
-        - Tier 0: High quality (>=1280x720 and >=30 FPS)
-        - Tier 1: Medium quality (either HD or good FPS)
-        - Tier 2: Low quality (below HD and below 30 FPS)
-        - Tier 3: Dead streams (0x0 resolution)
+        """Sort streams by M3U priority + resolution/FPS tier, optionally prefixed by
+        a measured-throughput tier (healthy < marginal < unknown < insufficient)
+        when 'enable_throughput_sorting' is set.
+
+        Throughput tier ranks (lower is better): 0=healthy, 1=marginal, 2=unknown, 3=insufficient.
+        Unprobed streams stay 'unknown' and rank between healthy and insufficient — i.e.
+        if all streams are unknown the prepended dimension collapses and the existing
+        resolution/FPS ordering is preserved.
         """
+        if not getattr(self, '_throughput_state_primed', False):
+            self._prime_throughput_state(getattr(self, 'saved_settings', {}) or {})
+        throughput_enabled = bool(getattr(self, '_throughput_sorting_enabled', False))
+        cache = getattr(self, '_throughput_cache', None) if throughput_enabled else None
+        margin = float(getattr(self, '_bitrate_safety_margin', PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN))
+
         def get_stream_quality_score(stream):
-            """Calculate quality score for sorting.
-            Returns tuple: (m3u_priority, tier, -resolution_pixels, -fps)
-            Lower values = higher priority
-            Negative resolution/fps for descending sort
-            """
-            # Get M3U priority (0 = highest, 999 = lowest/unspecified)
             m3u_priority = stream.get('_m3u_priority', 999)
-            
-            stats = stream.get('stats', {})
-            
-            # Check for dead stream (0x0)
-            width = stats.get('width', 0)
-            height = stats.get('height', 0)
-            
+
+            stats = stream.get('stats', {}) or {}
+            width = stats.get('width', 0) or 0
+            height = stats.get('height', 0) or 0
+            fps = stats.get('source_fps', 0) or 0
+
             if width == 0 or height == 0:
-                # Tier 3: Dead streams (0x0) - lowest priority
-                return (m3u_priority, 3, 0, 0)
-            
-            # Calculate total pixels
+                base = (m3u_priority, 3, 0, 0) if not getattr(self, '_prioritize_quality', False) \
+                    else (3, m3u_priority, 0, 0)
+                throughput_tier = self._classify_stream_throughput(stream, cache, margin) if cache is not None else 2
+                return (throughput_tier,) + base + (0.0,) if throughput_enabled else base
+
             resolution_pixels = width * height
-            
-            # Get FPS
-            fps = stats.get('source_fps', 0)
-            
-            # Determine quality tier
             is_hd = width >= 1280 and height >= 720
             is_good_fps = fps >= 30
-            
             if is_hd and is_good_fps:
-                # Tier 0: High quality (HD + good FPS)
                 tier = 0
             elif is_hd or is_good_fps:
-                # Tier 1: Medium quality (either HD or good FPS)
                 tier = 1
             else:
-                # Tier 2: Low quality (below HD and below 30 FPS)
                 tier = 2
-            
-            # Return tuple for sorting. Behavior depends on user preference:
-            # - Default: (m3u_priority, tier, -pixels, -fps) -> source first, then quality
-            # - If prioritize quality first: (tier, m3u_priority, -pixels, -fps)
+
             if getattr(self, '_prioritize_quality', False):
-                return (tier, m3u_priority, -resolution_pixels, -fps)
+                base = (tier, m3u_priority, -resolution_pixels, -fps)
             else:
-                return (m3u_priority, tier, -resolution_pixels, -fps)
-        
-        # Sort streams by M3U priority first, then quality score
+                base = (m3u_priority, tier, -resolution_pixels, -fps)
+
+            if not throughput_enabled:
+                return base
+
+            throughput_tier = self._classify_stream_throughput(stream, cache, margin)
+            # Append -mbps so within a tier, faster streams rank above slower ones
+            entry = cache.get(str(stream.get('id'))) if cache else None
+            mbps = float(entry.get('throughput_mbps') or 0.0) if entry else 0.0
+            return (throughput_tier,) + base + (-mbps,)
+
         return sorted(streams, key=get_stream_quality_score)
+
+    def _classify_stream_throughput(self, stream, cache, margin):
+        """Return tier rank: 0=healthy, 1=marginal, 2=unknown, 3=insufficient.
+
+        Stale cache entries (older than the configured TTL) are treated as 'unknown'
+        so an outdated probe never silently keeps influencing sort order — users
+        must run the probe action again to refresh.
+        """
+        if not cache:
+            return 2
+        entry = cache.get(str(stream.get('id')))
+        if not entry:
+            return 2
+        ttl = getattr(self, '_probe_cache_ttl_minutes', PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES)
+        if not self._is_probe_fresh(entry, ttl):
+            return 2
+        mbps = entry.get('throughput_mbps')
+        if mbps is None:
+            return 2
+        nominal = entry.get('nominal_bitrate_mbps')
+        if not nominal or nominal <= 0:
+            stats = stream.get('stats', {}) or {}
+            nominal = self._estimate_nominal_bitrate(
+                stats.get('width', 0), stats.get('height', 0), stats.get('source_fps', 0)
+            )
+        try:
+            mbps = float(mbps)
+            nominal = float(nominal)
+        except (TypeError, ValueError):
+            return 2
+        if mbps < nominal * margin:
+            return 3
+        if mbps < nominal * PluginConfig.PROBE_HEALTHY_MARGIN_MULTIPLIER:
+            return 1
+        return 0
+
+    @staticmethod
+    def _estimate_nominal_bitrate(width, height, fps):
+        """Map resolution/fps to a nominal Mbps value via PluginConfig.NOMINAL_BITRATE_TABLE."""
+        try:
+            height = int(height or 0)
+            fps = float(fps or 0)
+        except (TypeError, ValueError):
+            return PluginConfig.NOMINAL_BITRATE_FALLBACK_MBPS
+        if height <= 0:
+            return PluginConfig.NOMINAL_BITRATE_FALLBACK_MBPS
+        # Floor to nearest known bucket
+        for bucket in (2160, 1080, 720, 480, 360):
+            if height >= bucket:
+                band = "high" if fps >= 35 else "low"
+                return PluginConfig.NOMINAL_BITRATE_TABLE.get((bucket, band),
+                                                              PluginConfig.NOMINAL_BITRATE_FALLBACK_MBPS)
+        return PluginConfig.NOMINAL_BITRATE_FALLBACK_MBPS
+
+    def _load_throughput_cache(self):
+        """Load throughput cache from disk into self._throughput_cache (dict keyed by str(stream_id))."""
+        path = PluginConfig.THROUGHPUT_CACHE_FILE
+        try:
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        self._throughput_cache = data
+                        return
+        except Exception as e:
+            LOGGER.warning(f"[Stream-Mapparr] Could not load throughput cache: {e}")
+        self._throughput_cache = {}
+
+    def _save_throughput_cache(self):
+        """Persist self._throughput_cache to disk."""
+        path = PluginConfig.THROUGHPUT_CACHE_FILE
+        try:
+            with open(path, 'w') as f:
+                json.dump(self._throughput_cache or {}, f, indent=2)
+        except Exception as e:
+            LOGGER.warning(f"[Stream-Mapparr] Could not save throughput cache: {e}")
+
+    def _is_probe_fresh(self, entry, ttl_minutes):
+        """True if the cached probe is within TTL AND has a measured value.
+
+        Failed probes (throughput_mbps is None) are never fresh — otherwise a
+        run that errors on every URL would lock out re-probing for a full TTL
+        window. Without this guard, the v1.26.1171547 probe-failure run made
+        the entire STL group un-re-probable for 30 minutes.
+        """
+        if not entry:
+            return False
+        if entry.get('throughput_mbps') is None:
+            return False
+        ts = entry.get('throughput_measured_at')
+        if not ts:
+            return False
+        try:
+            measured = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        except Exception:
+            return False
+        if measured.tzinfo is None:
+            measured = measured.replace(tzinfo=dt_timezone.utc)
+        now = timezone.now()
+        return (now - measured).total_seconds() < ttl_minutes * 60
+
+    def _probe_stream_throughput(self, url, duration_s, user_agent, logger):
+        """Open URL, read bytes for `duration_s` seconds, return (mbps, edge_ip).
+
+        Returns (None, None) on failure. edge_ip is the host of the final URL after
+        redirects — useful for diagnostics and dedup. We don't resolve it to an IP
+        here to avoid an extra DNS round-trip; the host string is enough to spot
+        per-edge throttling patterns when the same hostname resolves to one IP.
+        """
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': user_agent or PluginConfig.DEFAULT_PROBE_USER_AGENT})
+            # Open with a short connect timeout; the read loop enforces total duration.
+            resp = urllib.request.urlopen(req, timeout=10)
+        except Exception as e:
+            # Surface at WARNING so an "all probes failed" run is visible in normal logs.
+            logger.warning(f"[Stream-Mapparr] Probe open failed for {url}: {type(e).__name__}: {e}")
+            return None, None
+
+        edge_host = None
+        try:
+            from urllib.parse import urlparse
+            edge_host = urlparse(resp.geturl()).netloc or None
+        except Exception:
+            pass
+
+        bytes_read = 0
+        start = time.time()
+        deadline = start + max(1.0, float(duration_s))
+        try:
+            while True:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                chunk = resp.read(64 * 1024)
+                if not chunk:
+                    break
+                bytes_read += len(chunk)
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Probe read interrupted for {url}: {type(e).__name__}: {e}")
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+        elapsed = max(0.001, time.time() - start)
+        # If the server closed the connection almost immediately with very little
+        # data (typical of small HLS playlists or a redirect to a 0-byte endpoint),
+        # flag it as a failure rather than report ~0 Mbps — 0 mbps would falsely
+        # rank the source as "insufficient" against any nominal bitrate.
+        if bytes_read < 64 * 1024 and elapsed < 1.0:
+            logger.warning(
+                f"[Stream-Mapparr] Probe yielded only {bytes_read} bytes in {elapsed:.2f}s for {url} "
+                f"(likely HLS playlist or redirect — not a sustained TS read)"
+            )
+            return None, edge_host
+        mbps = (bytes_read * 8) / (elapsed * 1_000_000.0)
+        return mbps, edge_host
+
+    def _get_m3u_user_agent(self, m3u_account_id):
+        """Best-effort lookup of an M3U account's user agent string. Falls back to default.
+
+        In Dispatcharr, `M3UAccount.user_agent` is a ForeignKey to a `UserAgent`
+        model — accessing it returns the related instance, not the UA string.
+        We must dig into the related instance's own string field.
+        """
+        if not m3u_account_id:
+            return PluginConfig.DEFAULT_PROBE_USER_AGENT
+
+        def _coerce(val):
+            if val is None:
+                return None
+            if isinstance(val, (str, bytes)):
+                return val if isinstance(val, str) else val.decode('utf-8', 'replace')
+            # Related UserAgent instance — try its known string fields.
+            for attr in ('user_agent', 'value', 'string', 'name'):
+                inner = getattr(val, attr, None)
+                if isinstance(inner, str) and inner.strip():
+                    return inner
+            return None
+
+        try:
+            from apps.m3u.models import M3UAccount
+            acct = M3UAccount.objects.filter(id=m3u_account_id).first()
+            if acct is None:
+                return PluginConfig.DEFAULT_PROBE_USER_AGENT
+            for attr in ('user_agent', 'http_user_agent', 'useragent'):
+                val = getattr(acct, attr, None)
+                ua = _coerce(val)
+                if ua:
+                    return ua
+        except Exception:
+            pass
+        return PluginConfig.DEFAULT_PROBE_USER_AGENT
 
     def _filter_working_streams(self, streams, logger):
         """
@@ -2480,6 +2765,11 @@ class Plugin:
                 if 'settings' in context:
                     settings = context['settings']
 
+            # Force throughput sort state to re-prime from current settings on the
+            # next sort call. Without this, a long-lived plugin instance would
+            # carry stale flags/cache between action runs.
+            self._throughput_state_primed = False
+
             # Initialize fuzzy matcher with configured threshold
             match_threshold = self._resolve_match_threshold(settings)
 
@@ -2494,6 +2784,7 @@ class Plugin:
                 "sort_streams": self.sort_streams_action,
                 "manage_channel_visibility": self.manage_channel_visibility_action,
                 "match_us_ota_only": self.match_us_ota_only_action,
+                "probe_throughput": self.probe_throughput_action,
             }
             
             # Actions that run immediately (synchronous)
@@ -2509,6 +2800,7 @@ class Plugin:
                 lockable_actions = {
                     'preview_changes', 'add_streams_to_channels', 'sort_streams',
                     'match_us_ota_only', 'manage_channel_visibility',
+                    'probe_throughput',
                 }
 
                 # Refuse if another long-running op is already in flight.
@@ -2647,6 +2939,8 @@ class Plugin:
             logger.debug("[Stream-Mapparr] Validating profile names...")
             profile_names_str = settings.get("profile_name") or ""
             profile_names_str = profile_names_str.strip() if profile_names_str else ""
+            if profile_names_str == "_none":
+                profile_names_str = ""
             if not profile_names_str:
                 validation_results.append("❌ Profile Name: Not configured")
                 has_errors = True
@@ -2768,13 +3062,18 @@ class Plugin:
             has_errors, validation_results = self._validate_plugin_settings(settings, logger)
 
             if has_errors:
-                return {"status": "error", "message": "Cannot load channels - validation failed."}
+                errors = [item for item in validation_results if item.startswith("❌")]
+                detail = "; ".join(e.lstrip("❌ ").strip() for e in errors)
+                message = f"Cannot load channels - {detail}" if detail else "Cannot load channels - validation failed."
+                return {"status": "error", "message": message}
 
             self._send_progress_update("load_process_channels", 'running', 10, 'Settings validated, loading data...', context)
             logger.info("[Stream-Mapparr] Settings validated successfully, proceeding with channel load...")
 
             profile_names_str = settings.get("profile_name") or ""
             profile_names_str = profile_names_str.strip() if profile_names_str else ""
+            if profile_names_str == "_none":
+                profile_names_str = ""
             selected_groups_str = settings.get("selected_groups") or ""
             selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
             selected_stream_groups_str = settings.get("selected_stream_groups") or ""
@@ -3721,6 +4020,8 @@ class Plugin:
 
             profile_names_str = settings.get("profile_name") or ""
             profile_names_str = profile_names_str.strip() if profile_names_str else ""
+            if profile_names_str == "_none":
+                profile_names_str = ""
             selected_groups_str = settings.get("selected_groups") or ""
             selected_groups_str = selected_groups_str.strip() if selected_groups_str else ""
 
@@ -4028,6 +4329,8 @@ class Plugin:
             
             # Get settings
             profile_name = settings.get('profile_name', '').strip()
+            if profile_name == "_none":
+                profile_name = ""
             if not profile_name:
                 return {"status": "error", "message": "Profile name is required"}
             
@@ -4158,17 +4461,36 @@ class Plugin:
                 
                 if original_ids != sorted_ids:
                     sorted_count += 1
-                    
+
                     # Log the reordering
                     stream_names = [s['name'] for s in sorted_streams]
                     logger.info(f"[Stream-Mapparr] Channel '{channel_name}': Reordered {len(sorted_streams)} streams")
                     logger.debug(f"[Stream-Mapparr]   Order: {' → '.join(stream_names[:3])}")
-                    
+
+                    # Per-stream throughput diagnostics (aligned with stream_names).
+                    # Read directly from the in-memory cache that _sort_streams_by_quality
+                    # primed; if throughput sorting is off we just emit blank columns.
+                    cache_for_csv = getattr(self, '_throughput_cache', None) or {}
+                    margin_for_csv = float(getattr(self, '_bitrate_safety_margin',
+                                                   PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN))
+                    tier_label = {0: 'healthy', 1: 'marginal', 2: 'unknown', 3: 'insufficient'}
+                    tiers, mbps_list, edges = [], [], []
+                    for s in sorted_streams:
+                        rank = self._classify_stream_throughput(s, cache_for_csv, margin_for_csv)
+                        entry = cache_for_csv.get(str(s.get('id'))) or {}
+                        tiers.append(tier_label.get(rank, 'unknown'))
+                        mbps_val = entry.get('throughput_mbps')
+                        mbps_list.append(f"{float(mbps_val):.2f}" if mbps_val is not None else "")
+                        edges.append(entry.get('edge_ip') or "")
+
                     changes.append({
                         'channel_id': channel_id,
                         'channel_name': channel_name,
                         'stream_count': len(sorted_streams),
-                        'stream_names': stream_names
+                        'stream_names': stream_names,
+                        'tiers': tiers,
+                        'throughput_mbps': mbps_list,
+                        'edge_ips': edges,
                     })
                     
                     # Apply changes if not dry run
@@ -4227,16 +4549,20 @@ class Plugin:
                         )
                         csvfile.write(header_comment)
                         
-                        fieldnames = ['channel_id', 'channel_name', 'stream_count', 'stream_names']
+                        fieldnames = ['channel_id', 'channel_name', 'stream_count',
+                                      'stream_names', 'tiers', 'throughput_mbps', 'edge_ips']
                         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                         writer.writeheader()
-                        
+
                         for change in changes:
                             writer.writerow({
                                 'channel_id': change['channel_id'],
                                 'channel_name': change['channel_name'],
                                 'stream_count': change['stream_count'],
-                                'stream_names': '; '.join(change['stream_names'])
+                                'stream_names': '; '.join(change['stream_names']),
+                                'tiers': '; '.join(change.get('tiers') or []),
+                                'throughput_mbps': '; '.join(change.get('throughput_mbps') or []),
+                                'edge_ips': '; '.join(change.get('edge_ips') or []),
                             })
                     
                     logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
@@ -4369,6 +4695,188 @@ class Plugin:
             import traceback
             logger.error(traceback.format_exc())
             return {"status": "error", "message": f"Error: {str(e)}"}
+
+    def probe_throughput_action(self, settings, logger, context=None):
+        """Measure sustained throughput for streams currently assigned to channels in
+        the selected profile. Updates the throughput cache used by alternate-stream
+        sorting.
+
+        Constraints honored:
+        - Probes are serialized per M3U account (avoids hitting per-account
+          concurrent-connection limits) with a small delay between probes.
+        - A global rate cap (`probe_rate_per_minute`) bounds how aggressively we run.
+        - Only streams with stale or missing cache entries are re-probed.
+        """
+        try:
+            self._prime_throughput_state(settings)
+
+            try:
+                duration_s = int(settings.get('probe_duration_seconds', PluginConfig.DEFAULT_PROBE_DURATION_SECONDS))
+            except (TypeError, ValueError):
+                duration_s = PluginConfig.DEFAULT_PROBE_DURATION_SECONDS
+            try:
+                ttl_minutes = int(settings.get('probe_cache_ttl_minutes', PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES))
+            except (TypeError, ValueError):
+                ttl_minutes = PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES
+            try:
+                rate_per_min = max(1, int(settings.get('probe_rate_per_minute', PluginConfig.DEFAULT_PROBE_RATE_PER_MINUTE)))
+            except (TypeError, ValueError):
+                rate_per_min = PluginConfig.DEFAULT_PROBE_RATE_PER_MINUTE
+
+            profile_name = (settings.get('profile_name') or '').strip()
+            if profile_name == "_none":
+                profile_name = ""
+            if not profile_name:
+                return {"status": "error", "message": "No Channel Profile selected."}
+
+            # Resolve channels enabled in the chosen profile, optionally narrowed to
+            # the channel groups the user picked in settings (same field used by
+            # match/sort actions). Without this, "Probe Throughput" would scan the
+            # entire profile even when the user clearly scoped to one group.
+            profile = ChannelProfile.objects.filter(name=profile_name).first()
+            if profile is None:
+                return {"status": "error", "message": f"Profile '{profile_name}' not found."}
+            channel_ids = list(
+                ChannelProfileMembership.objects.filter(channel_profile_id=profile.id, enabled=True)
+                .values_list('channel_id', flat=True)
+            )
+            if not channel_ids:
+                return {"status": "success", "message": "No enabled channels in profile."}
+
+            selected_groups_str = (settings.get('selected_groups') or '').strip()
+            if selected_groups_str:
+                wanted = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
+                channel_ids = list(
+                    Channel.objects.filter(id__in=channel_ids, channel_group__name__in=wanted)
+                    .values_list('id', flat=True)
+                )
+                logger.info(f"[Stream-Mapparr] Throughput probe scoped to groups: {', '.join(wanted)} ({len(channel_ids)} channels)")
+                if not channel_ids:
+                    return {"status": "success", "message": "No enabled channels match selected groups."}
+
+            # Pull every assigned stream once, with the fields we need.
+            stream_ids = list(
+                ChannelStream.objects.filter(channel_id__in=channel_ids)
+                .values_list('stream_id', flat=True).distinct()
+            )
+            if not stream_ids:
+                return {"status": "success", "message": "No streams assigned to enabled channels."}
+
+            streams = list(Stream.objects.filter(id__in=stream_ids).values(
+                'id', 'name', 'url', 'm3u_account_id', 'stream_stats'
+            ))
+            logger.info(f"[Stream-Mapparr] Throughput probe: {len(streams)} candidate streams")
+
+            # Pre-filter to streams whose cache entry is stale/missing.
+            cache = self._throughput_cache or {}
+            to_probe = []
+            for s in streams:
+                key = str(s['id'])
+                entry = cache.get(key)
+                if not self._is_probe_fresh(entry, ttl_minutes):
+                    to_probe.append(s)
+            logger.info(f"[Stream-Mapparr] {len(to_probe)} need probing (TTL {ttl_minutes}m)")
+
+            if not to_probe:
+                return {"status": "success", "message": "All cached probes are still fresh."}
+
+            # Group by m3u_account_id to serialize per-account.
+            from collections import defaultdict, deque
+            queues = defaultdict(deque)
+            for s in to_probe:
+                queues[s.get('m3u_account_id') or 0].append(s)
+
+            # Cache UA per account for the duration of this run.
+            ua_by_account = {
+                acct_id: self._get_m3u_user_agent(acct_id) for acct_id in queues.keys()
+            }
+
+            # Track when each account is next eligible for a probe.
+            now = time.time()
+            next_eligible = {acct_id: now for acct_id in queues.keys()}
+            account_delay = float(PluginConfig.DEFAULT_PROBE_PER_ACCOUNT_DELAY)
+
+            # Global rate cap: if rate is N/min, min wall-time per probe is 60/N seconds.
+            min_global_gap = 60.0 / float(rate_per_min)
+            last_probe_started = 0.0
+
+            probed_ok = 0
+            probed_fail = 0
+            total_eligible = sum(len(q) for q in queues.values())
+            tracker = ProgressTracker(total_eligible, "probe_throughput", logger,
+                                      context=context, send_progress_callback=self._send_progress_update)
+
+            while any(queues.values()):
+                # Pick the account whose queue is non-empty and next_eligible is soonest.
+                candidates = [(acct_id, next_eligible[acct_id])
+                              for acct_id, q in queues.items() if q]
+                if not candidates:
+                    break
+                candidates.sort(key=lambda x: x[1])
+                acct_id, ready_at = candidates[0]
+
+                # Wait for whichever gate is later: per-account delay, or global rate cap.
+                wait_until = max(ready_at, last_probe_started + min_global_gap)
+                sleep_for = wait_until - time.time()
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+
+                stream = queues[acct_id].popleft()
+                url = (stream.get('url') or '').strip()
+                if not url:
+                    probed_fail += 1
+                    tracker.update(1)
+                    next_eligible[acct_id] = time.time() + account_delay
+                    continue
+
+                last_probe_started = time.time()
+                logger.debug(f"[Stream-Mapparr] Probing stream {stream['id']} (account={acct_id})")
+                mbps, edge = self._probe_stream_throughput(
+                    url, duration_s, ua_by_account.get(acct_id), logger
+                )
+                next_eligible[acct_id] = time.time() + account_delay
+
+                stats = stream.get('stream_stats') or {}
+                nominal = self._estimate_nominal_bitrate(
+                    stats.get('width', 0), stats.get('height', 0), stats.get('source_fps', 0)
+                )
+                entry = {
+                    'throughput_mbps': mbps,
+                    # Django's timezone.now() returns aware-UTC; timezone.utc was removed in Django 5.
+                    'throughput_measured_at': timezone.now().isoformat(),
+                    'edge_ip': edge,
+                    'nominal_bitrate_mbps': nominal,
+                    'probe_duration_s': duration_s,
+                }
+                cache[str(stream['id'])] = entry
+                if mbps is None:
+                    probed_fail += 1
+                else:
+                    probed_ok += 1
+                    logger.info(
+                        f"[Stream-Mapparr] {stream.get('name', stream['id'])}: "
+                        f"{mbps:.2f} Mbps (nominal ~{nominal:.2f}) edge={edge or 'n/a'}"
+                    )
+                tracker.update(1)
+
+                # Persist incrementally so partial work survives an interrupt.
+                self._throughput_cache = cache
+                self._save_throughput_cache()
+
+            self._throughput_cache = cache
+            self._save_throughput_cache()
+            tracker.force_update()
+
+            return {
+                "status": "success",
+                "message": f"Probed {probed_ok} stream(s), {probed_fail} failed. "
+                           f"Cache TTL {ttl_minutes}m.",
+            }
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Throughput probe failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {"status": "error", "message": f"Error: {e}"}
 
     def clear_csv_exports_action(self, settings, logger):
         """Delete all CSV export files created by this plugin"""
