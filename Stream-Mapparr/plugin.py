@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1362048"
+    PLUGIN_VERSION = "1.26.1362105"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1528,6 +1528,30 @@ class Plugin:
             self._probe_cache_ttl_minutes = PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES
         self._load_throughput_cache()
         self._throughput_state_primed = True
+
+    @staticmethod
+    def _parse_priority_list(raw):
+        """Parse a comma-separated priority string into a lowercased token list."""
+        if not raw:
+            return []
+        return [t.strip().lower() for t in str(raw).split(',') if t.strip()]
+
+    @staticmethod
+    def _audio_rank(value, priority_list):
+        """Rank an audio stat value against an ordered priority list.
+
+        Lower is preferred. Empty list -> 0 (no-op for every stream).
+        First case-insensitive substring match -> its index.
+        No match / missing / empty value -> len(priority_list) (sorts last).
+        """
+        if not priority_list:
+            return 0
+        val = ("" if value is None else str(value)).strip().lower()
+        if val:
+            for idx, token in enumerate(priority_list):
+                if token and token in val:
+                    return idx
+        return len(priority_list)
 
     def _sort_streams_by_quality(self, streams):
         """Sort streams by M3U priority + resolution/FPS tier, optionally prefixed by
