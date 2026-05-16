@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1362115"
+    PLUGIN_VERSION = "1.26.1362122"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1547,10 +1547,12 @@ class Plugin:
 
     @staticmethod
     def _parse_priority_list(raw):
-        """Parse a comma-separated priority string into a lowercased token list."""
-        if not raw:
-            return []
-        return [t.strip().lower() for t in str(raw).split(',') if t.strip()]
+        """Parse a comma-separated priority string into a lowercased token list.
+
+        Delegates to _parse_tags so quoting rules stay consistent with the
+        other comma-separated settings.
+        """
+        return [t.lower() for t in Plugin._parse_tags(str(raw) if raw else "")]
 
     @staticmethod
     def _audio_rank(value, priority_list):
@@ -1584,9 +1586,9 @@ class Plugin:
         throughput_enabled = bool(getattr(self, '_throughput_sorting_enabled', False))
         cache = getattr(self, '_throughput_cache', None) if throughput_enabled else None
         margin = float(getattr(self, '_bitrate_safety_margin', PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN))
-        _settings = getattr(self, 'saved_settings', {}) or {}
-        _ch_list = self._parse_priority_list(_settings.get('audio_channels_priority'))
-        _cod_list = self._parse_priority_list(_settings.get('audio_codec_priority'))
+        settings = getattr(self, 'saved_settings', {}) or {}
+        channels_priority = self._parse_priority_list(settings.get('audio_channels_priority'))
+        codec_priority = self._parse_priority_list(settings.get('audio_codec_priority'))
 
         def get_stream_quality_score(stream):
             m3u_priority = stream.get('_m3u_priority', 999)
@@ -1596,13 +1598,15 @@ class Plugin:
             height = stats.get('height', 0) or 0
             fps = stats.get('source_fps', 0) or 0
             audio_pair = (
-                self._audio_rank(stats.get('audio_channels'), _ch_list),
-                self._audio_rank(stats.get('audio_codec'), _cod_list),
+                self._audio_rank(stats.get('audio_channels'), channels_priority),
+                self._audio_rank(stats.get('audio_codec'), codec_priority),
             )
 
             if width == 0 or height == 0:
-                base = (m3u_priority, 3) + audio_pair + (0, 0) if not getattr(self, '_prioritize_quality', False) \
-                    else (3, m3u_priority) + audio_pair + (0, 0)
+                if getattr(self, '_prioritize_quality', False):
+                    base = (3, m3u_priority) + audio_pair + (0, 0)
+                else:
+                    base = (m3u_priority, 3) + audio_pair + (0, 0)
                 throughput_tier = self._classify_stream_throughput(stream, cache, margin) if cache is not None else 2
                 return (throughput_tier,) + base + (0.0,) if throughput_enabled else base
 
