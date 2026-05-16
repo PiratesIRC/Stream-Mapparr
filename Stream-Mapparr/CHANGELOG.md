@@ -1,7 +1,14 @@
 # Stream-Mapparr CHANGELOG
 
-## v1.26.1362115 (May 16, 2026)
-**Type**: Feature Release — audio-aware stream sorting (fixes GitHub #27).
+## v1.26.1362122 (May 16, 2026)
+**Type**: Feature + bugfix release — audio-aware stream sorting (fixes GitHub #27) and profile-dropdown loading fix (fixes GitHub #26).
+
+### Bugfixes
+
+**Cannot load channels — "validation failed" when no profiles exist** (fixes GitHub #26):
+- The Channel Profile dropdown built a placeholder option with a blank `value` when the Dispatcharr instance had zero `ChannelProfile` rows. Dispatcharr's plugin-field serializer rejects blank option values (`This field may not be blank`) and **dropped the entire `profile_name` field**, so affected users could never select a profile and every run failed with an opaque "Cannot load channels - validation failed."
+- The placeholder now uses a non-blank `_none` sentinel; all five `profile_name` read paths (`_validate_plugin_settings`, `load_process_channels`, the secondary load path, `sort_streams`, `probe_throughput`) normalize `_none` back to "not configured".
+- `load_process_channels` now surfaces the specific failed validation check (e.g. `Cannot load channels - Profile Name: Not configured`) instead of the generic message.
 
 ### Features
 
@@ -15,6 +22,7 @@
 
 ### Notes
 - Both settings default to empty (disabled). When blank, the sort is unchanged — **no behavior change on upgrade**.
+- Internal: priority-list parsing delegates to the existing quote-aware `_parse_tags` helper instead of a duplicate splitter.
 
 ---
 
