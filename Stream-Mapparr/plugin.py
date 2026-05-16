@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1362110"
+    PLUGIN_VERSION = "1.26.1362113"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -478,6 +478,7 @@ class Plugin:
                 "label": "🔊 Audio Channels Priority",
                 "type": "string",
                 "default": "",
+                "placeholder": "7.1, 5.1, stereo, mono",
                 "help_text": "Comma-separated audio channel layouts, most preferred first (e.g. '7.1, 5.1, stereo, mono'). Case-insensitive substring match. Anything not listed (or missing audio info) sorts last. Leave blank to disable.",
             },
             {
@@ -485,6 +486,7 @@ class Plugin:
                 "label": "🎚️ Audio Codec Priority",
                 "type": "string",
                 "default": "",
+                "placeholder": "eac3, ac3, aac, mp2",
                 "help_text": "Comma-separated audio codecs, most preferred first (e.g. 'eac3, ac3, aac, mp2'). Case-insensitive substring match. Anything not listed (or missing audio info) sorts last. Leave blank to disable. Channel layout is ranked before codec.",
             },
             {
