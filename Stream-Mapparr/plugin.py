@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1362105"
+    PLUGIN_VERSION = "1.26.1362108"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1568,6 +1568,9 @@ class Plugin:
         throughput_enabled = bool(getattr(self, '_throughput_sorting_enabled', False))
         cache = getattr(self, '_throughput_cache', None) if throughput_enabled else None
         margin = float(getattr(self, '_bitrate_safety_margin', PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN))
+        _settings = getattr(self, 'saved_settings', {}) or {}
+        _ch_list = self._parse_priority_list(_settings.get('audio_channels_priority'))
+        _cod_list = self._parse_priority_list(_settings.get('audio_codec_priority'))
 
         def get_stream_quality_score(stream):
             m3u_priority = stream.get('_m3u_priority', 999)
@@ -1576,10 +1579,14 @@ class Plugin:
             width = stats.get('width', 0) or 0
             height = stats.get('height', 0) or 0
             fps = stats.get('source_fps', 0) or 0
+            audio_pair = (
+                self._audio_rank(stats.get('audio_channels'), _ch_list),
+                self._audio_rank(stats.get('audio_codec'), _cod_list),
+            )
 
             if width == 0 or height == 0:
-                base = (m3u_priority, 3, 0, 0) if not getattr(self, '_prioritize_quality', False) \
-                    else (3, m3u_priority, 0, 0)
+                base = (m3u_priority, 3) + audio_pair + (0, 0) if not getattr(self, '_prioritize_quality', False) \
+                    else (3, m3u_priority) + audio_pair + (0, 0)
                 throughput_tier = self._classify_stream_throughput(stream, cache, margin) if cache is not None else 2
                 return (throughput_tier,) + base + (0.0,) if throughput_enabled else base
 
@@ -1594,9 +1601,9 @@ class Plugin:
                 tier = 2
 
             if getattr(self, '_prioritize_quality', False):
-                base = (tier, m3u_priority, -resolution_pixels, -fps)
+                base = (tier, m3u_priority) + audio_pair + (-resolution_pixels, -fps)
             else:
-                base = (m3u_priority, tier, -resolution_pixels, -fps)
+                base = (m3u_priority, tier) + audio_pair + (-resolution_pixels, -fps)
 
             if not throughput_enabled:
                 return base
