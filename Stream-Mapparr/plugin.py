@@ -58,7 +58,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1362108"
+    PLUGIN_VERSION = "1.26.1362110"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -472,6 +472,20 @@ class Plugin:
                     {"value": "keep_all", "label": "Keep All Tags - strict, exact matching only"},
                 ],
                 "help_text": "Controls which tags are removed during name matching. 'Strip All' removes quality, regional, geographic, and misc tags for best matching.",
+            },
+            {
+                "id": "audio_channels_priority",
+                "label": "🔊 Audio Channels Priority",
+                "type": "string",
+                "default": "",
+                "help_text": "Comma-separated audio channel layouts, most preferred first (e.g. '7.1, 5.1, stereo, mono'). Case-insensitive substring match. Anything not listed (or missing audio info) sorts last. Leave blank to disable.",
+            },
+            {
+                "id": "audio_codec_priority",
+                "label": "🎚️ Audio Codec Priority",
+                "type": "string",
+                "default": "",
+                "help_text": "Comma-separated audio codecs, most preferred first (e.g. 'eac3, ac3, aac, mp2'). Case-insensitive substring match. Anything not listed (or missing audio info) sorts last. Leave blank to disable. Channel layout is ranked before codec.",
             },
             {
                 "id": "visible_channel_limit",
