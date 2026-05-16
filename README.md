@@ -50,6 +50,8 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 
 ### Quality & Streams
 - **Quality-based stream sorting**: 4K > UHD > FHD > HD > SD, using probed resolution (from IPTV Checker) or name-based detection
+- **Throughput-based stream sorting** (v1.26.1171629+): Measure each source's sustained throughput against its nominal bitrate, then rank `healthy → marginal → unknown → insufficient`. Catches under-delivering sources that share the same advertised resolution as healthy peers. Probes are serialized per M3U account, globally rate-limited, and cached on disk with a configurable TTL — sort never blocks on the network.
+- **Audio priority sorting** (v1.26.1362115+): Optionally rank streams by audio channel layout and codec. Two opt-in comma-separated lists (most-preferred first, e.g. `7.1, 5.1, stereo` and `eac3, ac3, aac`) using case-insensitive substring match against `stream_stats` audio info (from IPTV Checker, no probing). Applied after the video resolution/FPS tier; channel layout ranked before codec; unlisted/missing sorts last. Blank = disabled (no behavior change on upgrade).
 - **M3U source prioritization**: Prefer streams from specific M3U providers
 - **Dead stream filtering**: Skip streams with 0x0 resolution (requires IPTV Checker)
 - **Auto-deduplication**: Removes duplicate stream names during assignment
@@ -111,6 +113,13 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Fire Webhook On Completion** | boolean | False | Enable webhook delivery for Match & Assign / Match OTA / Sort Streams |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
+| **Enable Throughput-Based Sorting** | boolean | True | Prepend a measured-throughput tier to alternate-stream sorting. Falls back to resolution/FPS when no probe data is available. |
+| **Probe Duration (seconds)** | number | 8 | Length of each throughput probe — long enough to clear TCP slow-start, short enough to bound the run. |
+| **Probe Cache TTL (minutes)** | number | 30 | How long a measurement is considered fresh. Stale entries are re-probed on the next run; sort treats stale entries as unknown. |
+| **Probe Rate (probes / minute)** | number | 6 | Global cap on probes initiated per minute. Probes are also serialized per M3U account with a 1-second gap. |
+| **Bitrate Safety Margin** | string | 1.10 | Multiplier on nominal bitrate. Throughput < nominal × margin → `insufficient`; < nominal × 1.5 → `marginal`; otherwise `healthy`. |
+| **Audio Channels Priority** | string | "" | Comma-separated audio channel layouts, most preferred first (e.g. `7.1, 5.1, stereo, mono`). Case-insensitive substring match; unlisted/missing sorts last. Ranked before codec. Blank = disabled. |
+| **Audio Codec Priority** | string | "" | Comma-separated audio codecs, most preferred first (e.g. `eac3, ac3, aac, mp2`). Case-insensitive substring match; unlisted/missing sorts last. Ranked after channels. Blank = disabled. |
 
 ## Actions
 
@@ -121,7 +130,8 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Preview Changes** | Dry-run with CSV export |
 | **Match & Assign Streams** | Fuzzy match and assign streams to channels |
 | **Match US OTA Only** | Match US broadcast channels by callsign |
-| **Sort Alternate Streams** | Re-sort existing streams by quality |
+| **Sort Alternate Streams** | Re-sort existing streams by quality (and throughput tier, when probe data is available). CSV gains `tiers`, `throughput_mbps`, and `edge_ips` columns aligned with `stream_names`. |
+| **Probe Stream Throughput** | Measure sustained throughput for streams currently assigned to channels in the selected profile + groups. Updates `/data/stream_mapparr_throughput_cache.json`. Run before *Sort Alternate Streams* to feed measured Mbps into the sort. |
 | **Manage Channel Visibility** | Enable/disable channels based on stream count |
 | **Clear CSV Exports** | Delete all plugin CSV files |
 

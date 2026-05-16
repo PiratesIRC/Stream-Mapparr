@@ -1,5 +1,70 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1362115 (May 16, 2026)
+**Type**: Feature Release — audio-aware stream sorting (fixes GitHub #27).
+
+### Features
+
+**Audio priority dimensions in the quality sort** (addresses "two equal-resolution streams, one 5.1 one stereo" — surround should win):
+- Two new opt-in settings, each a comma-separated list ordered most-preferred-first, left to right:
+  - `audio_channels_priority` (e.g. `7.1, 5.1, stereo, mono`)
+  - `audio_codec_priority` (e.g. `eac3, ac3, aac, mp2`)
+- Matching is **case-insensitive substring**. Anything not listed (or with missing audio info) sorts last.
+- Audio is factored into `_sort_streams_by_quality` **after** the video resolution/FPS tier and **before** the pixel/FPS tiebreaker. Channel layout is ranked **before** codec.
+- Data source is `Stream.stream_stats` (`audio_channels` / `audio_codec`, populated by IPTV Checker) — no probing is performed.
+
+### Notes
+- Both settings default to empty (disabled). When blank, the sort is unchanged — **no behavior change on upgrade**.
+
+---
+
+## v1.26.1171629 (April 27, 2026)
+**Type**: Bugfix series after the v1.26.1171458 throughput-sort feature went live.
+
+### Bugfixes (rolled up from 1171545 → 1171547 → 1171558 → 1171604 → 1171629)
+- **`timezone.utc` removed in Django 5** — the probe action used `datetime.now(timezone.utc)` from `django.utils.timezone`. Switched to `timezone.now()` (Django's aware-UTC) and aliased the stdlib's `datetime.timezone` as `dt_timezone` for the `_is_probe_fresh` parser. Same latent bug exists at `_fire_webhook` line 2543 — left for a follow-up since it doesn't fire today.
+- **Probe scope ignored `selected_groups`** — clicking *Probe Stream Throughput* with `Movies` selected pulled all 3,425 streams in the profile (45-minute estimate). Probe action now narrows to `Channel.objects.filter(channel_group__name__in=...)` like the other actions.
+- **`UserAgent` model passed to `urllib.Request`** — `M3UAccount.user_agent` is a ForeignKey to a `UserAgent` row, not a string. The helper now dives into `.user_agent / .value / .string / .name` on the related instance to extract the actual UA.
+- **Failed probes locked re-probing for a TTL window** — `_is_probe_fresh` returned True when a cache entry had a fresh timestamp but `throughput_mbps == None`. After the all-failures run, the entire group was un-re-probable for 30 minutes. Now: any null-mbps entry is treated as never-fresh.
+- **Tiny-fast reads no longer report fake 0 Mbps** — if a probe returns under 64 KB in under 1 second, we record null instead of computing a tiny denominator-driven Mbps. Also prepares for HLS-aware probing (`.m3u8` playlists fall in this band today).
+- **Probe failures elevated to WARNING** — exception class + message are logged so an "all probes failed" run is diagnosable from normal log output.
+- **Sort CSV gains `tiers`, `throughput_mbps`, `edge_ips` columns** — semicolon-joined, indices aligned with `stream_names`. Lets you eyeball which sources got demoted by throughput vs which were simply lower resolution.
+
+### Verified end-to-end on real STL OTA streams
+- 33 streams probed, 31 measured. Edge IPs visible (`206.53.1.100`, `213.178.142.x`, etc.).
+- KDNL (ABC) had three sources at 0.00 / 8.81 / 13.05 Mbps on three different edges — the broken one was correctly demoted from equal-rank to `insufficient` in the live sort.
+- KMOV (CBS): 5 healthy + 1 marginal + 1 unknown + 3 insufficient — tiers slot in exactly as the spec describes.
+
+---
+
+## v1.26.1171458 (April 27, 2026)
+**Type**: Feature Release — throughput-based stream sorting.
+
+### Features
+
+**Measured-throughput sort dimension** (addresses the "two 720p60 streams, wildly different real bitrate" problem):
+- New `probe_throughput` action: opens a short HTTP GET to each stream currently assigned to a channel in the selected profile, sums bytes over a fixed window (default 8s), and records Mbps + final-URL host (`edge_ip`) in `/data/stream_mapparr_throughput_cache.json`.
+- Probes are **serialized per M3U account** with a 1-second per-account gap and a global cap of `probe_rate_per_minute` (default 6).
+- Cached probes are reused for `probe_cache_ttl_minutes` minutes (default 30); only stale or missing entries are re-probed.
+- A tier dimension is **prepended** to the existing `_sort_streams_by_quality` sort key:
+  - `healthy` (≥ nominal × 1.5), `marginal` (≥ nominal × `bitrate_safety_margin`), `unknown` (no fresh probe), `insufficient` (below margin).
+  - When all candidates are `unknown`, the prepended dimension collapses and the existing resolution/FPS/M3U-priority order is preserved — feature degrades cleanly if no probes have run.
+- Nominal bitrate is estimated from `stream_stats.width/height/source_fps` against a heuristic table (1080p60 ≈ 6 Mbps, 720p60 ≈ 4, etc.) — `PluginConfig.NOMINAL_BITRATE_TABLE`.
+
+### New settings (additive; defaults preserve current behavior when probes haven't run)
+- `enable_throughput_sorting` (bool, default `true`)
+- `probe_duration_seconds` (default `8`)
+- `probe_cache_ttl_minutes` (default `30`)
+- `probe_rate_per_minute` (default `6`)
+- `bitrate_safety_margin` (default `1.10`)
+
+### Notes
+- Probing is opt-in per run via the new action button — sort never blocks on a probe; it always reads the cache.
+- Cache file: `/data/stream_mapparr_throughput_cache.json`. Per-stream entry: `{throughput_mbps, throughput_measured_at, edge_ip, nominal_bitrate_mbps, probe_duration_s}`.
+- Real-time mid-stream degradation detection is explicitly **out of scope** — that's a ts_proxy concern.
+
+---
+
 ## v1.26.1082140 (April 18, 2026)
 **Type**: Feature + Performance + UX Release. Version scheme switches to calver (`1.MAJOR.DDDHHMM`, UTC day-of-year + HHMM) to match the Lineuparr / Channel-Mapparr / EPG-Janitor / IPTV Checker cohort. Use `Stream-Mapparr/bump_version.py` to keep `plugin.json` and `plugin.py` versions in sync.
 
