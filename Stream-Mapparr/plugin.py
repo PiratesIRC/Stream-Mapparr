@@ -1987,26 +1987,35 @@ class Plugin:
                 return True
 
     def _deduplicate_streams(self, streams):
-        """Remove duplicate streams based on stream name.
-        
-        Keeps the first occurrence of each unique stream name.
-        This prevents duplicate stream counts in results.
-        
+        """Remove duplicate streams based on (stream name, M3U account).
+
+        Keeps the first occurrence of each unique (name, M3U account) pair.
+        Identically-named streams from DIFFERENT sources are preserved so each
+        channel can hold one stream per provider (multi-source failover, see
+        issue #28). This covers both Standard M3U and Xtream Codes accounts,
+        since Dispatcharr stores both as M3UAccount rows referenced by
+        Stream.m3u_account. Only true duplicates within the same provider
+        collapse.
+
         Args:
             streams: List of stream dictionaries
-            
+
         Returns:
             List of deduplicated stream dictionaries
         """
-        seen_names = set()
+        seen_keys = set()
         deduplicated = []
-        
+
         for stream in streams:
             stream_name = stream.get('name', '')
-            if stream_name and stream_name not in seen_names:
-                seen_names.add(stream_name)
+            # Key on (name, M3U account) so the same name from two different
+            # sources both survive. Streams without an account share the key
+            # (name, None), which is fine for non-M3U streams.
+            dedup_key = (stream_name, stream.get('m3u_account'))
+            if stream_name and dedup_key not in seen_keys:
+                seen_keys.add(dedup_key)
                 deduplicated.append(stream)
-        
+
         return deduplicated
 
     def _load_channels_data(self, logger, settings=None):
