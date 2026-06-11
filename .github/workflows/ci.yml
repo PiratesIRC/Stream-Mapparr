@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      # Compilation does not execute imports, so this passes without Django/the
+      # Dispatcharr ORM installed — it catches syntax errors before deploy.
+      - name: Byte-compile plugin sources
+        run: |
+          python -m py_compile Stream-Mapparr/plugin.py
+          python -m py_compile Stream-Mapparr/fuzzy_matcher.py
+          python -m py_compile Stream-Mapparr/__init__.py
+
+      - name: Version sync (plugin.json == plugin.py)
+        run: python scripts/check_version_sync.py
+
+      - name: Validate channel databases
+        run: python scripts/validate_databases.py
+
+      - name: Run test suite
+        run: python -m pytest -q

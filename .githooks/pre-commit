@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Stream-Mapparr pre-commit gate. Fast checks only (target: < 2s).
+#
+# Enable once per clone:
+#     git config core.hooksPath .githooks
+#
+# Bypass in an emergency with:  git commit --no-verify
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+PY="${PYTHON:-python}"
+command -v "$PY" >/dev/null 2>&1 || PY=python3
+
+echo "[pre-commit] byte-compiling plugin sources..."
+"$PY" -m py_compile Stream-Mapparr/plugin.py Stream-Mapparr/fuzzy_matcher.py Stream-Mapparr/__init__.py
+
+echo "[pre-commit] checking version sync..."
+"$PY" scripts/check_version_sync.py
+
+echo "[pre-commit] validating channel databases..."
+"$PY" scripts/validate_databases.py >/dev/null
+
+echo "[pre-commit] running fast unit tests..."
+# Skip the multi-MB database schema tests here (CI covers them); keep the hook snappy.
+"$PY" -m pytest -q tests/test_fuzzy_matcher.py tests/test_plugin_helpers.py tests/test_version_sync.py
+
+echo "[pre-commit] OK"
