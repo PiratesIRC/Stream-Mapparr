@@ -1,5 +1,43 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+**Type**: Bugfix + developer-tooling (no plugin version bump yet; bundle into the next release).
+
+### Bugfix
+
+**Matcher score depended on whether `rapidfuzz` was installed** (`bug-026`):
+- `FuzzyMatcher.calculate_similarity` had two implementations — a rapidfuzz fast path returning `1 - distance / max(len)`, and a pure-Python fallback returning `(len1 + len2 - distance) / (len1 + len2)`. They disagreed: at threshold 95, `Fox Sports 1` vs `Fox Sports 2` scored **0.917** (rapidfuzz) vs **0.958** (pure-Python), flipping the match decision.
+- **Fix**: the pure-Python branch (and its early-termination bounds) now use `1 - distance / max(len)`, matching rapidfuzz exactly. Production runs the rapidfuzz path, so live behavior is unchanged — only the no-rapidfuzz fallback was corrected. `fuzzy_matcher.py` bumped to **v26.161.2350**.
+- Discovered by a new automated parity test, which now enforces the invariant.
+
+### Developer tooling
+
+- **First automated test suite** (`tests/`, 102 passing): `fuzzy_matcher` matching/normalization, `plugin.py` pure helpers (via a Django-stubbing conftest), channel-database schema validation, and version-sync. Cases are regression locks derived from the bug history.
+- **CI** (`.github/workflows/ci.yml`): py_compile + version-sync + database validation + pytest on every push/PR.
+- **Pre-commit gate** (`.githooks/pre-commit`, opt-in) and helper scripts (`scripts/check_version_sync.py`, `scripts/validate_databases.py`).
+- **`docs/DEVELOPMENT.md`**: full dev-workflow documentation.
+
+---
+
+## v1.26.1511211 (May 31, 2026)
+**Type**: Bugfix release — numeric-sibling false-positive in fuzzy matcher.
+
+### Bugfix
+
+**Same-prefix numbered channels false-match at threshold 95** (e.g. `Fox Sports 1` pulling in `Fox Sports 2` streams):
+- Under Stage 3 token-sort Levenshtein, the discriminating digit is a single-character edit. With long shared prefixes the score sails past threshold — `"1 fox sports"` vs `"2 fox sports"` is edit-distance 1 over total-length 26 = **96.15%**, above the default 95.
+- A numeric-token discriminator guard already existed inline in `plugin.py:2329` but not in the two public `FuzzyMatcher` methods, so every caller routed through `fuzzy_match` / `find_best_match` was unprotected.
+- **Fix**: mirror the guard into `fuzzy_matcher.fuzzy_match` (all three stages) and `fuzzy_matcher.find_best_match`. When the normalized query contains digit-only tokens, candidates must (a) have at least one digit token and (b) share at least one with the query. Queries without digits are unconstrained (no behavior change for the common case).
+- Math sanity: `Channel 4` vs `Channel 4K` is safe because `4K` is stripped by quality patterns before this code sees it. `ESPN 2 HD` vs `ESPN HD` (digit-asymmetric) now correctly rejects.
+
+### Notes
+- `fuzzy_matcher.py` bumped to **v26.151.1208** (was 26.095.0100).
+- **Stale data caveat**: pre-existing wrong assignments from earlier runs (ESPN2/ESPN+, C-SPAN2/C-SPAN3, FS1/FS2, Discovery Turbo +1) are not cleaned up by this fix. Run `add_streams_to_channels` with `overwrite_streams=true` to re-match and replace polluted assignments.
+- QA-reviewed (`pr-review-toolkit:code-reviewer`): zero blocking findings.
+
+---
+
 ## v1.26.1362122 (May 16, 2026)
 **Type**: Feature + bugfix release — audio-aware stream sorting (fixes GitHub #27) and profile-dropdown loading fix (fixes GitHub #26).
 
