@@ -1,111 +1,136 @@
-# Design: Unicode normalization of stylized stream markers (rev 2, post-QA)
+# Design: Unicode normalization of stylized stream markers (rev 3, post-recon)
 
 **Date:** 2026-06-13
-**Status:** Approved approach A; **rev 2 pivots to A′′ after QA** — pending user re-approval → plan
+**Status:** **Approved** (rev 2 approach + two rev-3 refinements confirmed by the user). Ready for plan.
 **Component:** `Stream-Mapparr/fuzzy_matcher.py` (`normalize_name`)
 
-> **Why rev 2:** the QA review + verification found that the rev-1 plan ("NFKD-fold
-> `ᴿᴬᵂ`→`RAW`, then strip the ASCII `RAW`/`VIP`/`GOLD` tokens") is unsafe: folding
-> erases the superscript signal, and stripping ASCII `GOLD`/`VIP`/`RAW` collides with
-> **real channel names** (UKTV **Gold**, **VIP** feeds). It also missed small-caps
-> (`ꜰʜᴅ`, present 66× in the corpus — NFKD doesn't fold them) and an ordering bug
-> (digit/letter spacer splits `60fps`→`60 fps`). Rev 2 fixes this by stripping
-> **whole stylized-Unicode tokens** instead of fold-then-strip-ASCII.
+> **Revision history**
+> - **rev 1** — "NFKD-fold `ᴿᴬᵂ`→`RAW`, then strip ASCII `RAW`/`VIP`/`GOLD`". Rejected at QA: folding then
+>   stripping ASCII tier-words collides with real channel names (UKTV **Gold**, **VIP** feeds); also missed
+>   Latin small-caps (NFKD doesn't fold them) and had a digit/letter spacer ordering bug.
+> - **rev 2** — strip **whole stylized-Unicode tokens** (all chars decorative, no ASCII alnum), then NFKD the rest.
+>   Approach approved by the user.
+> - **rev 3 (this doc)** — two refinements surfaced by an empirical recon over the real 54k-name corpus and
+>   confirmed by the user:
+>   1. **Detect decoration by Unicode character _name_, not hard-coded code-point ranges.** The recon proved
+>      rev 2's literal ranges miss real markers: `ʜ` (U+029C, IPA Extensions), `ⱽ` (U+2C7D, Latin Ext-C), and
+>      `ˢ` (U+02E2, Spacing Modifier Letters) fall **outside** the listed ranges, so `ꜰʜᴅ`, `ⱽᴵᴾ`, and `⁶⁰ᶠᵖˢ`
+>      would have survived. A name-based predicate catches all of them.
+>   2. **Punctuation-aware token rule.** rev 2's "every char decorative" rule misses stylized markers glued to
+>      ASCII punctuation — `◉:` (96×), `ᴴᴰ/ᴿᴬᵂ` (30×). The rule is relaxed to also strip a token whose remaining
+>      chars are ASCII punctuation, while preserving every safety property.
 
 ## Problem
 
 Streams carry stylized-Unicode format/tier markers: superscript `RK: WEATHERNATION ᴿᴬᵂ`,
 `… ⁶⁰ᶠᵖˢ`, `… ⁴ᴷ`, `… ⱽᴵᴾ`, `… ³⁸⁴⁰ᴾ`, `… ⁽ᴮᴷ⁾`; small-caps `… ꜰʜᴅ`; and bullets `◉`.
 `normalize_name` strips tags with **ASCII** regexes, so the stylized forms survive:
-`normalize_name("RK: WEATHERNATION ᴿᴬᵂ") == "WEATHERNATION ᴿᴬᵂ"`, which can't match
-channel `WeatherNation`. (An alias can't fix it — the candidate keeps `ᴿᴬᵂ`.)
+`normalize_name("RK: WEATHERNATION ᴿᴬᵂ")` keeps `ᴿᴬᵂ`, which can't match channel `WeatherNation`.
+(An alias can't fix it — the candidate keeps `ᴿᴬᵂ`.) The recon found these markers on **20,537**
+real stream names (the top one, superscript `ᴿᴬᵂ`, appears **11,931** times).
 
 ## Goal
 
-Remove stylized-Unicode decoration from names so they match, **without** harming real
-channel names that happen to share a word with a tier marker (Gold, VIP).
+Remove stylized-Unicode decoration from names so they match, **without** harming real channel
+names that share a word with a tier marker (Gold, VIP) and **without** touching non-Latin scripts.
 
-## Approach A′′ (chosen): strip whole stylized tokens, then NFKD-canonicalize
+## Approach (chosen): strip stylized tokens by Unicode name, then NFKD-canonicalize
 
-Insert two steps at the **top** of `normalize_name`, before the existing ASCII tag regexes:
+Insert one preprocessing step at the **top** of `normalize_name`, before the existing ASCII tag
+regexes (i.e. before the `if ignore_quality:` block). It delegates to a module-level helper:
 
-1. **Strip stylized-marker tokens.** Split on whitespace; drop any token whose characters
-   are **all** in the "decorative" Unicode set and contains **no** ASCII alphanumeric.
-   Decorative set = superscripts/subscripts (U+2070–U+209F, U+00B2/B3/B9), superscript
-   **modifier letters** (U+1D2C–U+1D6B — this is what `ᴿᴬᵂ`/`ᴴᴰ`/`ⱽᴵᴾ`/`ᴮᴷ` are),
-   **Latin small capitals** (the small-cap letters in U+1D00–U+1DBF + U+A730–A732, e.g.
-   `ꜰʜᴅ`), and standalone geometric/bullet symbols actually seen (`◉` U+25C9). A token
-   like `ᴿᴬᵂ`, `⁶⁰ᶠᵖˢ`, `³⁸⁴⁰ᴾ`, `⁽ᴮᴷ⁾`, `ꜰʜᴅ`, `◉` is all-decorative → removed. A token
-   with any ASCII alnum (`WEATHERNATION`, `GOLD`, `VIP`, `(BK)`, `RK:`) is **kept**.
-2. **NFKD-canonicalize the remainder** (`unicodedata.normalize('NFKD', …)`) — folds
-   fullwidth, ligatures, accented bases, etc. for general robustness. (The decorative
-   tokens are already gone, so no `GOLD`/`VIP` collision is introduced.)
+1. **ASCII fast path.** If the whole name is ASCII, return it unchanged — ASCII is invariant under
+   both steps, so the common case stays allocation-cheap and calls no `unicodedata` machinery.
+2. **Strip stylized-marker tokens.** Split on whitespace; drop any token that
+   - contains **≥1 decorative char**, **and**
+   - contains **no ASCII alphanumeric**, **and**
+   - every char is **decorative OR ASCII punctuation/symbol**.
 
-Then the existing pipeline (ASCII quality/regional/geographic/misc stripping, space-norm)
-runs unchanged.
+   "Decorative" is decided by `_is_decorative_char(ch)`: non-ASCII **and** either a curated ornament
+   (`◉` U+25C9) or its `unicodedata.name(ch)` contains `SUPERSCRIPT`, `SUBSCRIPT`, `SMALL CAPITAL`,
+   or `MODIFIER LETTER`. This name-based test covers superscripts, superscript "modifier-letter"
+   capitals (`ᴿᴬᵂ`, `ⱽᴵᴾ`, `ᴮᴷ`, `ᴾ`), and Latin small-caps (`ꜰʜᴅ`) regardless of which Unicode
+   block they live in.
+3. **NFKD-canonicalize the remainder** (`unicodedata.normalize('NFKD', …)`) — folds fullwidth,
+   ligatures, etc. for general robustness. (Decorative tokens are already gone, so no `GOLD`/`VIP`
+   collision is introduced.)
 
-### Why this over rev-1 fold-then-strip
-- **No name collision:** only the *superscript/small-cap form* is removed. ASCII `Gold`,
-  `VIP`, `Raw` channel names are untouched (they contain ASCII alnum → kept).
-- **General:** targets character *classes* (decorative ranges), not a per-marker list, so
-  new superscript markers and the small-cap class are covered automatically.
-- **No ordering bug:** we don't add ASCII `fps`/resolution patterns, so the digit/letter
-  spacer (F1) is irrelevant — the whole `⁶⁰ᶠᵖˢ`/`³⁸⁴⁰ᴾ` token is removed before it.
-- **Bonus:** removes `◉` bullets and small-caps that rev 1 missed.
+Then the existing pipeline (ASCII quality/regional/geographic/misc stripping, space-norm) runs unchanged.
+
+### Why the rule is safe (verified empirically)
+- **No name collision:** a token must contain a decorative char to be dropped, so ASCII `Gold`, `VIP`,
+  `Raw` (no decorative chars) are always kept.
+- **Non-Latin safe:** Arabic/Cyrillic/CJK letters are non-ASCII **and** non-decorative, so a token
+  containing them fails the "every char is decorative or ASCII-punct" test and is kept — even when a
+  decorative char is glued to it (e.g. a hypothetical `العربيةᴴᴰ` stays whole).
+- **Closes the punctuation blind spot:** `◉:` and `ᴴᴰ/ᴿᴬᵂ` are dropped because their non-decorative
+  chars are all ASCII punctuation.
+- **Lone punctuation untouched:** a token with no decorative char (`:`, `&`, `–`) is kept (no behavior change).
 
 ### Gating
-The stylized-token strip is **input cleaning**, not tag filtering — a token written
-entirely in superscript/small-caps is decoration regardless of `tag_handling`. It runs
-unconditionally (like the existing space/punct normalization), NOT behind
-`ignore_quality`. Rationale: keeping a `ᴿᴬᵂ` token never helps a match and there's no
-"keep stylized superscripts" use case. (Confirmed at QA: callsign extraction uses the
-raw name, not `normalize_name`, so this doesn't disturb it.)
+The stylized-token strip is **input cleaning**, not tag filtering — a token written in
+superscript/small-caps is decoration regardless of `tag_handling`. It runs **unconditionally** (like the
+existing space/punct normalization), NOT behind `ignore_quality`. Keeping a `ᴿᴬᵂ` token never helps a
+match and there is no "keep stylized superscripts" use case. (Callsign extraction uses the raw name, not
+`normalize_name`, so this doesn't disturb it.)
 
 ## Scope
 
-**In:** tokens composed entirely of the decorative Unicode classes above (superscripts,
-superscript modifier letters, Latin small-caps, the `◉` bullet) + NFKD canonicalization
-of the remainder.
+**In:**
+- Tokens that are pure stylized decoration (decorative chars + optional ASCII punctuation, no ASCII alnum),
+  including punctuation-glued ornaments (`◉:`, `ᴴᴰ/ᴿᴬᵂ`).
+- NFKD canonicalization of the remaining text.
 
-**Out (explicit):**
-- **Mixed tokens** with emoji-letter substitution: `SP⚽RTS` / `Sp⚽rts` (578×) — the token
-  has ASCII alnum, so it's kept; `⚽` is not folded. Separate effort.
-- Non-Latin scripts (Cyrillic/Arabic/CJK channel names) are **kept** — they are NOT in the
-  decorative set, so the all-decorative rule never strips them. (Critical safety property.)
+**Out (explicit, deferred):**
+- **Emoji-letter substitution:** `SP⚽RTS` / `Sp⚽rts` (**681×** in the corpus) — the `⚽` (U+26BD) replaces
+  the letter "o" inside an ASCII word, so the token has ASCII alnum and is correctly **kept**; neither step
+  removes the ball. Fixing this needs a separate emoji→letter mapping pass (guess-prone) and is its own
+  brainstorm. **Confirmed deferred by the user.**
+- `™`/`®`/`©` substitutions are negligible (1/4/2 names) and left to NFKD's default behavior.
 
 ## What does NOT change
-Match pipeline order, exact/alias/fuzzy stages, thresholds, the numeric-sibling guard
-logic, and the ASCII tag regexes. This is purely input normalization. `process_string_for_matching`
-is **not** changed (it receives `normalize_name` output, so its NFD is a harmless no-op
-on already-clean input — rev 1's NFD→NFKD there was dead and is dropped).
+Match pipeline order, exact/alias/fuzzy stages, thresholds, the numeric-sibling guard logic, and the ASCII
+tag regexes. This is purely input normalization. `process_string_for_matching` is **not** changed — it
+receives `normalize_name` output and its NFD is a harmless no-op on already-canonical input.
 
-## Validation (risk control)
+## Validation (recon, GO)
 
-- **Corpus diff (one-off script):** run `normalize_name` old-vs-new over the full real
-  stream pool (`Lineuparr/_stream_exports/streamq_streams.csv`, ~54k names — confirmed to
-  exist) and all 12 `*_channels.json` names. Gate: every change is a desirable
-  decoration-removal; **no real channel name altered**. Named watch-items from QA:
-  `№`→`No`, `™`→`TM`, `µ`, fractions — confirm none appear in a harmful way (these come
-  from the NFKD step, step 2).
-- **Non-Latin safety check:** assert the diff does not blank or truncate any non-ASCII
-  *letter* token (Cyrillic/Arabic/CJK) — the decorative predicate must exclude general
-  non-ASCII letters.
+A read-only old-vs-new diff (faithful prototype: prepend the preprocess to `normalize_name`'s input;
+source untouched) over the real corpus and all channel databases:
+
+| Set | Names compared | Changed | Harmful |
+|---|---|---|---|
+| `Lineuparr/_stream_exports/streamq_names.txt` | 53,992 | 18,846 | **0** |
+| All `*_channels.json` `channel_name` values | 42,897 | 704 | **0** |
+
+- **WeatherNation recovers:** `WEATHERNATION ᴿᴬᵂ` → `WEATHERNATION` (matches channel `WeatherNation`).
+- Every changed name is a decoration removal or a benign NFKD fold (accented-Latin re-spelling that
+  `process_string_for_matching` already folds downstream; symmetric on both stream and channel sides).
+- Watch-items are non-issues in the real data: `№` U+2116 = **0** names, `™` = 1, `®` = 4, `©` = 2.
+- Known residual after this change: ~96 `◉:`-style names are now cleaned; the only remaining stylized
+  residue is the deferred `SP⚽RTS` emoji family (681).
 
 ## Testing
-- **Recovery:** `normalize_name("RK: WEATHERNATION ᴿᴬᵂ")` → `weathernation`; `… ⁶⁰ᶠᵖˢ`,
-  `… ⁴ᴷ`, `… ⱽᴵᴾ`, `… ꜰʜᴅ`, `◉ Foo` all lose the marker.
-- **Collision guard (the key new test):** `normalize_name("Gold")` == `"gold"`,
-  `normalize_name("VIP")`/`"Raw"` unchanged — ASCII tier-words are NOT stripped.
-- **Non-Latin guard:** an all-Cyrillic token survives normalization.
-- **No-regression:** sample of plain ASCII names normalize byte-identically to today;
-  existing 139 tests stay green.
-- **Numeric-sibling (F3):** a name with a folded superscript digit (e.g. `Foo ²`) does not
-  spuriously gain a digit token that breaks the FS1/FS2 guard (the all-decorative `²`
-  token is stripped in step 1, so no digit leaks to the guard).
+Exact `normalize_name` outputs (case-preserving; `normalize_name` does not lowercase):
+
+| Input | Output |
+|---|---|
+| `WEATHERNATION ᴿᴬᵂ` | `WEATHERNATION` |
+| `C-SPAN2 ᴴᴰ` | `C SPAN 2` |
+| `ESPN ꜰʜᴅ` (small-caps) | `ESPN` |
+| `◉: CNN` (punct-glued ornament) | `CNN` |
+| `ENTERTAINMENT ᴴᴰ/ᴿᴬᵂ ⁶⁰ᶠᵖˢ` | `ENTERTAINMENT` |
+| `Gold` (collision guard) | `Gold` |
+| `VIP` (collision guard) | `VIP` |
+| `Россия` (non-Latin guard) | `Россия` |
+| `Fox Sports 1` / `Fox Sports 2` (no-regression) | unchanged |
+| `CNN HD` / `ITV1` (no-regression) | `CNN` / `ITV 1` |
+
+- **No-regression:** the existing 139 tests stay green; a sample of plain ASCII names normalize byte-identically.
+- **Numeric-sibling guard:** `Fox Sports 1`/`2` normalize unchanged, so the FS1/FS2 guard is unaffected.
 
 ## Success criteria
-1. `WeatherNation` matches `RK: WEATHERNATION ᴿᴬᵂ`; superscript + small-cap + bullet
+1. `WeatherNation` matches `RK: WEATHERNATION ᴿᴬᵂ`; superscript + small-cap + bullet + punct-glued
    decorations are removed.
-2. ASCII channel names sharing a tier word (`Gold`, `VIP`) are unaffected; non-Latin names
-   preserved.
+2. ASCII channel names sharing a tier word (`Gold`, `VIP`) are unaffected; non-Latin names preserved.
 3. Corpus diff: only decoration removals + benign NFKD folds; full suite green.
