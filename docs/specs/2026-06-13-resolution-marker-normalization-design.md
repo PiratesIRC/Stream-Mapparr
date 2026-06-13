@@ -37,17 +37,23 @@ RESOLUTION_PATTERNS = [
 ]
 ```
 
-Applied inside the existing `if ignore_quality:` block, immediately **after** the `QUALITY_PATTERNS`
-loop and **before** the digit/letter spacer (so the glued `3840P` is matched before it would be split to
+Applied inside the existing `if ignore_quality:` block, immediately **before** the `QUALITY_PATTERNS`
+loop (and well before the digit/letter spacer, so the glued `3840P` is matched before it would be split to
 `3840 P`):
 
 ```python
         if ignore_quality:
-            for pattern in QUALITY_PATTERNS:
-                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
             for pattern in RESOLUTION_PATTERNS:
                 name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+            for pattern in QUALITY_PATTERNS:
+                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
 ```
+
+> **Ordering (important):** resolution stripping must run **before** `QUALITY_PATTERNS`. The middle
+> standalone-quality pattern `\s+\b(4K|…)\b\s+` consumes **both** spaces around `4K`, so a name like
+> `SPoRTS 4K 3840P` would collapse to `SPoRTS3840P` — gluing the word to the marker and destroying the
+> `\b` boundary the resolution regex needs. Stripping `3840P` first (while the spaces still exist) avoids
+> this. (This matches the validation prototype, which removed the marker from the raw input.)
 
 - **Gated by `ignore_quality`** — a resolution marker is a quality tag, so it follows the same flag as
   `4K`/`HD` (unlike the unconditional emoji/Unicode input-cleaning).
