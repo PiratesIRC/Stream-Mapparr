@@ -864,7 +864,9 @@ class FuzzyMatcher:
 
         hits = []
         for cand in candidate_names:
-            low, nospace = _forms(cand)
+            # Reuse the precompute cache for candidates (mirrors how fuzzy_match
+            # normalizes candidates) — avoids re-normalizing every stream name.
+            low, nospace = self._get_cached_norm(cand, user_ignored_tags)
             if low and (low in alias_low or nospace in alias_nospace):
                 hits.append(cand)
         return hits

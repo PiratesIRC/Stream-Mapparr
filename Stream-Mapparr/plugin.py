@@ -2617,7 +2617,13 @@ class Plugin:
                 }
             return results
         
-        # For non-OTA channels, test each threshold
+        # For non-OTA channels, test each threshold.
+        # Alias hits are threshold-independent — collect once, before the loop.
+        alias_streams = self._collect_alias_streams(
+            channel_name, candidate_streams, ignore_tags, ignore_quality,
+            ignore_regional, ignore_geographic, ignore_misc)
+        alias_ids = {id(s) for s in alias_streams}
+
         for threshold in thresholds_to_test:
             if not self.fuzzy_matcher:
                 continue
@@ -2633,10 +2639,6 @@ class Plugin:
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
                     ignore_geographic=ignore_geographic, ignore_misc=ignore_misc
                 )
-                alias_streams = self._collect_alias_streams(
-                    channel_name, candidate_streams, ignore_tags, ignore_quality,
-                    ignore_regional, ignore_geographic, ignore_misc)
-                alias_ids = {id(s) for s in alias_streams}
 
                 if matched_stream_name or alias_streams:
                     cleaned_channel_name = self._clean_channel_name(
@@ -4285,11 +4287,8 @@ class Plugin:
                 working_streams = self._filter_working_streams(all_streams, logger)
                 logger.info(f"[Stream-Mapparr] {len(working_streams)} working streams (filtered out {len(all_streams) - len(working_streams)} dead)")
             
-            # Initialize fuzzy matcher for callsign extraction
-            if not self.fuzzy_matcher:
-                match_threshold = self._resolve_match_threshold(settings)
-                self._initialize_fuzzy_matcher(match_threshold)
-                self._alias_map = self._build_alias_map(settings, settings.get("channel_database"))
+            # Initialize fuzzy matcher (for callsign extraction) + alias map
+            self._ensure_matcher_and_aliases(settings)
 
             # Match channels using US OTA callsign database
             logger.info("[Stream-Mapparr] Matching channels using US OTA callsign database...")
