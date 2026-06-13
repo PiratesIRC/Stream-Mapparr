@@ -502,6 +502,13 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
+        # Strip stylized-Unicode decoration (superscript/small-cap tier markers,
+        # bullets) up front so the ASCII tag regexes below see plain text. Runs
+        # unconditionally: a token written in superscript/small-caps is decoration
+        # regardless of tag_handling, and it would otherwise block matches
+        # (e.g. a superscript-RAW suffix never matches channel "WeatherNation").
+        name = _strip_stylized_tokens(name)
+
         # CRITICAL FIX (v25.019.0100): Apply quality patterns FIRST, before space normalization
         # This prevents space normalization from breaking quality tags like "4K" -> "4 K"
         # which would then fail to match quality patterns looking for "4K"

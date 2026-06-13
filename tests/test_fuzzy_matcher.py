@@ -236,3 +236,42 @@ def test_strip_stylized_tokens_is_non_latin_safe(fuzzy_module):
 
 def test_strip_stylized_tokens_ascii_fast_path(fuzzy_module):
     assert fuzzy_module._strip_stylized_tokens("Fox Sports 1") == "Fox Sports 1"
+
+
+def test_normalize_recovers_weathernation(matcher):
+    assert matcher().normalize_name("WEATHERNATION " + RAW) == "WEATHERNATION"
+
+
+def test_normalize_strips_superscript_hd(matcher):
+    assert matcher().normalize_name("C-SPAN2 " + HD) == "C SPAN 2"
+
+
+def test_normalize_strips_small_caps(matcher):
+    assert matcher().normalize_name("ESPN " + FHD) == "ESPN"
+
+
+def test_normalize_strips_punct_glued_bullet(matcher):
+    assert matcher().normalize_name(FISH + ": CNN") == "CNN"
+
+
+def test_normalize_strips_glued_and_standalone_markers(matcher):
+    name = "ENTERTAINMENT " + HD + "/" + RAW + " " + FPS60
+    assert matcher().normalize_name(name) == "ENTERTAINMENT"
+
+
+def test_normalize_collision_guard_keeps_ascii_tier_words(matcher):
+    m = matcher()
+    assert m.normalize_name("Gold") == "Gold"
+    assert m.normalize_name("VIP") == "VIP"
+
+
+def test_normalize_preserves_non_latin(matcher):
+    assert matcher().normalize_name(CYRILLIC) == CYRILLIC
+
+
+def test_normalize_no_regression_plain_ascii(matcher):
+    m = matcher()
+    assert m.normalize_name("Fox Sports 1") == "Fox Sports 1"
+    assert m.normalize_name("Fox Sports 2") == "Fox Sports 2"
+    assert m.normalize_name("CNN HD") == "CNN"
+    assert m.normalize_name("ITV1") == "ITV 1"
