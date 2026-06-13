@@ -315,6 +315,14 @@ def test_normalize_emoji_leaves_non_emoji_nonascii(fuzzy_module):
     assert fuzzy_module._normalize_emoji("Россия") == "Россия"
 
 
+def test_normalize_emoji_leading_and_adjacent_balls(fuzzy_module):
+    f = fuzzy_module._normalize_emoji
+    # leading ball: no ASCII letter before it -> not mapped, stripped as ornament
+    assert f(BALL + "SPORTS") == "SPORTS"
+    # adjacent balls mid-word: neither is flanked by two ASCII letters -> both stripped
+    assert f("A" + BALL + BALL + "B") == "AB"
+
+
 def test_normalize_name_ball_to_sports(matcher):
     m = matcher()
     assert m.normalize_name("SP" + BALL + "RTS") == "SPoRTS"

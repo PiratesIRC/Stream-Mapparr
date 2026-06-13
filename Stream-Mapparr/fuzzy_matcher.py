@@ -174,7 +174,9 @@ def _strip_stylized_tokens(name):
 
 # Emoji that visually replace an ASCII letter when embedded in a word. Extensible.
 _EMOJI_LETTER_MAP = {'⚽': 'o'}            # SOCCER BALL = 'o'  (SP⚽RTS -> SPORTS)
-# Pictographic ornaments to delete (incl. a stray/standalone ball not used as a letter).
+# Pictographic ornaments to delete. NOTE: ⚽ is intentionally in BOTH maps — the letter
+# map handles it mid-word (-> 'o'); here it catches any ⚽ NOT flanked by ASCII letters
+# (standalone/edge), which the substitution above leaves untouched.
 _EMOJI_ORNAMENTS = frozenset('♬☾⚽')       # beamed notes, last-quarter moon, soccer ball
 # Zero-width / invisible code points that only add noise to a name.
 _ZERO_WIDTH = ('️', '‍')         # VARIATION SELECTOR-16, ZERO WIDTH JOINER
