@@ -105,3 +105,19 @@ def test_collect_alias_streams_empty_when_no_matcher(plugin_module):
                                    ignore_tags=[], ignore_quality=True, ignore_regional=True,
                                    ignore_geographic=True, ignore_misc=True)
     assert out == []
+
+
+def test_alias_only_stream_survives_rematch_filter(plugin_module, fuzzy_module):
+    """THE blocker lock: an alias-only stream (FS1 -> 'Fox Sports 1') has low
+    channel-name similarity and would be dropped by the re-match loop. It must
+    still appear in the final matched set via the alias force-include."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(match_threshold=80)
+    p._alias_map = {"FS1": ["FS1", "Fox Sports 1"]}
+
+    channel = {"name": "FS1", "id": 10}
+    streams = [{"name": "Fox Sports 1", "id": 1, "m3u_account": 1}]
+
+    result = p._match_streams_to_channel(channel, streams, logger=None)
+    matched = result[0]  # (streams, cleaned_channel, cleaned_streams, reason, db)
+    assert any(s["id"] == 1 for s in matched), "alias-only stream was dropped"

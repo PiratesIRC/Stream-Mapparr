@@ -2338,18 +2338,29 @@ class Plugin:
                 ignore_geographic=ignore_geographic, ignore_misc=ignore_misc
             )
 
-            if matched_stream_name:
-                matching_streams = []
-                
+            # Alias force-include: exact-normalized alias hits bypass the
+            # channel-name re-match filter below (an alias-only stream has low
+            # name similarity by design). Collected independently of the fuzzy
+            # result so alias-only channels still resolve.
+            alias_streams = self._collect_alias_streams(
+                channel_name, working_streams, ignore_tags, ignore_quality,
+                ignore_regional, ignore_geographic, ignore_misc)
+            alias_ids = {id(s) for s in alias_streams}
+
+            if matched_stream_name or alias_streams:
+                matching_streams = list(alias_streams)
+
                 # Clean the channel name for comparison
                 cleaned_channel_for_matching = self._clean_channel_name(
                     channel_name, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 )
-                
+
                 # Match streams against the CHANNEL name, not just the best-matched stream
                 # This allows collecting all streams that are similar to the channel
                 for stream in working_streams:
+                    if id(stream) in alias_ids:
+                        continue  # already force-included via alias
                     cleaned_stream = self._clean_channel_name(
                         stream['name'], ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
