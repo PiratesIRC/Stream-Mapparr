@@ -1,0 +1,182 @@
+"""Regression tests for fuzzy_matcher.py.
+
+Most cases are derived directly from documented bugs in .wolf/buglog.json and the
+BUG_REPORT_*.md files — each one locks in a fix that was shipped at least once.
+fuzzy_matcher has no Django dependency, so these run with just pytest (+ rapidfuzz
+to exercise the fast path).
+"""
+
+import importlib
+
+import pytest
+
+
+# --------------------------------------------------------------------------- #
+# normalize_name — tag stripping
+# --------------------------------------------------------------------------- #
+
+def test_quality_tag_stripped(matcher):
+    m = matcher()
+    assert m.normalize_name("CNN HD").upper().strip() == "CNN"
+    assert "4K" not in m.normalize_name("CNN 4K").upper()
+    assert "FHD" not in m.normalize_name("ESPN [FHD]").upper()
+
+
+def test_itv1_and_itv_space_1_normalize_identically(matcher):
+    """'ITV1' and 'ITV 1' must collapse to the same form (digit-spacing fix)."""
+    m = matcher()
+    assert m.normalize_name("ITV1") == m.normalize_name("ITV 1")
+
+
+def test_regional_west_stripped_when_enabled(matcher):
+    """BUGFIX_Regional_Tags_West_Missing: 'West' must be removed under strip_all."""
+    m = matcher()
+    assert "WEST" not in m.normalize_name("FX West", ignore_regional=True).upper()
+
+
+def test_regional_west_kept_when_disabled(matcher):
+    """Keep-Regional handling must preserve 'West' so East/West stay distinct."""
+    m = matcher()
+    assert "WEST" in m.normalize_name("FX West", ignore_regional=False).upper()
+
+
+def test_unicode_user_ignore_tag_does_not_crash(matcher):
+    """BUG_REPORT_Custom_Ignore_Tags_Unicode: box-drawing tags broke \\b word boundaries."""
+    m = matcher()
+    out = m.normalize_name("Sport ┃NLZIET┃", user_ignored_tags=["┃NLZIET┃"])
+    assert "NLZIET" not in out
+    assert "Sport" in out
+
+
+def test_word_boundary_tag_does_not_strip_substring(matcher):
+    """'East' as an ignore tag must not nuke the 'east' inside 'Feast'."""
+    m = matcher()
+    out = m.normalize_name("Feast", user_ignored_tags=["East"], ignore_regional=False)
+    assert "Feast" in out
+
+
+# --------------------------------------------------------------------------- #
+# calculate_similarity
+# --------------------------------------------------------------------------- #
+
+def test_similarity_identical_and_empty(matcher):
+    m = matcher()
+    assert m.calculate_similarity("cnn", "cnn") == 1.0
+    assert m.calculate_similarity("", "cnn") == 0.0
+    assert m.calculate_similarity("cnn", "") == 0.0
+
+
+def test_similarity_threshold_early_out(matcher):
+    """When lengths differ too much to ever meet the threshold, return 0.0."""
+    m = matcher()
+    assert m.calculate_similarity("a", "abcdefghij", threshold=0.9) == 0.0
+
+
+def test_rapidfuzz_and_pure_python_agree(fuzzy_module, matcher):
+    """The optional C path and the pure-Python fallback must return the same score.
+
+    bug-026 fix: both now use 1 - distance / max(len). A divergence here would
+    make results depend on whether rapidfuzz is installed. Skips if rapidfuzz
+    isn't present (nothing to compare against).
+    """
+    if not fuzzy_module._USE_RAPIDFUZZ:
+        pytest.skip("rapidfuzz not installed; only one path available")
+
+    pairs = [("fox sports 1", "fox sports 2"),
+             ("cnn", "cnn hd"),
+             ("discovery channel", "discovery"),
+             ("bbc one", "bbc two")]
+    m = matcher()
+
+    fast = [m.calculate_similarity(a, b) for a, b in pairs]
+    fuzzy_module._USE_RAPIDFUZZ = False
+    try:
+        slow = [m.calculate_similarity(a, b) for a, b in pairs]
+    finally:
+        fuzzy_module._USE_RAPIDFUZZ = True
+
+    for (a, b), f, s in zip(pairs, fast, slow):
+        assert f == pytest.approx(s, abs=1e-9), f"path divergence on {a!r} vs {b!r}: {f} != {s}"
+
+
+# --------------------------------------------------------------------------- #
+# process_string_for_matching
+# --------------------------------------------------------------------------- #
+
+def test_token_sort_is_order_insensitive(matcher):
+    m = matcher()
+    assert m.process_string_for_matching("Sports Fox") == m.process_string_for_matching("Fox Sports")
+
+
+def test_accents_folded(matcher):
+    m = matcher()
+    assert m.process_string_for_matching("Canalé") == m.process_string_for_matching("Canale")
+
+
+# --------------------------------------------------------------------------- #
+# extract_callsign
+# --------------------------------------------------------------------------- #
+
+def test_callsign_from_parenthetical_suffix(matcher):
+    """Priority-1 regex captures the base callsign stem; the loader also stores the
+    '-TV' form, so resolving by either key works. Base form is what's returned."""
+    m = matcher()
+    assert m.extract_callsign("WABC New York (WABC-TV)") == "WABC"
+
+
+def test_regional_word_not_mistaken_for_callsign(matcher):
+    """'(WEST)' looks like a K/W callsign but must be rejected as a false positive."""
+    m = matcher()
+    assert m.extract_callsign("Some Channel (WEST)") != "WEST"
+
+
+# --------------------------------------------------------------------------- #
+# Numeric-sibling guard (bug-021: Fox Sports 1 vs Fox Sports 2)
+# --------------------------------------------------------------------------- #
+
+def test_numeric_siblings_do_not_false_match(matcher):
+    """At threshold 95, 'Fox Sports 2' must NOT match candidate 'Fox Sports 1'."""
+    m = matcher(threshold=95)
+    name, score, mtype = m.fuzzy_match("Fox Sports 2", ["Fox Sports 1"])
+    assert name is None and score == 0
+
+
+def test_numeric_sibling_correct_match_still_works(matcher):
+    """The guard must not block the correct same-number match."""
+    m = matcher(threshold=95)
+    name, score, _ = m.fuzzy_match("Fox Sports 1", ["Fox Sports 1", "Fox Sports 2"])
+    assert name == "Fox Sports 1"
+    assert score == 100
+
+
+def test_find_best_match_respects_numeric_guard(matcher):
+    m = matcher(threshold=95)
+    name, score = m.find_best_match("ESPN 2", ["ESPN 3"])
+    assert name is None and score == 0
+
+
+# --------------------------------------------------------------------------- #
+# _expand_zones
+# --------------------------------------------------------------------------- #
+
+def test_expand_zones_emits_variants_not_base(matcher):
+    """A zoned premium channel yields 'FX East'/'FX West' but NOT bare 'FX'."""
+    m = matcher()
+    names = [c["channel_name"] for c in m._expand_zones(
+        {"channel_name": "FX", "type": "premium/cable/national", "zones": ["East", "West"]})]
+    assert names == ["FX East", "FX West"]
+    assert "FX" not in names
+
+
+def test_expand_zones_passthrough_without_zones(matcher):
+    m = matcher()
+    out = list(m._expand_zones({"channel_name": "CNN", "type": "premium/cable/national"}))
+    assert len(out) == 1 and out[0]["channel_name"] == "CNN"
+
+
+def test_expand_zones_malformed_zones_treated_as_unzoned(matcher):
+    """A non-list 'zones' must degrade gracefully, not raise."""
+    m = matcher()
+    out = list(m._expand_zones({"channel_name": "TNT", "type": "premium", "zones": "East"}))
+    assert len(out) == 1 and out[0]["channel_name"] == "TNT"
+    assert "zones" not in out[0]

@@ -1,0 +1,12 @@
+# Development / CI dependencies for Stream-Mapparr.
+#
+# NOTE: Django, pytz, and the Dispatcharr ORM (apps.channels.models, core.utils)
+# are provided by the Dispatcharr runtime, NOT installed here. The test suite
+# stubs them (see tests/conftest.py) so plugin.py can be imported in isolation.
+#
+# Runtime note: rapidfuzz is OPTIONAL in production (fuzzy_matcher falls back to
+# a pure-Python Levenshtein when it is absent). It is required here so CI can
+# exercise BOTH code paths and assert they agree.
+
+pytest>=8.0
+rapidfuzz>=3.0

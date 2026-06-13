@@ -19,7 +19,7 @@ except ImportError:
     _USE_RAPIDFUZZ = False
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "26.095.0100"
+__version__ = "26.161.2350"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -664,16 +664,22 @@ class FuzzyMatcher:
             cutoff = threshold if threshold is not None else 0.0
             return _rf_lev.normalized_similarity(str1, str2, score_cutoff=cutoff)
 
-        # Pure Python fallback with optional early termination
+        # Pure Python fallback with optional early termination.
+        # bug-026: this MUST match rapidfuzz Levenshtein.normalized_similarity,
+        # which is 1 - distance / max(len). The previous formula
+        # (len1 + len2 - distance) / (len1 + len2) scored higher for the same
+        # edit distance, so results depended on whether rapidfuzz was installed
+        # (at threshold 95, "Fox Sports 1" vs "Fox Sports 2" flipped the match
+        # decision). Production runs the rapidfuzz path; this aligns the fallback.
         if len(str1) < len(str2):
             str1, str2 = str2, str1
 
-        total_len = len(str1) + len(str2)
+        max_len = len(str1)  # the longer string after the swap
 
-        # Early rejection: if strings differ in length too much, max possible
-        # similarity is bounded. Check before doing the full DP.
+        # Early rejection: the minimum possible edit distance is the length
+        # difference, so similarity can never exceed (max_len - diff) / max_len.
         if threshold is not None:
-            max_possible = (total_len - abs(len(str1) - len(str2))) / total_len
+            max_possible = (max_len - (len(str1) - len(str2))) / max_len
             if max_possible < threshold:
                 return 0.0
 
@@ -687,21 +693,20 @@ class FuzzyMatcher:
                 substitutions = previous_row[j] + (c1 != c2)
                 current_row.append(min(insertions, deletions, substitutions))
 
-            # Early termination: check if minimum possible distance in this row
-            # already makes it impossible to meet the threshold
+            # Early termination: a lower bound on the final distance is the
+            # current row minimum minus the str1 chars still unprocessed.
             if threshold is not None:
                 min_distance_so_far = min(current_row)
-                # Best case: remaining chars all match perfectly
                 remaining = len(str1) - i - 1
                 best_possible_distance = max(0, min_distance_so_far - remaining)
-                best_possible_ratio = (total_len - best_possible_distance) / total_len
+                best_possible_ratio = (max_len - best_possible_distance) / max_len
                 if best_possible_ratio < threshold:
                     return 0.0
 
             previous_row = current_row
 
         distance = previous_row[-1]
-        return (total_len - distance) / total_len
+        return (max_len - distance) / max_len
     
     def process_string_for_matching(self, s):
         """
@@ -772,14 +777,27 @@ class FuzzyMatcher:
         
         if not normalized_query:
             return None, 0
-        
+
         # Process query for token-sort matching
         processed_query = self.process_string_for_matching(normalized_query)
+
+        # Numeric-sibling guard: when the query contains digit-only tokens (e.g. "Fox Sports 1"),
+        # the discriminating digit becomes a single-char edit under token-sort Levenshtein and
+        # long shared prefixes mask it — FS1 vs FS2 scores 25/26 = 96% and slips past threshold 95.
+        # Require any candidate with digits to share at least one with the query.
+        query_digit_tokens = {t for t in normalized_query.split() if t.isdigit()}
 
         best_score = -1.0
         best_match = None
 
         for candidate in candidate_names:
+            if query_digit_tokens:
+                candidate_lower, _ = self._get_cached_norm(candidate, user_ignored_tags)
+                if candidate_lower:
+                    cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                    if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
+                        continue
+
             # Use cached processed string when available
             processed_candidate = self._get_cached_processed(candidate, user_ignored_tags)
             if not processed_candidate:
@@ -843,11 +861,17 @@ class FuzzyMatcher:
         
         if not normalized_query:
             return None, 0, None
-        
+
+        # Numeric-sibling guard: when the query contains digit-only tokens (e.g. "Fox Sports 1"),
+        # the discriminating digit becomes a single-char edit under token-sort Levenshtein and
+        # long shared prefixes mask it — FS1 vs FS2 scores 25/26 = 96% and slips past threshold 95.
+        # Mirrors the inline guard in plugin.py (~2329). Applied to every stage for defense in depth.
+        query_digit_tokens = {t for t in normalized_query.split() if t.isdigit()}
+
         best_match = None
         best_ratio = 0
         match_type = None
-        
+
         # Stage 1: Exact match (after normalization)
         normalized_query_lower = normalized_query.lower()
         normalized_query_nospace = re.sub(r'[\s&\-]+', '', normalized_query_lower)
@@ -857,6 +881,11 @@ class FuzzyMatcher:
             candidate_lower, candidate_nospace = self._get_cached_norm(candidate, user_ignored_tags)
             if not candidate_lower:
                 continue
+
+            if query_digit_tokens:
+                cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
+                    continue
 
             # Exact match (space/punctuation insensitive)
             if normalized_query_nospace == candidate_nospace:
@@ -879,6 +908,11 @@ class FuzzyMatcher:
             if not candidate_lower:
                 continue
 
+            if query_digit_tokens:
+                cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
+                    continue
+
             # Check if one is a substring of the other
             if normalized_query_lower in candidate_lower or candidate_lower in normalized_query_lower:
                 length_ratio = min(len(normalized_query_lower), len(candidate_lower)) / max(len(normalized_query_lower), len(candidate_lower))
@@ -900,6 +934,13 @@ class FuzzyMatcher:
         threshold_ratio = self.match_threshold / 100.0
 
         for candidate in candidate_names:
+            if query_digit_tokens:
+                candidate_lower, _ = self._get_cached_norm(candidate, user_ignored_tags)
+                if candidate_lower:
+                    cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                    if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
+                        continue
+
             # Use cached processed string when available
             processed_candidate = self._get_cached_processed(candidate, user_ignored_tags)
             if not processed_candidate:

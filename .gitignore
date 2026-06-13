@@ -65,5 +65,28 @@ copilot-instructions.md
 # Local session files
 *.zip
 *.txt
+!requirements-dev.txt
 C--Users-btoll-claude-dispatcharr-Stream-Mapparr/
 docs/superpowers/
+# Local archive of historical per-version notes (decluttered out of the repo root)
+docs/history/
+
+# OpenWolf session/memory state (local context tooling, not source)
+.wolf/
+
+# Per-version dev-doc explosion. The consolidated Stream-Mapparr/CHANGELOG.md is
+# the source of truth; archive historical notes under docs/history/ rather than
+# committing one file per version/bug at the repo root.
+BUG_*.md
+BUGFIX_*.md
+CHANGELOG_v*.md
+CHANGES_SUMMARY*.md
+IMPLEMENTATION_SUMMARY*.md
+QUICK_*.md
+RELEASE_SUMMARY*.md
+*_SUMMARY.md
+*_PLAN.md
+*_GUIDE*.md
+*_COMPLETE.md
+# CSV exports produced by dry-run / sort actions
+*.csv
