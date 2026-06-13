@@ -88,6 +88,7 @@ class PluginConfig:
     DEFAULT_SELECTED_GROUPS = ""                # Empty = all groups
     DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
     DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
+    DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
@@ -424,6 +425,14 @@ class Plugin:
                 "default": PluginConfig.DEFAULT_SELECTED_M3US,
                 "placeholder": "IPTV Provider 1, Local M3U, Sports",
                 "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality.",
+            },
+            {
+                "id": "custom_aliases",
+                "label": "🔤 Custom Aliases (JSON)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_CUSTOM_ALIASES,
+                "placeholder": '{"My Channel": ["Provider Stream Name", "Alt Name"]}',
+                "help_text": "JSON object mapping a channel name to extra stream-name aliases (a bare string is accepted as a single alias). Streams whose name exactly matches an alias are force-matched to that channel. Leave blank to use built-in aliases only.",
             },
             {
                 "id": "prioritize_quality",
