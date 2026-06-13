@@ -78,7 +78,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1641935"
+    PLUGIN_VERSION = "1.26.1642009"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -3446,6 +3446,45 @@ class Plugin:
             logger.error(f"[Stream-Mapparr] Error loading channels: {str(e)}")
             return {"status": "error", "message": f"Error loading channels: {str(e)}"}
 
+    def _m3u_name_map(self, logger):
+        """Map m3u_account id -> source name, for tagging CSV stream names.
+
+        Lets the CSV distinguish multi-source copies of a channel (same stream
+        name from different providers, kept since the (name, m3u_account) dedup).
+        Returns {} on any failure (the labels then fall back to the bare name).
+        """
+        name_map = {}
+        try:
+            for acct in self._get_all_m3u_accounts(logger):
+                aid = acct.get('id')
+                if aid is not None:
+                    name_map[aid] = acct.get('name') or f"m3u-{aid}"
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Could not build M3U name map: {e}")
+        return name_map
+
+    @staticmethod
+    def _labeled_stream_names(streams, name_map):
+        """['<name> [<source>]', ...] — tag each stream with its M3U source.
+
+        Streams whose account is unknown or missing are left as the bare name.
+        """
+        labeled = []
+        for s in streams:
+            src = name_map.get(s.get('m3u_account'))
+            labeled.append(f"{s['name']} [{src}]" if src else s['name'])
+        return labeled
+
+    def _label_streams(self, streams, logger):
+        """Tag stream names with their M3U source for CSV output.
+
+        Builds the id->name map once per instance and caches it (account names
+        rarely change within a session; a deploy restarts the plugin anyway).
+        """
+        if getattr(self, "_m3u_name_cache", None) is None:
+            self._m3u_name_cache = self._m3u_name_map(logger)
+        return self._labeled_stream_names(streams, self._m3u_name_cache)
+
     def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
@@ -3818,7 +3857,7 @@ class Plugin:
                         "channel_name": channel['name'],
                         "threshold": current_threshold,
                         "matched_streams": match_count,
-                        "stream_names": [s['name'] for s in matched_streams],
+                        "stream_names": self._label_streams(matched_streams, logger),
                         "will_update": True,
                         "is_current": True
                     })
@@ -3829,7 +3868,7 @@ class Plugin:
                         low_match_channels.append({
                             'name': channel['name'],
                             'count': match_count,
-                            'streams': [s['name'] for s in matched_streams[:3]]
+                            'streams': self._label_streams(matched_streams[:3], logger)
                         })
                     
                     # Add rows for additional matches at lower thresholds
@@ -3847,7 +3886,7 @@ class Plugin:
                                 "channel_name": f"  └─ (at threshold {threshold})",
                                 "threshold": threshold,
                                 "matched_streams": len(new_streams),
-                                "stream_names": [s['name'] for s in new_streams],
+                                "stream_names": self._label_streams(new_streams, logger),
                                 "will_update": False,
                                 "is_current": False
                             })
@@ -4099,13 +4138,13 @@ class Plugin:
                                 'channel_name': channel['name'],
                                 'threshold': current_threshold,
                                 'matched_streams': match_count,
-                                'stream_names': '; '.join(s['name'] for s in matched_streams),
+                                'stream_names': '; '.join(self._label_streams(matched_streams, logger)),
                             })
                             if 0 < match_count <= 3:
                                 low_match_channels.append({
                                     'name': channel['name'],
                                     'count': match_count,
-                                    'streams': [s['name'] for s in matched_streams[:3]],
+                                    'streams': self._label_streams(matched_streams[:3], logger),
                                 })
 
                     with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
@@ -4354,7 +4393,7 @@ class Plugin:
                     'channel_name': channel_name,
                     'callsign': base_callsign,
                     'stream_ids': [s['id'] for s in sorted_streams],
-                    'stream_names': [s['name'] for s in sorted_streams],
+                    'stream_names': self._label_streams(sorted_streams, logger),
                     'match_type': f'US OTA callsign: {base_callsign}'
                 })
                 

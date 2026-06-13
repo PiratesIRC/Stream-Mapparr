@@ -155,3 +155,31 @@ def test_dedup_keeps_same_name_from_different_accounts(plugin_module):
     ]
     out = p._deduplicate_streams(streams)
     assert [s["id"] for s in out] == [1, 2]
+
+
+# --------------------------------------------------------------------------- #
+# _labeled_stream_names — tag CSV stream names with their M3U source so
+#   multi-source copies (same name, different provider) are distinguishable.
+# --------------------------------------------------------------------------- #
+
+def test_labeled_stream_names_tags_source(plugin_module):
+    Plugin = plugin_module.Plugin
+    streams = [
+        {"name": "GO: CNN", "m3u_account": 5},
+        {"name": "GO: CNN", "m3u_account": 9},   # same name, different provider
+        {"name": "US: CNN HD", "m3u_account": 5},
+    ]
+    name_map = {5: "streamq-bk15", 9: "streamq-bk26"}
+    out = Plugin._labeled_stream_names(streams, name_map)
+    assert out == [
+        "GO: CNN [streamq-bk15]",
+        "GO: CNN [streamq-bk26]",
+        "US: CNN HD [streamq-bk15]",
+    ]
+
+
+def test_labeled_stream_names_unknown_or_missing_account_unlabeled(plugin_module):
+    Plugin = plugin_module.Plugin
+    streams = [{"name": "Foo", "m3u_account": 99}, {"name": "Bar"}]
+    out = Plugin._labeled_stream_names(streams, {5: "x"})
+    assert out == ["Foo", "Bar"]  # unknown / missing account -> no tag
