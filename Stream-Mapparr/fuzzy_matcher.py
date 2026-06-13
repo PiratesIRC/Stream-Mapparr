@@ -163,6 +163,43 @@ def _strip_stylized_tokens(name):
     return unicodedata.normalize('NFKD', ' '.join(kept))
 
 
+# --------------------------------------------------------------------------- #
+# Emoji-as-letter + emoji decoration normalization
+# --------------------------------------------------------------------------- #
+# Some streams use an emoji AS A LETTER inside a word: "SP⚽RTS" / "Sp⚽rts" where the
+# soccer ball stands in for 'o' (= SPORTS, the beIN family). _strip_stylized_tokens keeps
+# the token (it has ASCII alnum) and process_string_for_matching would turn the ball into a
+# space ("sp rts"), so it never matches "sports". We substitute the glyph for the letter it
+# replaces (only when flanked by ASCII letters) and strip emoji used purely as decoration.
+
+# Emoji that visually replace an ASCII letter when embedded in a word. Extensible.
+_EMOJI_LETTER_MAP = {'⚽': 'o'}            # SOCCER BALL = 'o'  (SP⚽RTS -> SPORTS)
+# Pictographic ornaments to delete (incl. a stray/standalone ball not used as a letter).
+_EMOJI_ORNAMENTS = frozenset('♬☾⚽')       # beamed notes, last-quarter moon, soccer ball
+# Zero-width / invisible code points that only add noise to a name.
+_ZERO_WIDTH = ('️', '‍')         # VARIATION SELECTOR-16, ZERO WIDTH JOINER
+
+
+def _normalize_emoji(name):
+    """Map emoji-as-letters to their letter and strip emoji decoration.
+
+    The letter substitution fires ONLY when the glyph is flanked by ASCII letters
+    (so "SP⚽RTS" -> "SPoRTS" but a standalone/edge "⚽" is treated as decoration and
+    dropped). Zero-width selectors and ornament pictographs are deleted outright.
+    ASCII-only input is returned unchanged (no emoji possible)."""
+    if name.isascii():
+        return name
+    for zw in _ZERO_WIDTH:
+        if zw in name:
+            name = name.replace(zw, '')
+    for glyph, letter in _EMOJI_LETTER_MAP.items():
+        if glyph in name:
+            name = re.sub(r'(?<=[A-Za-z])' + re.escape(glyph) + r'(?=[A-Za-z])', letter, name)
+    if any(c in _EMOJI_ORNAMENTS for c in name):
+        name = ''.join(c for c in name if c not in _EMOJI_ORNAMENTS)
+    return name
+
+
 class FuzzyMatcher:
     """Handles fuzzy matching for channel and stream names with normalization and database loading."""
     

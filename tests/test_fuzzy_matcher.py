@@ -282,3 +282,34 @@ def test_normalize_no_regression_plain_ascii(matcher):
     assert m.normalize_name("Fox Sports 2") == "Fox Sports 2"
     assert m.normalize_name("CNN HD") == "CNN"
     assert m.normalize_name("ITV1") == "ITV 1"
+
+
+# --------------------------------------------------------------------------- #
+# Emoji-as-letter normalization (beIN SP⚽RTS = SPORTS) + emoji decoration.
+#   BALL = ⚽ SOCCER BALL (U+26BD) used as the letter 'o' mid-word
+#   VS16 = U+FE0F zero-width variation selector (invisible noise)
+# --------------------------------------------------------------------------- #
+BALL = "⚽"
+VS16 = "️"  # U+FE0F
+
+
+def test_normalize_emoji_ball_midword_to_o(fuzzy_module):
+    f = fuzzy_module._normalize_emoji
+    assert f("SP" + BALL + "RTS") == "SPoRTS"
+    assert f("Sp" + BALL + "rts") == "Sports"
+
+
+def test_normalize_emoji_edge_ball_stripped_not_mapped(fuzzy_module):
+    assert fuzzy_module._normalize_emoji("BE" + BALL) == "BE"
+
+
+def test_normalize_emoji_strips_zero_width(fuzzy_module):
+    assert fuzzy_module._normalize_emoji(VS16 + "HULU") == "HULU"
+
+
+def test_normalize_emoji_ascii_fast_path(fuzzy_module):
+    assert fuzzy_module._normalize_emoji("Fox Sports") == "Fox Sports"
+
+
+def test_normalize_emoji_leaves_non_emoji_nonascii(fuzzy_module):
+    assert fuzzy_module._normalize_emoji("Россия") == "Россия"
