@@ -238,6 +238,13 @@ def test_strip_stylized_tokens_ascii_fast_path(fuzzy_module):
     assert fuzzy_module._strip_stylized_tokens("Fox Sports 1") == "Fox Sports 1"
 
 
+def test_strip_stylized_tokens_empty_and_all_decoration(fuzzy_module):
+    # Contract: empty input and an all-decoration name both collapse to "" cleanly
+    # (normalize_name tolerates an empty intermediate result).
+    assert fuzzy_module._strip_stylized_tokens("") == ""
+    assert fuzzy_module._strip_stylized_tokens(RAW) == ""
+
+
 def test_normalize_recovers_weathernation(matcher):
     assert matcher().normalize_name("WEATHERNATION " + RAW) == "WEATHERNATION"
 

@@ -120,7 +120,7 @@ MISC_PATTERNS = [
 # and modifier V is U+2C7D in Latin-Ext-C, both outside the obvious blocks).
 
 # Ornament glyphs whose Unicode name carries no decoration keyword.
-_DECORATIVE_SYMBOLS = frozenset("◉")  # FISHEYE
+_DECORATIVE_SYMBOLS = frozenset("◉")  # FISHEYE; add individual chars (not strings) here
 
 
 def _is_decorative_char(ch):
@@ -134,6 +134,7 @@ def _is_decorative_char(ch):
     try:
         nm = unicodedata.name(ch)
     except ValueError:
+        # unnamed code point (control char / lone surrogate) -> not decoration
         return False
     return ('SUPERSCRIPT' in nm or 'SUBSCRIPT' in nm
             or 'SMALL CAPITAL' in nm or 'MODIFIER LETTER' in nm)
@@ -145,7 +146,8 @@ def _strip_stylized_tokens(name):
     alphanumeric, and every char is decorative or ASCII punctuation (so a bullet glued
     to a colon, or "HD/RAW" written in superscripts, are dropped too). Real ASCII words
     (Gold/VIP) and non-Latin letters (Arabic/Cyrillic/CJK) are always kept. ASCII-only
-    input is returned unchanged (ASCII is invariant under both steps)."""
+    input is returned unchanged via the fast path (no per-char work; NFKD is a no-op
+    on ASCII, so skipping it changes nothing)."""
     if name.isascii():
         return name
     kept = []
