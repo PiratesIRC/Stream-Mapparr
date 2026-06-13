@@ -1295,6 +1295,22 @@ class Plugin:
 
         return alias_map
 
+    def _collect_alias_streams(self, channel_name, working_streams, ignore_tags,
+                               ignore_quality, ignore_regional, ignore_geographic, ignore_misc):
+        """Return stream dicts whose name exact-normalizes to an alias variant of
+        channel_name. Empty when the matcher or alias map is unavailable."""
+        alias_map = getattr(self, "_alias_map", None)
+        if not self.fuzzy_matcher or not alias_map:
+            return []
+        stream_names = [s["name"] for s in working_streams]
+        hit_names = set(self.fuzzy_matcher.alias_lookup(
+            channel_name, stream_names, alias_map, ignore_tags,
+            ignore_quality=ignore_quality, ignore_regional=ignore_regional,
+            ignore_geographic=ignore_geographic, ignore_misc=ignore_misc))
+        if not hit_names:
+            return []
+        return [s for s in working_streams if s["name"] in hit_names]
+
     # =========================================================================
     # ORM HELPER METHODS - Direct database access (replaces HTTP API methods)
     # =========================================================================

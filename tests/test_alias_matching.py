@@ -79,3 +79,29 @@ def test_build_alias_map_non_object_ignored(plugin_module):
     p = _bare_plugin(plugin_module)
     m = p._build_alias_map({"custom_aliases": '["a", "b"]'}, None)
     assert "FS1" in m  # list is not a mapping -> ignored
+
+
+def _plugin_with_matcher(plugin_module, fuzzy_module, alias_map):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(match_threshold=80)
+    p._alias_map = alias_map
+    return p
+
+
+def test_collect_alias_streams_returns_matching_dicts(plugin_module, fuzzy_module):
+    p = _plugin_with_matcher(plugin_module, fuzzy_module, {"FS1": ["FS1", "Fox Sports 1"]})
+    streams = [{"name": "Fox Sports 1", "id": 1}, {"name": "ESPN", "id": 2}]
+    out = p._collect_alias_streams("FS1", streams,
+                                   ignore_tags=[], ignore_quality=True, ignore_regional=True,
+                                   ignore_geographic=True, ignore_misc=True)
+    assert [s["id"] for s in out] == [1]
+
+
+def test_collect_alias_streams_empty_when_no_matcher(plugin_module):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = None
+    p._alias_map = {"FS1": ["Fox Sports 1"]}
+    out = p._collect_alias_streams("FS1", [{"name": "Fox Sports 1"}],
+                                   ignore_tags=[], ignore_quality=True, ignore_regional=True,
+                                   ignore_geographic=True, ignore_misc=True)
+    assert out == []
