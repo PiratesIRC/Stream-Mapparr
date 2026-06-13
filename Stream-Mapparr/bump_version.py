@@ -35,26 +35,26 @@ def auto_version() -> str:
 
 
 def read_json_version() -> str:
-    return json.loads(PLUGIN_JSON.read_text())["version"]
+    return json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))["version"]
 
 
 def read_py_version() -> str:
-    m = PY_VERSION_RE.search(PLUGIN_PY.read_text())
+    m = PY_VERSION_RE.search(PLUGIN_PY.read_text(encoding="utf-8"))
     if not m:
         raise RuntimeError("PLUGIN_VERSION attribute not found in plugin.py")
     return m.group(2)
 
 
 def write_json_version(new: str) -> None:
-    text = PLUGIN_JSON.read_text()
+    text = PLUGIN_JSON.read_text(encoding="utf-8")
     updated = re.sub(r'("version"\s*:\s*)"[^"]+"', f'\\1"{new}"', text, count=1)
-    PLUGIN_JSON.write_text(updated)
+    PLUGIN_JSON.write_text(updated, encoding="utf-8")
 
 
 def write_py_version(new: str) -> None:
-    text = PLUGIN_PY.read_text()
+    text = PLUGIN_PY.read_text(encoding="utf-8")
     updated = PY_VERSION_RE.sub(lambda m: f'{m.group(1)}"{new}"', text, count=1)
-    PLUGIN_PY.write_text(updated)
+    PLUGIN_PY.write_text(updated, encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:
