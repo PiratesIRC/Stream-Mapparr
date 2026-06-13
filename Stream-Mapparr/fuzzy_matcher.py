@@ -50,6 +50,14 @@ QUALITY_PATTERNS = [
     r'\s+\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s+',
 ]
 
+# Numeric resolution markers the keyword QUALITY_PATTERNS miss: 720p, 1080p/i, 2160p,
+# 3840P, 480p, etc. — any 3-4 digit run followed by p/i. The \b anchors avoid matching
+# inside a longer number, and the p/i anchor keeps bare numbers (1080, "Channel 4") intact.
+# Applied with re.IGNORECASE in the ignore_quality block, like QUALITY_PATTERNS.
+RESOLUTION_PATTERNS = [
+    r'\b\d{3,4}\s*[pi]\b',
+]
+
 # Regional indicator patterns: East, West, Pacific, Central, Mountain, Atlantic
 REGIONAL_PATTERNS = [
     # Regional: " East" or " east" (word with space prefix)
@@ -560,6 +568,12 @@ class FuzzyMatcher:
         # Bug: Streams with "4K" suffix were not matching because "4K" was split to "4 K"
         # by the space normalization step, then quality patterns couldn't find "4K" at end
         if ignore_quality:
+            # Strip numeric resolution markers (3840P/2160P/1080P/720P/...) before the
+            # digit/letter spacer below would split "3840P" into "3840 P".
+            # Must run before QUALITY_PATTERNS so that removing " 4K " does not glue
+            # "SPoRTS" to "3840P" and break the word-boundary anchor.
+            for pattern in RESOLUTION_PATTERNS:
+                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
             for pattern in QUALITY_PATTERNS:
                 name = re.sub(pattern, '', name, flags=re.IGNORECASE)
 

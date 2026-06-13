@@ -354,3 +354,43 @@ def test_bein_sports_matches_after_emoji_fix(matcher):
     match, score = m.find_best_match("beIN Sports", ["### beIN " + "SP" + BALL + "RTS" + " ###"])
     assert match is not None
     assert score == 100
+
+
+# --------------------------------------------------------------------------- #
+# Numeric resolution markers (3840P/2160P/1080P/720P...) — NNN[pi] tags that the
+# keyword QUALITY_PATTERNS miss. Gated by ignore_quality (default True).
+# --------------------------------------------------------------------------- #
+
+def test_normalize_strips_3840p(matcher):
+    assert matcher().normalize_name("BEIN SPORTS GOLD 3840P") == "BEIN SPORTS GOLD"
+
+
+def test_normalize_strips_common_resolutions(matcher):
+    m = matcher()
+    assert m.normalize_name("RELAX 1 3840P") == "RELAX 1"
+    assert m.normalize_name("Sky Sports 720P") == "Sky Sports"
+    assert m.normalize_name("Foo 1080i") == "Foo"
+    assert m.normalize_name("Foo 2160p") == "Foo"
+
+
+def test_normalize_resolution_keeps_bare_numbers(matcher):
+    m = matcher()
+    assert m.normalize_name("Channel 4") == "Channel 4"
+    assert m.normalize_name("Studio 1080") == "Studio 1080"
+
+
+def test_normalize_resolution_no_regression(matcher):
+    m = matcher()
+    assert m.normalize_name("CNN HD") == "CNN"
+    assert m.normalize_name("ITV1") == "ITV 1"
+
+
+def test_resolution_strip_respects_ignore_quality_flag(matcher):
+    assert "1080" in matcher().normalize_name("Foo 1080p", ignore_quality=False)
+
+
+def test_bein_4k_3840p_matches_after_resolution_fix(matcher):
+    m = matcher(95)
+    match, score = m.find_best_match("beIN Sports", ["### beIN " + "SP⚽RTS" + " 4K 3840P ###"])
+    assert match is not None
+    assert score == 100
