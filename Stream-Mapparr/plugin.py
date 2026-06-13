@@ -34,6 +34,25 @@ _stop_event = threading.Event()
 # Setup logging - Dispatcharr provides a pre-configured logger via context
 LOGGER = logging.getLogger("plugins.stream_mapparr")
 
+
+def coerce_timezone(value):
+    """Return a valid IANA timezone name, or "UTC" as a safe fallback.
+
+    Accepts whatever Dispatcharr has stored for its global time zone — None,
+    blank, non-string, or an invalid name all return "UTC". pytz is imported
+    lazily so this helper stays usable even where pytz is absent.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return "UTC"
+    candidate = value.strip()
+    try:
+        import pytz
+        pytz.timezone(candidate)
+    except Exception:
+        return "UTC"
+    return candidate
+
+
 # ============================================================================
 # CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
 # ============================================================================
@@ -99,7 +118,7 @@ class PluginConfig:
     RATE_LIMIT_HIGH = 2.0                       # 1 operation/2 seconds
 
     # === SCHEDULING SETTINGS ===
-    DEFAULT_TIMEZONE = "US/Central"             # Default timezone for scheduled runs
+    DEFAULT_TIMEZONE = "UTC"                     # Fallback when Dispatcharr's global Time Zone is unset/invalid
     DEFAULT_SCHEDULED_TIMES = ""                # Empty = no scheduling
     DEFAULT_ENABLE_CSV_EXPORT = True            # Create CSV when streams added
 
@@ -520,28 +539,6 @@ class Plugin:
                 "help_text": "Controls delay between operations. None=No delays, Low=Fast, Medium=Standard, High=Slow/Safe.",
             },
             {
-                "id": "timezone",
-                "label": "🌍 Timezone",
-                "type": "select",
-                "default": PluginConfig.DEFAULT_TIMEZONE,
-                "help_text": "Timezone for scheduled runs. Schedule times below will be converted to UTC.",
-                "options": [
-                    {"label": "UTC (Coordinated Universal Time)", "value": "UTC"},
-                    {"label": "US/Eastern (EST/EDT) - New York", "value": "US/Eastern"},
-                    {"label": "US/Central (CST/CDT) - Chicago", "value": "US/Central"},
-                    {"label": "US/Mountain (MST/MDT) - Denver", "value": "US/Mountain"},
-                    {"label": "US/Pacific (PST/PDT) - Los Angeles", "value": "US/Pacific"},
-                    {"label": "America/Phoenix (MST - no DST)", "value": "America/Phoenix"},
-                    {"label": "Europe/London (GMT/BST)", "value": "Europe/London"},
-                    {"label": "Europe/Paris (CET/CEST)", "value": "Europe/Paris"},
-                    {"label": "Europe/Berlin (CET/CEST)", "value": "Europe/Berlin"},
-                    {"label": "Asia/Dubai (GST)", "value": "Asia/Dubai"},
-                    {"label": "Asia/Tokyo (JST)", "value": "Asia/Tokyo"},
-                    {"label": "Asia/Shanghai (CST)", "value": "Asia/Shanghai"},
-                    {"label": "Australia/Sydney (AEDT/AEST)", "value": "Australia/Sydney"}
-                ]
-            },
-            {
                 "id": "filter_dead_streams",
                 "label": "🚫 Filter Dead Streams",
                 "type": "boolean",
@@ -575,7 +572,7 @@ class Plugin:
                 "type": "string",
                 "default": PluginConfig.DEFAULT_SCHEDULED_TIMES,
                 "placeholder": "0600,1300,1800",
-                "help_text": "Comma-separated times to run automatically each day (24-hour format). Example: 0600,1300,1800 runs at 6 AM, 1 PM, and 6 PM daily. Leave blank to disable scheduling.",
+                "help_text": "Comma-separated times to run automatically each day (24-hour format). Example: 0600,1300,1800 runs at 6 AM, 1 PM, and 6 PM daily. Times are interpreted in Dispatcharr's configured Time Zone (General Settings). Leave blank to disable scheduling.",
             },
             {
                 "id": "scheduled_sort_streams",
@@ -933,17 +930,30 @@ class Plugin:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"status": "error", "message": f"Error cleaning up periodic tasks: {e}"}
 
-    def _get_system_timezone(self, settings):
-        """Get the system timezone from settings"""
-        # First check if user specified a timezone in plugin settings
-        if settings.get('timezone'):
-            user_tz = settings.get('timezone')
-            LOGGER.info(f"Using user-specified timezone: {user_tz}")
-            return user_tz
-        
-        # Otherwise use configured default timezone
-        LOGGER.info(f"Using default timezone: {PluginConfig.DEFAULT_TIMEZONE}")
-        return PluginConfig.DEFAULT_TIMEZONE
+    def _dispatcharr_timezone(self):
+        """Resolve the effective timezone from Dispatcharr's global setting.
+
+        Reads Dispatcharr's General Settings -> Time Zone via the official
+        core.models.CoreSettings.get_system_time_zone() accessor. Returns "UTC"
+        when the value is missing/blank/invalid, or if anything raises (e.g.
+        running outside Dispatcharr or during migrations). Validation and the
+        UTC fallback live in the module-level coerce_timezone (Django-free, tested).
+        """
+        try:
+            from core.models import CoreSettings
+            return coerce_timezone(CoreSettings.get_system_time_zone())
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Could not read Dispatcharr timezone, using UTC: {e}")
+            return "UTC"
+
+    def _get_system_timezone(self, settings=None):
+        """Return the scheduler timezone — Dispatcharr's global Time Zone setting.
+
+        The plugin no longer has its own timezone field; Dispatcharr is the
+        single source of truth. `settings` is accepted for call-site
+        compatibility but intentionally ignored.
+        """
+        return self._dispatcharr_timezone()
         
     def _parse_scheduled_times(self, scheduled_times_str):
         """Parse scheduled times string into list of datetime.time objects"""
@@ -3164,10 +3174,9 @@ class Plugin:
             else:
                 validation_results.append("✅ Channel Groups (all)")
 
-            # 4. Validate timezone is not empty
+            # 4. Validate timezone is not empty (sourced from Dispatcharr's global setting)
             logger.debug("[Stream-Mapparr] Validating timezone...")
-            timezone_str = settings.get("timezone") or PluginConfig.DEFAULT_TIMEZONE
-            timezone_str = timezone_str.strip() if timezone_str else PluginConfig.DEFAULT_TIMEZONE
+            timezone_str = self._get_system_timezone(settings)
             if not timezone_str:
                 validation_results.append("❌ Timezone: Not configured")
                 has_errors = True
@@ -3500,7 +3509,7 @@ class Plugin:
             f"# IPTV Checker Max Wait (hours): {settings.get('iptv_checker_max_wait_hours', PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS)}",
             "#",
             "# === Scheduling Settings ===",
-            f"# Timezone: {settings.get('timezone', PluginConfig.DEFAULT_TIMEZONE)}",
+            f"# Timezone (Dispatcharr): {self._get_system_timezone(settings)}",
             f"# Scheduled Times: {settings.get('schedule_cron', '(none)')}",
             f"# Schedule: Sort Streams: {settings.get('scheduled_sort_streams', False)}",
             f"# Schedule: Match & Assign Streams: {settings.get('scheduled_match_streams', True)}",
