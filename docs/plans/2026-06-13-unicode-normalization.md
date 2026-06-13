@@ -33,7 +33,7 @@ Self-contained, single-responsibility: the two helpers are pure (no `self`, no I
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/test_fuzzy_matcher.py`. Non-ASCII inputs are built from `\u`/`\N` escapes so the test file stays pure-ASCII and the code points are explicit.
+Append to `tests/test_fuzzy_matcher.py`. Use literal Unicode chars (UTF-8 source), matching the existing convention in this file (`test_accents_folded` uses `'Canalé'`, `test_unicode_user_ignore_tag_does_not_crash` uses `'┃NLZIET┃'`); the comment block documents each marker's code points so they stay unambiguous.
 
 ```python
 # --------------------------------------------------------------------------- #
