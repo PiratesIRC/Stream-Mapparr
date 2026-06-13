@@ -58,19 +58,30 @@ python scripts/validate_databases.py
 
 Use the **`/deploy-plugin`** skill, or do it by hand. The critical rule:
 
-> **Dispatcharr hot-reloads on `plugin.json` mtime, NOT `plugin.py`.**
-> Always bump the version (which touches `plugin.json`) and copy **both** files,
-> or the old module stays in memory and you debug a build that isn't running.
+> **Copying files is not enough — you must restart.** The documented
+> "hot-reload on `plugin.json` mtime" did NOT fire reliably in practice
+> (verified 2026-06-13: three mtime-bumped deploys kept running the stale
+> in-memory module for an hour). Bump the version, copy **every** changed file
+> (incl. new modules like `aliases.py` and changed `fuzzy_matcher.py`), then
+> `docker restart dispatcharr` and confirm the logged version.
 
 ```bash
 python Stream-Mapparr/bump_version.py
-docker cp Stream-Mapparr/plugin.py   dispatcharr:/data/plugins/stream-mapparr/
-docker cp Stream-Mapparr/plugin.json dispatcharr:/data/plugins/stream-mapparr/
-docker logs --tail 50 dispatcharr | grep -i stream-mapparr   # confirm new version is live
+for f in plugin.py plugin.json fuzzy_matcher.py aliases.py; do
+  MSYS_NO_PATHCONV=1 docker cp "Stream-Mapparr/$f" dispatcharr:/data/plugins/stream-mapparr/
+done
+# copy any changed *_channels.json too
+docker restart dispatcharr
+until docker logs --since 2m dispatcharr 2>&1 | grep -q "stream_mapparr.*initialized"; do sleep 2; done
+docker logs --since 3m dispatcharr 2>&1 | grep -i "stream_mapparr.*initialized"  # version MUST match the bump
 ```
 
-A background thread started under the old code keeps running the old code until
-it exits — fresh deploys only affect new invocations.
+Notes:
+- A background thread started under the old code keeps running the old code until
+  it exits — fresh deploys only affect new invocations (another reason to restart).
+- After the backend reloads, the settings UI may still show a cached form
+  (e.g. a removed field). Hard-refresh the Dispatcharr plugins page.
+- `MSYS_NO_PATHCONV=1` stops Git Bash mangling the `:/data/...` container path on Windows.
 
 ---
 
