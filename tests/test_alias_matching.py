@@ -118,6 +118,9 @@ def test_alias_only_stream_survives_rematch_filter(plugin_module, fuzzy_module):
     channel = {"name": "FS1", "id": 10}
     streams = [{"name": "Fox Sports 1", "id": 1, "m3u_account": 1}]
 
+    # Precondition: fuzzy alone must miss, so the test proves the alias path (not fuzzy).
+    assert p.fuzzy_matcher.fuzzy_match("FS1", ["Fox Sports 1"])[0] is None
+
     result = p._match_streams_to_channel(channel, streams, logger=None)
     matched = result[0]  # (streams, cleaned_channel, cleaned_streams, reason, db)
     assert any(s["id"] == 1 for s in matched), "alias-only stream was dropped"

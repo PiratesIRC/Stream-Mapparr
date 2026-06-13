@@ -2468,7 +2468,9 @@ class Plugin:
                         s['name'], ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     ) for s in sorted_streams]
-                    return sorted_streams, cleaned_channel_name, cleaned_stream_names, f"Fuzzy match ({match_type}, score: {score})", database_used
+                    reason = ("Alias match" if (alias_streams and not matched_stream_name)
+                              else f"Fuzzy match ({match_type}, score: {score})")
+                    return sorted_streams, cleaned_channel_name, cleaned_stream_names, reason, database_used
 
             return [], cleaned_channel_name, [], "No fuzzy match", database_used
 
