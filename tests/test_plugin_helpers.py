@@ -119,3 +119,39 @@ def test_probe_missing_or_malformed_entry(plugin_module):
     assert p._is_probe_fresh({}, ttl_minutes=30) is False
     assert p._is_probe_fresh(
         {"throughput_mbps": 5.0, "throughput_measured_at": "not-a-date"}, 30) is False
+
+
+# --------------------------------------------------------------------------- #
+# _deduplicate_streams — keyed on (name, m3u_account) for multi-source failover
+#   (issue #28 / PR #29). Dedup always runs AFTER _sort_streams_by_quality, so
+#   "keep first occurrence" keeps the highest-quality stream per key.
+# --------------------------------------------------------------------------- #
+
+def test_dedup_collapses_same_name_same_account(plugin_module):
+    """True duplicates within one provider collapse to the first (best) one."""
+    p = _bare_plugin(plugin_module)
+    streams = [
+        {"name": "ESPN HD", "m3u_account": 5, "id": 1},  # best (sorted first)
+        {"name": "ESPN HD", "m3u_account": 5, "id": 2},  # dup within same source
+    ]
+    out = p._deduplicate_streams(streams)
+    assert [s["id"] for s in out] == [1]
+
+
+def test_dedup_drops_nameless_streams(plugin_module):
+    p = _bare_plugin(plugin_module)
+    streams = [{"name": "", "m3u_account": 5}, {"name": "ESPN HD", "m3u_account": 5}]
+    out = p._deduplicate_streams(streams)
+    assert [s["name"] for s in out] == ["ESPN HD"]
+
+
+def test_dedup_keeps_same_name_from_different_accounts(plugin_module):
+    """Multi-source failover (issue #28): identical names from DIFFERENT
+    providers both survive; only same-source duplicates collapse."""
+    p = _bare_plugin(plugin_module)
+    streams = [
+        {"name": "ESPN HD", "m3u_account": 5, "id": 1},
+        {"name": "ESPN HD", "m3u_account": 9, "id": 2},  # different provider
+    ]
+    out = p._deduplicate_streams(streams)
+    assert [s["id"] for s in out] == [1, 2]
