@@ -1,8 +1,13 @@
 # Development / CI dependencies for Stream-Mapparr.
 #
-# NOTE: Django, pytz, and the Dispatcharr ORM (apps.channels.models, core.utils)
-# are provided by the Dispatcharr runtime, NOT installed here. The test suite
-# stubs them (see tests/conftest.py) so plugin.py can be imported in isolation.
+# NOTE: Django and the Dispatcharr ORM (apps.channels.models, core.utils) are
+# provided by the Dispatcharr runtime, NOT installed here. The test suite stubs
+# them (see tests/conftest.py) so plugin.py can be imported in isolation.
+#
+# pytz IS installed here: coerce_timezone() validates timezone names via pytz,
+# and the conftest pytz stub is permissive (never raises), so timezone-validation
+# tests are only meaningful against the real package. Dispatcharr provides pytz
+# at runtime; installing it here just lets CI exercise the real validation path.
 #
 # Runtime note: rapidfuzz is OPTIONAL in production (fuzzy_matcher falls back to
 # a pure-Python Levenshtein when it is absent). It is required here so CI can
@@ -10,3 +15,4 @@
 
 pytest>=8.0
 rapidfuzz>=3.0
+pytz>=2020.1
