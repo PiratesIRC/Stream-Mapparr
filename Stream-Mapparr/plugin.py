@@ -19,7 +19,7 @@ import threading
 
 # Import FuzzyMatcher from the same directory
 from .fuzzy_matcher import FuzzyMatcher
-from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES
+from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES as ALIAS_COUNTRY_OVERRIDES
 # Import fuzzy_matcher version for CSV header
 from . import fuzzy_matcher
 
@@ -59,7 +59,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1641824"
+    PLUGIN_VERSION = "1.26.1641900"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1258,16 +1258,20 @@ class Plugin:
                 self.fuzzy_matcher = None
 
     def _build_alias_map(self, settings, country):
-        """Merge built-in US aliases + COUNTRY_ALIASES[country] + custom_aliases.
+        """Merge built-in US aliases + ALIAS_COUNTRY_OVERRIDES[country] + custom_aliases.
 
         Custom user aliases (JSON object; a bare string is accepted as a single
         alias) are merged last and win. Malformed/invalid input is logged and
         ignored — never raised into the match loop.
+
+        Note: ALIAS_COUNTRY_OVERRIDES is the alias-matching country scaffold from
+        aliases.py — distinct from the Plugin.COUNTRY_ALIASES country-code
+        detection table.
         """
         alias_map = {k: list(v) for k, v in CHANNEL_ALIASES.items()}
 
         if country:
-            for k, v in COUNTRY_ALIASES.get(str(country).upper(), {}).items():
+            for k, v in ALIAS_COUNTRY_OVERRIDES.get(str(country).upper(), {}).items():
                 alias_map[k] = list(dict.fromkeys(alias_map.get(k, []) + list(v)))
 
         custom_str = (settings.get("custom_aliases") or "").strip()
@@ -1319,6 +1323,19 @@ class Plugin:
         if not hit_names:
             return []
         return [s for s in working_streams if s["name"] in hit_names]
+
+    def _ensure_matcher_and_aliases(self, settings):
+        """Make the fuzzy matcher and alias map available regardless of entry path.
+
+        run() initializes both before dispatching actions, but the background
+        scheduler calls the matching actions DIRECTLY (bypassing run()), so a
+        cold scheduled run would otherwise have no matcher and no aliases.
+        Idempotent: only initializes what is missing, never clobbers existing state.
+        """
+        if self.fuzzy_matcher is None:
+            self._initialize_fuzzy_matcher(self._resolve_match_threshold(settings))
+        if getattr(self, "_alias_map", None) is None:
+            self._alias_map = self._build_alias_map(settings, settings.get("channel_database"))
 
     # =========================================================================
     # ORM HELPER METHODS - Direct database access (replaces HTTP API methods)
@@ -3211,6 +3228,9 @@ class Plugin:
     def load_process_channels_action(self, settings, logger, context=None):
         """Load and process channels from specified profile and groups."""
         try:
+            # Self-initialize matcher + alias map for entry paths that bypass run()
+            # (the background scheduler calls this action directly). Idempotent.
+            self._ensure_matcher_and_aliases(settings)
             self._send_progress_update("load_process_channels", 'running', 5, 'Validating settings...', context)
             logger.debug("[Stream-Mapparr] Validating settings before loading channels...")
             has_errors, validation_results = self._validate_plugin_settings(settings, logger)

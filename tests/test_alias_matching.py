@@ -142,3 +142,25 @@ def test_threshold_path_includes_alias_streams(plugin_module, fuzzy_module):
         any(s["id"] == 5 for s in v.get("streams", []))
         for v in results.values())
     assert found, "alias-only stream missing from threshold results"
+
+
+def test_ensure_matcher_and_aliases_cold_start(plugin_module):
+    """Scheduled runs bypass run(); the matching actions must self-initialize
+    the matcher AND the alias map (otherwise cold scheduled runs get no aliases)."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = None
+    p._alias_map = None
+    p._ensure_matcher_and_aliases({"channel_database": "US"})
+    assert p.fuzzy_matcher is not None
+    assert "FS1" in p._alias_map
+
+
+def test_ensure_matcher_and_aliases_idempotent(plugin_module):
+    """Already-initialized matcher/map are left untouched (interactive run path)."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    sentinel = object()
+    p.fuzzy_matcher = sentinel
+    p._alias_map = {"Custom": ["X"]}
+    p._ensure_matcher_and_aliases({"channel_database": "US"})
+    assert p.fuzzy_matcher is sentinel       # not re-initialized
+    assert p._alias_map == {"Custom": ["X"]}  # not clobbered
