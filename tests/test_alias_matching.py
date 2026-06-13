@@ -124,3 +124,21 @@ def test_alias_only_stream_survives_rematch_filter(plugin_module, fuzzy_module):
     result = p._match_streams_to_channel(channel, streams, logger=None)
     matched = result[0]  # (streams, cleaned_channel, cleaned_streams, reason, db)
     assert any(s["id"] == 1 for s in matched), "alias-only stream was dropped"
+
+
+def test_threshold_path_includes_alias_streams(plugin_module, fuzzy_module):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(match_threshold=80)
+    p._alias_map = {"TCM": ["TCM", "Turner Classic Movies"]}
+
+    channel = {"name": "TCM", "id": 11}
+    streams = [{"name": "Turner Classic Movies", "id": 5, "m3u_account": 1}]
+
+    results = p._get_matches_at_thresholds(
+        channel, streams, logger=None, ignore_tags=[], ignore_quality=True,
+        ignore_regional=True, ignore_geographic=True, ignore_misc=True,
+        channels_data=[], current_threshold=80)
+    found = any(
+        any(s["id"] == 5 for s in v.get("streams", []))
+        for v in results.values())
+    assert found, "alias-only stream missing from threshold results"

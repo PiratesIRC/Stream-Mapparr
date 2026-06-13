@@ -2597,8 +2597,12 @@ class Plugin:
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
                     ignore_geographic=ignore_geographic, ignore_misc=ignore_misc
                 )
+                alias_streams = self._collect_alias_streams(
+                    channel_name, candidate_streams, ignore_tags, ignore_quality,
+                    ignore_regional, ignore_geographic, ignore_misc)
+                alias_ids = {id(s) for s in alias_streams}
 
-                if matched_stream_name:
+                if matched_stream_name or alias_streams:
                     cleaned_channel_name = self._clean_channel_name(
                         channel_name, ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc
@@ -2606,29 +2610,31 @@ class Plugin:
                     cleaned_matched = self._clean_channel_name(
                         matched_stream_name, ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
-                    )
+                    ) if matched_stream_name else ""
 
-                    matching_streams = []
+                    matching_streams = list(alias_streams)
                     for stream in candidate_streams:
+                        if id(stream) in alias_ids:
+                            continue  # already force-included via alias
                         cleaned_stream = self._clean_channel_name(
                             stream['name'], ignore_tags, ignore_quality, ignore_regional,
                             ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                         )
-                        
+
                         if not cleaned_stream or len(cleaned_stream) < 2:
                             continue
                         if not cleaned_matched or len(cleaned_matched) < 2:
                             continue
-                        
+
                         if cleaned_stream.lower() == cleaned_matched.lower():
                             matching_streams.append(stream)
-                    
+
                     if matching_streams:
                         sorted_streams = self._sort_streams_by_quality(matching_streams)
                         sorted_streams = self._deduplicate_streams(sorted_streams)
                         results[threshold] = {
                             'streams': sorted_streams,
-                            'match_type': match_type,
+                            'match_type': match_type if matched_stream_name else "alias",
                             'score': score
                         }
             finally:
