@@ -41,7 +41,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 ### Matching
 - **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
 - **US OTA callsign matching**: Dedicated action for matching US broadcast channels by callsign against authoritative database (5,900+ callsigns)
-- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL
+- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL, NO
 - **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
 - **Country-restricted matching** (opt-in): Only match streams from the same detected country/group — e.g. `CANADA/CA` channels match only `CANADA/CA` streams
 - **Normalization cache**: Pre-normalizes stream names once for batch matching performance

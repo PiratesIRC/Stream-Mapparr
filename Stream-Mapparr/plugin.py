@@ -1413,7 +1413,7 @@ class Plugin:
 
     # Country/region aliases. Maps whatever string forms appear in channel group
     # or stream/channel names to the canonical code used by the shipped
-    # *_channels.json databases. Covers all 11 shipped country DBs.
+    # *_channels.json databases. Covers all 12 shipped country DBs.
     COUNTRY_ALIASES = {
         # United States
         "US": "US", "USA": "US", "U.S.": "US", "U.S.A": "US",
@@ -1436,6 +1436,8 @@ class Plugin:
         # Netherlands
         "NL": "NL", "NLD": "NL", "HOL": "NL",
         "NETHERLANDS": "NL", "HOLLAND": "NL",
+        # Norway
+        "NO": "NO", "NOR": "NO", "NORWAY": "NO", "NORGE": "NO",
         # Spain
         "ES": "ES", "ESP": "ES", "SPAIN": "ES", "ESPANA": "ES", "ESPAÑA": "ES",
         # Mexico (normalize to MX — matches MX_channels.json)
