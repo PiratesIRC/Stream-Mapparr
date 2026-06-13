@@ -108,6 +108,59 @@ MISC_PATTERNS = [
 ]
 
 
+# --------------------------------------------------------------------------- #
+# Stylized-Unicode decoration stripping
+# --------------------------------------------------------------------------- #
+# Streams tag names with stylized-Unicode tier/format markers (superscript
+# "WEATHERNATION RAW", small-cap "FHD", bullet-prefixed "CNN") that the ASCII tag
+# regexes below cannot see. We drop whole tokens that are pure decoration BEFORE
+# the ASCII pipeline runs. Detection is by Unicode character *name* (not code-point
+# ranges), so it covers superscripts, "modifier letter" superscript capitals, and
+# Latin small-caps wherever they live (e.g. small-cap H is U+029C in IPA Extensions
+# and modifier V is U+2C7D in Latin-Ext-C, both outside the obvious blocks).
+
+# Ornament glyphs whose Unicode name carries no decoration keyword.
+_DECORATIVE_SYMBOLS = frozenset("◉")  # FISHEYE
+
+
+def _is_decorative_char(ch):
+    """True for a stylized letterform/ornament that carries no semantic content in a
+    channel name (superscripts, subscripts, modifier-letter superscript capitals,
+    Latin small-capitals, curated bullets). ASCII and ordinary letters return False."""
+    if ch.isascii():
+        return False
+    if ch in _DECORATIVE_SYMBOLS:
+        return True
+    try:
+        nm = unicodedata.name(ch)
+    except ValueError:
+        return False
+    return ('SUPERSCRIPT' in nm or 'SUBSCRIPT' in nm
+            or 'SMALL CAPITAL' in nm or 'MODIFIER LETTER' in nm)
+
+
+def _strip_stylized_tokens(name):
+    """Drop whitespace tokens that are pure stylized decoration, then NFKD-canonicalize
+    the remainder. A token is decoration when it has >=1 decorative char, no ASCII
+    alphanumeric, and every char is decorative or ASCII punctuation (so a bullet glued
+    to a colon, or "HD/RAW" written in superscripts, are dropped too). Real ASCII words
+    (Gold/VIP) and non-Latin letters (Arabic/Cyrillic/CJK) are always kept. ASCII-only
+    input is returned unchanged (ASCII is invariant under both steps)."""
+    if name.isascii():
+        return name
+    kept = []
+    for tok in name.split():
+        has_decorative = any(_is_decorative_char(c) for c in tok)
+        has_ascii_alnum = any(c.isascii() and c.isalnum() for c in tok)
+        only_decorative_or_punct = all(
+            _is_decorative_char(c) or (c.isascii() and not c.isalnum()) for c in tok
+        )
+        if has_decorative and only_decorative_or_punct and not has_ascii_alnum:
+            continue  # pure decoration -> drop the whole token
+        kept.append(tok)
+    return unicodedata.normalize('NFKD', ' '.join(kept))
+
+
 class FuzzyMatcher:
     """Handles fuzzy matching for channel and stream names with normalization and database loading."""
     

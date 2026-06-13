@@ -180,3 +180,59 @@ def test_expand_zones_malformed_zones_treated_as_unzoned(matcher):
     out = list(m._expand_zones({"channel_name": "TNT", "type": "premium", "zones": "East"}))
     assert len(out) == 1 and out[0]["channel_name"] == "TNT"
     assert "zones" not in out[0]
+
+
+# --------------------------------------------------------------------------- #
+# Stylized-Unicode decoration stripping (WeatherNation fix).
+# Markers documented by code point so they stay unambiguous:
+#   RAW = superscript R A W (U+1D3F U+1D2C U+1D42)
+#   HD  = superscript H D   (U+1D34 U+1D30)
+#   FHD = small-cap  F H D  (U+A730 U+029C U+1D05)
+#   FISH = FISHEYE bullet   (U+25C9)
+#   FPS60 = superscript "60fps" (U+2076 U+2070 U+1DA0 U+1D56 U+02E2)
+#   ARABIC/CYRILLIC = real non-Latin words (must be preserved)
+# --------------------------------------------------------------------------- #
+RAW = "ᴿᴬᵂ"
+HD = "ᴴᴰ"
+FHD = "ꜰʜᴅ"
+FISH = "◉"
+FPS60 = "⁶⁰ᶠᵖˢ"
+ARABIC = "الم"
+CYRILLIC = "Россия"
+
+
+def test_is_decorative_char_classifies_markers(fuzzy_module):
+    f = fuzzy_module._is_decorative_char
+    assert f("ᴿ") is True   # superscript modifier-letter R
+    assert f("ꜰ") is True   # Latin small capital F
+    assert f("◉") is True   # FISHEYE bullet (curated)
+    assert f("⁶") is True   # superscript six
+
+
+def test_is_decorative_char_keeps_real_letters(fuzzy_module):
+    f = fuzzy_module._is_decorative_char
+    assert f("G") is False
+    assert f("4") is False
+    assert f("я") is False   # Cyrillic small ya
+    assert f("ا") is False   # Arabic alef
+
+
+def test_strip_stylized_tokens_drops_superscript_token(fuzzy_module):
+    assert fuzzy_module._strip_stylized_tokens("WEATHERNATION " + RAW) == "WEATHERNATION"
+
+
+def test_strip_stylized_tokens_drops_punct_glued_ornament(fuzzy_module):
+    assert fuzzy_module._strip_stylized_tokens(FISH + ": CNN") == "CNN"
+
+
+def test_strip_stylized_tokens_keeps_ascii_tier_word(fuzzy_module):
+    assert fuzzy_module._strip_stylized_tokens("Gold " + RAW) == "Gold"
+
+
+def test_strip_stylized_tokens_is_non_latin_safe(fuzzy_module):
+    # glued Arabic + superscript HD: Arabic token KEPT; NFKD folds the superscript HD to "HD".
+    assert fuzzy_module._strip_stylized_tokens(ARABIC + HD) == ARABIC + "HD"
+
+
+def test_strip_stylized_tokens_ascii_fast_path(fuzzy_module):
+    assert fuzzy_module._strip_stylized_tokens("Fox Sports 1") == "Fox Sports 1"
