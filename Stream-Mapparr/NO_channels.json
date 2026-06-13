@@ -1,0 +1,477 @@
+{
+  "country_code": "NO",
+  "country_name": "Norway",
+  "version": "2026-06-10",
+  "channels": [
+    {
+      "channel_name": "NRK1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRK2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRK3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Direkte",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVNorge",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "REX",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "FEM",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "VOX",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV3",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV3+",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Zebra",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ 1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ 2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Series",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Stars",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRK Nyheter",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Nyheter",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "VGTV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dagbladet TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nettavisen TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN International",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "BBC World News",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "CNBC Europe",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Al Jazeera English",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Euronews",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "NRK Sport",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Sport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Sport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Sport Premium",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV 2 Sport Premium 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport +",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Premier League",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Premier League 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Premier League 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Premier League 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Premier League 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Golf",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Live 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Live 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Live 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Live 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Live 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Sport Ultra",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Sport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport Norge",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport",
+      "category": "Sports",
+      "type": "International"
+    },
+    {
+      "channel_name": "Eurosport 2",
+      "category": "Sports",
+      "type": "International"
+    },
+    {
+      "channel_name": "V Film",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Film Hits",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "V Film Family",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Film 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal+ Film 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "NRK Super",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "International"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "International"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Kids",
+      "type": "International"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "International"
+    },
+    {
+      "channel_name": "Canal+ Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Investigation Discovery",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "National Geographic Wild",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Viasat Nature",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Viasat History",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "Viasat Explore",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "NHK World",
+      "category": "Documentary",
+      "type": "International"
+    },
+    {
+      "channel_name": "TV 2 Livsstil",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "International"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Music",
+      "type": "International"
+    },
+    {
+      "channel_name": "NRK Sápmi",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Østfold",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Oslo og Viken",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Innlandet",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Buskerud",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Vestfold",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Telemark",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Agder",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Rogaland",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Vestland",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Møre og Romsdal",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Trøndelag",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Nordland",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Troms",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NRK Finnmark",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Vest",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Kanal Lokal",
+      "category": "Regional",
+      "type": "Regional"
+    }
+  ]
+}
