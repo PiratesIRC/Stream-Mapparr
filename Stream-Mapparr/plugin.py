@@ -19,6 +19,7 @@ import threading
 
 # Import FuzzyMatcher from the same directory
 from .fuzzy_matcher import FuzzyMatcher
+from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES
 # Import fuzzy_matcher version for CSV header
 from . import fuzzy_matcher
 
@@ -791,6 +792,7 @@ class Plugin:
         self.loaded_streams = []
         self.channel_stream_matches = []
         self.fuzzy_matcher = None
+        self._alias_map = None
         self.saved_settings = {}
 
         LOGGER.info(f"[Stream-Mapparr] {self.name} Plugin v{self.version} initialized")
@@ -1245,6 +1247,53 @@ class Plugin:
             except Exception as e:
                 LOGGER.warning(f"[Stream-Mapparr] Failed to initialize FuzzyMatcher: {e}")
                 self.fuzzy_matcher = None
+
+    def _build_alias_map(self, settings, country):
+        """Merge built-in US aliases + COUNTRY_ALIASES[country] + custom_aliases.
+
+        Custom user aliases (JSON object; a bare string is accepted as a single
+        alias) are merged last and win. Malformed/invalid input is logged and
+        ignored — never raised into the match loop.
+        """
+        alias_map = {k: list(v) for k, v in CHANNEL_ALIASES.items()}
+
+        if country:
+            for k, v in COUNTRY_ALIASES.get(str(country).upper(), {}).items():
+                alias_map[k] = list(dict.fromkeys(alias_map.get(k, []) + list(v)))
+
+        custom_str = (settings.get("custom_aliases") or "").strip()
+        if custom_str:
+            try:
+                custom = json.loads(custom_str)
+            except (json.JSONDecodeError, ValueError) as e:
+                LOGGER.warning(f"[Stream-Mapparr] Failed to parse custom_aliases JSON: {e}")
+                custom = None
+            if isinstance(custom, dict):
+                merged = 0
+                for k, v in custom.items():
+                    if isinstance(v, str):
+                        aliases = [v]
+                    elif isinstance(v, list):
+                        aliases = v
+                    else:
+                        LOGGER.warning(
+                            f"[Stream-Mapparr] custom_aliases: ignoring '{k}' - "
+                            f"value must be a string or list")
+                        continue
+                    clean = [a.strip() for a in aliases if isinstance(a, str) and a.strip()]
+                    if not clean:
+                        continue
+                    if k in alias_map:
+                        alias_map[k] = list(dict.fromkeys(alias_map[k] + clean))
+                    else:
+                        alias_map[k] = clean
+                    merged += 1
+                LOGGER.info(f"[Stream-Mapparr] Merged {merged} custom alias entries")
+            elif custom is not None:
+                LOGGER.warning(
+                    "[Stream-Mapparr] custom_aliases must be a JSON object - ignored")
+
+        return alias_map
 
     # =========================================================================
     # ORM HELPER METHODS - Direct database access (replaces HTTP API methods)
