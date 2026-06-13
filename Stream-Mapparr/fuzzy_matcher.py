@@ -19,7 +19,7 @@ except ImportError:
     _USE_RAPIDFUZZ = False
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "26.161.2350"
+__version__ = "26.164.1226"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
@@ -827,6 +827,48 @@ class FuzzyMatcher:
         
         return None, 0
     
+    def alias_lookup(self, query_name, candidate_names, alias_map,
+                     user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
+                     ignore_geographic=True, ignore_misc=True):
+        """Exact-normalized alias match.
+
+        Returns the list of candidate_names whose normalized form (spaced OR
+        punctuation-stripped) exactly equals the normalized form of any alias
+        variant of query_name. Pure; no fuzzy/similarity. Empty list when the
+        map is empty or the channel has no alias entry.
+        """
+        if not alias_map or not candidate_names:
+            return []
+        variants = alias_map.get(query_name)
+        if not variants:
+            return []
+
+        def _forms(s):
+            n = self.normalize_name(
+                s, user_ignored_tags, ignore_quality=ignore_quality,
+                ignore_regional=ignore_regional, ignore_geographic=ignore_geographic,
+                ignore_misc=ignore_misc)
+            if not n:
+                return None, None
+            low = n.lower()
+            return low, re.sub(r'[\s&\-]+', '', low)
+
+        alias_low, alias_nospace = set(), set()
+        for v in variants:
+            low, nospace = _forms(v)
+            if low:
+                alias_low.add(low)
+                alias_nospace.add(nospace)
+        if not alias_low:
+            return []
+
+        hits = []
+        for cand in candidate_names:
+            low, nospace = _forms(cand)
+            if low and (low in alias_low or nospace in alias_nospace):
+                hits.append(cand)
+        return hits
+
     def fuzzy_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False,
                     ignore_quality=True, ignore_regional=True, ignore_geographic=True, ignore_misc=True):
         """
