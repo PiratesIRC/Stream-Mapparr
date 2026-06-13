@@ -313,3 +313,36 @@ def test_normalize_emoji_ascii_fast_path(fuzzy_module):
 
 def test_normalize_emoji_leaves_non_emoji_nonascii(fuzzy_module):
     assert fuzzy_module._normalize_emoji("Россия") == "Россия"
+
+
+def test_normalize_name_ball_to_sports(matcher):
+    m = matcher()
+    assert m.normalize_name("SP" + BALL + "RTS") == "SPoRTS"
+    assert m.normalize_name("Sp" + BALL + "rts") == "Sports"
+
+
+def test_normalize_name_strips_standalone_ball(matcher):
+    assert matcher().normalize_name("UEFA CHAMPIONS LEAGUE " + BALL) == "UEFA CHAMPIONS LEAGUE"
+
+
+def test_normalize_name_strips_music_notes(matcher):
+    assert matcher().normalize_name("♬♬♬ MUSIC TV ♬♬♬") == "MUSIC"
+
+
+def test_normalize_name_emoji_collision_and_non_latin_guards(matcher):
+    m = matcher()
+    assert m.normalize_name("Gold") == "Gold"
+    assert m.normalize_name("Россия") == "Россия"
+
+
+def test_normalize_name_emoji_no_regression(matcher):
+    m = matcher()
+    assert m.normalize_name("Fox Sports 1") == "Fox Sports 1"
+    assert m.normalize_name("CNN HD") == "CNN"
+
+
+def test_bein_sports_matches_after_emoji_fix(matcher):
+    m = matcher(95)
+    match, score = m.find_best_match("beIN Sports", ["### beIN " + "SP" + BALL + "RTS" + " ###"])
+    assert match is not None
+    assert score == 100

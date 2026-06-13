@@ -541,6 +541,10 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
+        # Map emoji-as-letters (⚽ = 'o' in "SP⚽RTS") and strip emoji decoration, before
+        # the stylized-Unicode strip and ASCII regexes below — so "beIN SP⚽RTS" -> "beIN sports".
+        name = _normalize_emoji(name)
+
         # Strip stylized-Unicode decoration (superscript/small-cap tier markers,
         # bullets) up front so the ASCII tag regexes below see plain text. Runs
         # unconditionally: a token written in superscript/small-caps is decoration
