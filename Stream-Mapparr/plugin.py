@@ -2899,6 +2899,7 @@ class Plugin:
             match_threshold = self._resolve_match_threshold(settings)
 
             self._initialize_fuzzy_matcher(match_threshold)
+            self._alias_map = self._build_alias_map(settings, settings.get("channel_database"))
 
             # Actions that should run in background to avoid timeout
             # Note: load_process_channels is internal-only (called by preview/add actions)
@@ -4231,6 +4232,7 @@ class Plugin:
             if not self.fuzzy_matcher:
                 match_threshold = self._resolve_match_threshold(settings)
                 self._initialize_fuzzy_matcher(match_threshold)
+                self._alias_map = self._build_alias_map(settings, settings.get("channel_database"))
 
             # Match channels using US OTA callsign database
             logger.info("[Stream-Mapparr] Matching channels using US OTA callsign database...")
