@@ -164,6 +164,14 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   otherwise a bad run locks out re-probing for a TTL window (bug-008).
 - **Don't use `django.utils.timezone.utc`** (removed in Django 5.0). Use
   `timezone.now()` or the stdlib `dt_timezone.utc` alias (bug-006).
+- **Channel-database `type` contract:** only a `type` containing the substring
+  `"broadcast"` is semantically significant — it marks an OTA channel and
+  REQUIRES a `callsign` (matched by callsign). Every other `type` string
+  (`premium/cable/national`, `National`, `Regional`, `International`, …) is
+  free-form and name-matched; the specific value is not interpreted.
+  `scripts/validate_databases.py` enforces exactly this (broadcast → needs
+  `callsign`; else → needs `channel_name`). Do not reject a contributed database
+  for using non-canonical `type` strings.
 
 ---
 
