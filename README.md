@@ -40,6 +40,8 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 
 ### Matching
 - **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
+- **Channel-name aliases**: A built-in US alias table plus a user-editable **Custom Aliases** JSON setting force-include known aliases into a channel's matches, independent of the fuzzy threshold
+- **Stylized-name normalization**: Matches streams whose names use stylized-Unicode markers (superscript/small-caps such as `ᴿᴬᵂ`/`ꜰʜᴅ`), emoji-as-letters (`beIN SP⚽RTS` → SPORTS), or numeric resolution tags (`3840P`/`1080p`) — these are stripped or normalized before matching, collision-safe and non-Latin-safe
 - **US OTA callsign matching**: Dedicated action for matching US broadcast channels by callsign against authoritative database (5,900+ callsigns)
 - **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL, NO
 - **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
@@ -57,7 +59,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **Auto-deduplication**: Removes duplicate stream names during assignment
 
 ### Automation
-- **Built-in scheduler**: Configure daily runs with timezone and HHMM time support
+- **Built-in scheduler**: Configure daily runs at one or more HHMM times; the timezone follows Dispatcharr's global setting
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
@@ -100,13 +102,13 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Channel Groups** | string | (all) | Specific groups to process, comma-separated |
 | **Stream Groups** | string | (all) | Specific stream groups to use, comma-separated |
 | **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
+| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
 | **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
 | **Channel Database** | select | US | Channel database for callsign and name matching |
 | **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams |
 | **Rate Limiting** | select | None | None / Low / Medium / High |
-| **Timezone** | select | US/Central | Timezone for scheduled runs |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
 | **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group |
 | **Webhook URL** | string | (blank) | HTTP(S) endpoint to POST JSON summary on completion (see below) |
@@ -137,10 +139,9 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 
 ## Scheduling
 
-1. Set **Timezone** (e.g., `US/Central`)
-2. Set **Scheduled Run Times** in 24-hour format (e.g., `0400,1600` for 4 AM and 4 PM)
-3. Enable **CSV Export** if desired
-4. Click **Update Schedule**
+1. Set **Scheduled Run Times** in 24-hour format (e.g., `0400,1600` for 4 AM and 4 PM) — times are interpreted in Dispatcharr's **global timezone** (no plugin timezone setting)
+2. Enable **CSV Export** if desired
+3. Click **Update Schedule**
 
 The scheduler runs in a background thread and restarts automatically with the container.
 

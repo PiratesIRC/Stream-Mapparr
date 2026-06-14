@@ -2,21 +2,52 @@
 
 ## Unreleased
 
-**Type**: Bugfix + developer-tooling (no plugin version bump yet; bundle into the next release).
+_Nothing yet._
 
-### Bugfix
+---
+
+## v1.26.1650009 (June 13, 2026)
+
+**Type**: Feature + bugfix release — matcher robustness (stylized-Unicode / emoji / resolution-marker normalization), Phase-1 channel-name alias matching, Dispatcharr-sourced timezone, multi-source stream dedup, CSV source labeling, plus the project's first automated test suite & CI. Consolidates the work shipped across `1.26.1641824`–`1.26.1650009`.
+
+### Matching & normalization
+
+Three normalization passes were added to the top of `FuzzyMatcher.normalize_name` so stylized stream names match their plain channel names. Each was validated by an old-vs-new corpus diff over the real ~54k-name stream pool **and** all channel databases, asserting **0 harmful changes** (no real ASCII or non-Latin name altered).
+
+**Stylized-Unicode decoration stripping** (`bug-048`):
+- Streams decorate names with stylized-Unicode tier/format markers — superscripts (`RK: WEATHERNATION ᴿᴬᵂ`, `… ⁶⁰ᶠᵖˢ`, `… ⱽᴵᴾ`, `… ³⁸⁴⁰ᴾ`), Latin small-caps (`… ꜰʜᴅ`), and bullets (`◉`). The ASCII tag regexes couldn't see them, so `RK: WEATHERNATION ᴿᴬᵂ` never matched channel **WeatherNation** (0 matches).
+- **Fix**: `normalize_name` now drops whole tokens that are pure stylized decoration, then NFKD-canonicalizes the rest. Decoration is detected by Unicode character **name** (`SUPERSCRIPT` / `SUBSCRIPT` / `SMALL CAPITAL` / `MODIFIER LETTER`), **not** hard-coded code-point ranges — real markers fall outside the obvious blocks (small-cap `H`=U+029C, modifier `V`=U+2C7D). Collision-safe (ASCII `Gold`/`VIP` untouched) and non-Latin-safe (Arabic/Cyrillic/CJK preserved). Runs unconditionally; punctuation-glued ornaments (`◉:`, superscript `HD/RAW`) are handled too.
+
+**Emoji-as-letter substitution** (`bug-051`):
+- Some streams use an emoji **as a letter**: `beIN SP⚽RTS` / `Sp⚽rts` (the soccer ball stands in for `o` = SPORTS, the beIN family, ~682 names). Previously the ball became a space (`sp rts`) and never matched `sports`.
+- **Fix**: `normalize_name` maps an emoji to the letter it replaces **only when flanked by ASCII letters** (`SP⚽RTS`→`SPORTS`), and strips emoji used purely as decoration (`♬`, `☾`, standalone `⚽`, and zero-width `U+FE0F`/ZWJ). Recovers the base `beIN Sports` feed when its streams are present in the selected sources.
+
+**Numeric resolution-marker stripping** (`bug-055`):
+- Resolution tags the keyword quality patterns missed — `3840P`, `2160P`, `1080P`/`1080i`, `720P` — are now stripped via `RESOLUTION_PATTERNS` (`\b\d{3,4}[pi]\b`, gated by quality stripping, applied **before** the keyword patterns to avoid space-gluing). Requires the `p`/`i` glued to the digits, so bare numbers and single-digit channel numbers (`Channel 4`, `Studio 1080`) are untouched.
 
 **Matcher score depended on whether `rapidfuzz` was installed** (`bug-026`):
 - `FuzzyMatcher.calculate_similarity` had two implementations — a rapidfuzz fast path returning `1 - distance / max(len)`, and a pure-Python fallback returning `(len1 + len2 - distance) / (len1 + len2)`. They disagreed: at threshold 95, `Fox Sports 1` vs `Fox Sports 2` scored **0.917** (rapidfuzz) vs **0.958** (pure-Python), flipping the match decision.
-- **Fix**: the pure-Python branch (and its early-termination bounds) now use `1 - distance / max(len)`, matching rapidfuzz exactly. Production runs the rapidfuzz path, so live behavior is unchanged — only the no-rapidfuzz fallback was corrected. `fuzzy_matcher.py` bumped to **v26.161.2350**.
-- Discovered by a new automated parity test, which now enforces the invariant.
+- **Fix**: the pure-Python branch (and its early-termination bounds) now use `1 - distance / max(len)`, matching rapidfuzz exactly. Production runs the rapidfuzz path, so live behavior is unchanged — only the no-rapidfuzz fallback was corrected. Enforced by an automated parity test.
 
-### Developer tooling
+### Features
 
-- **First automated test suite** (`tests/`, 102 passing): `fuzzy_matcher` matching/normalization, `plugin.py` pure helpers (via a Django-stubbing conftest), channel-database schema validation, and version-sync. Cases are regression locks derived from the bug history.
-- **CI** (`.github/workflows/ci.yml`): py_compile + version-sync + database validation + pytest on every push/PR.
+- **Phase-1 channel-name alias matching**: an exact-normalized alias layer (`FuzzyMatcher.alias_lookup` + a built-in US alias table) force-includes known aliases into a channel's matches, independent of the fuzzy threshold. A new **Custom Aliases** setting accepts a JSON object of additional `"channel": ["alias", …]` mappings (merged with the built-ins; invalid entries are logged and skipped).
+- **Timezone now follows Dispatcharr's global setting**: the plugin's own *Timezone* dropdown was **removed**. Scheduled runs read the timezone from Dispatcharr (`CoreSettings.get_system_time_zone()`), validated via `pytz`, with a `UTC` fallback. One less setting to keep in sync.
+- **CSV stream-source labeling**: every stream name in a CSV export is now tagged with its M3U source (e.g. `GO: CNN [streamq.tv-bk15]`), so identical names from different providers are distinguishable in reports.
+- **Multi-source stream dedup** (GitHub #28 / #29): deduplication is keyed on `(name, m3u_account)`, so the same channel name from **different** providers both survive (multi-source failover); only true same-source duplicates collapse. Runs after the quality sort, so the kept copy is the best one.
+- **Norwegian (NO) channel database** (GitHub #30).
+
+### Internal & tooling
+
+- **First automated test suite** (`tests/`, **176 passing**): `fuzzy_matcher` matching/normalization (incl. the three new normalizers, with collision/non-Latin guards), `plugin.py` pure helpers (via a Django-stubbing conftest), channel-database schema validation, and version-sync. Cases are regression locks derived from the bug history — every fix above ships with one.
+- **CI** (`.github/workflows/ci.yml`): py_compile + version-sync + database validation + pytest on every push/PR, with a least-privilege `permissions` block and `pytz` installed for the timezone tests.
 - **Pre-commit gate** (`.githooks/pre-commit`, opt-in) and helper scripts (`scripts/check_version_sync.py`, `scripts/validate_databases.py`).
-- **`docs/DEVELOPMENT.md`**: full dev-workflow documentation.
+- **`docs/DEVELOPMENT.md`** + design specs/plans under `docs/`.
+- **Deploy process corrected**: `plugin.json` mtime hot-reload proved unreliable in practice — always `docker restart dispatcharr` after copying, and copy **every** changed file (incl. `fuzzy_matcher.py` and new modules like `aliases.py`).
+
+### Notes
+- `fuzzy_matcher.py` bumped to **v26.165.0009**.
+- The three normalization fixes are matcher-shared; port guides for the sibling plugins (Channel-Maparr, EPG-Janitor, Lineuparr, Metadata-Trackarr) are kept as local `MATCHER-NORMALIZATION-PORT.md` references.
 
 ---
 
