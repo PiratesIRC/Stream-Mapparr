@@ -6,6 +6,16 @@ _Nothing yet._
 
 ---
 
+## v1.26.1650116 (June 13, 2026)
+
+**Type**: Maintenance — plugin manifest cleanup (no runtime behavior change).
+
+### Internal
+
+- **`plugin.json` settings manifest de-drifted.** The static `fields` array had gone stale: it still listed the removed `timezone` setting and was missing `custom_aliases` plus the audio / throughput / webhook fields. `plugin.py` defines settings dynamically via the `Plugin.fields` property (the single source of truth, which Dispatcharr always uses when present), so the static array is now intentionally `"fields": []` with an explanatory `_fields_note` — mirroring the Lineuparr convention so it can't drift again. No runtime or settings-form change; the published Plugin Hub entry now shows accurate metadata.
+
+---
+
 ## v1.26.1650009 (June 13, 2026)
 
 **Type**: Feature + bugfix release — matcher robustness (stylized-Unicode / emoji / resolution-marker normalization), Phase-1 channel-name alias matching, Dispatcharr-sourced timezone, multi-source stream dedup, CSV source labeling, plus the project's first automated test suite & CI. Consolidates the work shipped across `1.26.1641824`–`1.26.1650009`.
