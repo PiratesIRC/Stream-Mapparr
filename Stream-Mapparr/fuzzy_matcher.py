@@ -51,11 +51,14 @@ QUALITY_PATTERNS = [
 ]
 
 # Numeric resolution markers the keyword QUALITY_PATTERNS miss: 720p, 1080p/i, 2160p,
-# 3840P, 480p, etc. — any 3-4 digit run followed by p/i. The \b anchors avoid matching
-# inside a longer number, and the p/i anchor keeps bare numbers (1080, "Channel 4") intact.
-# Applied with re.IGNORECASE in the ignore_quality block, like QUALITY_PATTERNS.
+# 3840P, 480p, etc. — a 3-4 digit run glued directly to p/i. The 3-digit lower bound
+# excludes 2-digit noise; the 4-digit upper bound excludes 5-digit numbers (10800p won't
+# match). The p/i must be GLUED to the digits (no space): real markers are always written
+# "720P"/"3840P", and requiring the glue avoids stripping a spaced standalone P/I such as a
+# roman numeral ("Volume 100 I"). The p/i \b anchor keeps bare numbers (1080, "Channel 4")
+# intact. Applied with re.IGNORECASE in the ignore_quality block, like QUALITY_PATTERNS.
 RESOLUTION_PATTERNS = [
-    r'\b\d{3,4}\s*[pi]\b',
+    r'\b\d{3,4}[pi]\b',
 ]
 
 # Regional indicator patterns: East, West, Pacific, Central, Mountain, Atlantic

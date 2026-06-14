@@ -371,6 +371,7 @@ def test_normalize_strips_common_resolutions(matcher):
     assert m.normalize_name("Sky Sports 720P") == "Sky Sports"
     assert m.normalize_name("Foo 1080i") == "Foo"
     assert m.normalize_name("Foo 2160p") == "Foo"
+    assert m.normalize_name("Foo 480p") == "Foo"
 
 
 def test_normalize_resolution_keeps_bare_numbers(matcher):
@@ -383,6 +384,26 @@ def test_normalize_resolution_no_regression(matcher):
     m = matcher()
     assert m.normalize_name("CNN HD") == "CNN"
     assert m.normalize_name("ITV1") == "ITV 1"
+
+
+def test_normalize_resolution_five_digit_not_stripped(matcher):
+    # {3,4} upper bound: a 5-digit number is NOT a resolution marker.
+    assert "10800" in matcher().normalize_name("Foo 10800p")
+
+
+def test_normalize_resolution_requires_glued_pi(matcher):
+    # The p/i must be glued to the digits. A spaced standalone P/I (e.g. a roman
+    # numeral) is NOT a resolution marker and must survive.
+    m = matcher()
+    assert m.normalize_name("Volume 100 I") == "Volume 100 I"
+    assert "1080" in m.normalize_name("Foo 1080 p")
+
+
+def test_normalize_resolution_clean_output(matcher):
+    # No leftover trailing/double spaces after stripping a marker.
+    m = matcher()
+    assert m.normalize_name("beIN SPORTS 3840P") == "beIN SPORTS"
+    assert m.normalize_name("Sky Sports 720P HD") == "Sky Sports"
 
 
 def test_resolution_strip_respects_ignore_quality_flag(matcher):
