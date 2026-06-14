@@ -19,7 +19,7 @@ except ImportError:
     _USE_RAPIDFUZZ = False
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
-__version__ = "26.164.2322"
+__version__ = "26.165.0009"
 
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
