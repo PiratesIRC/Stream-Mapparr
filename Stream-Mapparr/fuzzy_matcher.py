@@ -446,7 +446,15 @@ class FuzzyMatcher:
             callsign = paren_match.group(1).upper()
             if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
                 return callsign
-        
+
+        # Priority 1b: grandfathered 3-letter callsigns in parentheses without a suffix
+        # (WWL/WJZ/KYW/WRC). Suffixed forms fall through to Priority 2. bug-062.
+        paren3_match = re.search(r'\(([KW][A-Z]{2})\)', channel_name, re.IGNORECASE)
+        if paren3_match:
+            callsign = paren3_match.group(1).upper()
+            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
+                return callsign
+
         # Priority 2: Callsigns with suffix in parentheses
         paren_suffix_match = re.search(r'\(([KW][A-Z]{2,4}-(?:TV|CD|LP|DT|LD))\)', channel_name, re.IGNORECASE)
         if paren_suffix_match:

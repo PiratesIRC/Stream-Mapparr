@@ -130,6 +130,20 @@ def test_regional_word_not_mistaken_for_callsign(matcher):
     assert m.extract_callsign("Some Channel (WEST)") != "WEST"
 
 
+def test_grandfathered_3letter_callsign_in_parens(matcher):
+    """bug-062: grandfathered 3-letter callsigns in parens without a suffix
+    (WWL/WJZ/KYW/WRC) must anchor on the parenthesized form, not fall through
+    to the loose-word path. The last assertion is the discriminating case: with
+    a leading K/W word present, the loose-word path would grab the wrong token
+    ('WGNO') unless the parenthesized 3-letter anchor (Priority 1b) fires first."""
+    m = matcher()
+    assert m.extract_callsign("CBS - LA New Orleans (WWL)") == "WWL"
+    assert m.extract_callsign("CBS Baltimore (WJZ)") == "WJZ"
+    assert m.extract_callsign("CBS Philadelphia (KYW)") == "KYW"
+    assert m.extract_callsign("NBC Washington (WRC)") == "WRC"
+    assert m.extract_callsign("WGNO ABC (WWL)") == "WWL"
+
+
 # --------------------------------------------------------------------------- #
 # Numeric-sibling guard (bug-021: Fox Sports 1 vs Fox Sports 2)
 # --------------------------------------------------------------------------- #
