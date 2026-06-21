@@ -67,10 +67,12 @@ Use the **`/deploy-plugin`** skill, or do it by hand. The critical rule:
 
 ```bash
 python Stream-Mapparr/bump_version.py
-for f in plugin.py plugin.json fuzzy_matcher.py aliases.py; do
+for f in plugin.py plugin.json fuzzy_matcher.py aliases.py networks.json; do
   MSYS_NO_PATHCONV=1 docker cp "Stream-Mapparr/$f" dispatcharr:/data/plugins/stream-mapparr/
 done
-# copy any changed *_channels.json too
+# copy any changed *_channels.json too. networks.json (FCC OTA station table) is
+# easy to forget — the container/registry can be missing it entirely, which
+# silently disables OTA callsign matching (bug-063).
 docker restart dispatcharr
 until docker logs --since 2m dispatcharr 2>&1 | grep -q "stream_mapparr.*initialized"; do sleep 2; done
 docker logs --since 3m dispatcharr 2>&1 | grep -i "stream_mapparr.*initialized"  # version MUST match the bump
@@ -183,6 +185,15 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   `scripts/validate_databases.py` enforces exactly this (broadcast → needs
   `callsign`; else → needs `channel_name`). Do not reject a contributed database
   for using non-canonical `type` strings.
+- **OTA callsign matching is backed by `networks.json`, not `*_channels.json`**
+  (bug-063). The `*_channels.json` databases ship only premium entries (no
+  `broadcast`/`callsign`), so `FuzzyMatcher._load_broadcast_stations()` loads the
+  bundled FCC station table `networks.json` (≈1,900 callsigns) into
+  `channel_lookup`. `Plugin._resolve_ota_callsign()` resolves a channel's
+  callsign against it (falling back to a parenthesized callsign in the name), and
+  `_build_us_callsign_database` (Match US OTA Only) is sourced from it too.
+  **Deploy `networks.json` with the code** — if it is missing, OTA matching is
+  silently disabled.
 
 ---
 
@@ -193,7 +204,9 @@ Stream-Mapparr/
   plugin.py            # main plugin (~260 KB) — Plugin class, actions, ORM, scheduler, probe
   fuzzy_matcher.py     # matching library — no Django dependency, unit-test heaven
   bump_version.py      # version sync tool (run before every deploy/release)
+  aliases.py           # built-in US channel-name alias table
   *_channels.json      # per-country channel databases (US is 3.6 MB)
+  networks.json        # FCC OTA station table (callsign authority) — deploy it!
 tests/                 # pytest suite (this doc, section 3)
 scripts/
   check_version_sync.py    # CI/hook: plugin.json == plugin.py

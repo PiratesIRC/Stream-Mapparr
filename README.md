@@ -42,7 +42,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
 - **Channel-name aliases**: A built-in US alias table plus a user-editable **Custom Aliases** JSON setting force-include known aliases into a channel's matches, independent of the fuzzy threshold
 - **Stylized-name normalization**: Matches streams whose names use stylized-Unicode markers (superscript/small-caps such as `ᴿᴬᵂ`/`ꜰʜᴅ`), emoji-as-letters (`beIN SP⚽RTS` → SPORTS), or numeric resolution tags (`3840P`/`1080p`) — these are stripped or normalized before matching, collision-safe and non-Latin-safe
-- **US OTA callsign matching**: Dedicated action for matching US broadcast channels by callsign against authoritative database (5,900+ callsigns)
+- **US OTA callsign matching**: US broadcast affiliates (e.g. `ABC - TX Dallas (WFAA)`) are matched by their FCC callsign — automatically during **Match & Assign** and via the dedicated **Match US OTA Only** action — using the bundled FCC station table (`networks.json`, ~1,900 stations)
 - **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL, NO
 - **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
 - **Country-restricted matching** (opt-in): Only match streams from the same detected country/group — e.g. `CANADA/CA` channels match only `CANADA/CA` streams
@@ -96,7 +96,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 
 | Setting | Type | Default | Description |
 |:---|:---|:---|:---|
-| **Overwrite Existing Streams** | boolean | True | Replace existing streams vs append-only |
+| **Overwrite Existing Streams** | boolean | True | Replace existing streams vs append-only. A run that matches **0** streams never clears a channel's existing streams |
 | **Match Sensitivity** | select | Normal (80) | Relaxed (70), Normal (80), Strict (90), Exact (95) |
 | **Channel Profile** | select | - | Profile to process channels from (dropdown from DB) |
 | **Channel Groups** | string | (all) | Specific groups to process, comma-separated |
