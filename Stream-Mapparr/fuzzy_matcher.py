@@ -341,7 +341,53 @@ class FuzzyMatcher:
                 self.logger.error(f"Error loading {channel_file}: {e}")
         
         self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
+        self._load_broadcast_stations()
         return True
+
+    def _load_broadcast_stations(self):
+        """Load the FCC station table (networks.json) into the OTA lookup.
+
+        The per-country *_channels.json databases ship only premium
+        (National/Regional) entries — no ``broadcast`` type, no ``callsign``
+        field — so OTA/callsign matching relies on this US station table:
+        callsign -> {network_affiliation, community_served_city,
+        community_served_state, ...}. Each station is appended to
+        ``broadcast_channels`` and indexed in ``channel_lookup`` by both its
+        full callsign (``WEWS-TV``) and base callsign (``WEWS``) so a stream
+        citing either form resolves. A missing file is non-fatal. Ported from
+        Channel-Maparr to revive OTA matching after the US database lost its
+        broadcast entries. bug-063.
+
+        Returns the number of stations loaded.
+        """
+        stations_path = os.path.join(self.plugin_dir, "networks.json")
+        if not os.path.exists(stations_path):
+            self.logger.info("No networks.json present — OTA station table not loaded")
+            return 0
+
+        try:
+            with open(stations_path, 'r', encoding='utf-8') as f:
+                stations = json.load(f)
+        except Exception as e:
+            self.logger.error(f"Error loading networks.json: {e}")
+            return 0
+
+        loaded = 0
+        for station in stations:
+            callsign = (station.get('callsign') or '').strip().upper()
+            if not callsign:
+                continue
+            self.broadcast_channels.append(station)
+            # setdefault: keep the first (primary) station for a given key so a
+            # later subchannel entry can't clobber the main affiliate.
+            self.channel_lookup.setdefault(callsign, station)
+            base_callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
+            if base_callsign != callsign:
+                self.channel_lookup.setdefault(base_callsign, station)
+            loaded += 1
+
+        self.logger.info(f"Loaded {loaded} OTA broadcast stations from networks.json")
+        return loaded
 
     def reload_databases(self, country_codes=None):
         """
@@ -429,6 +475,7 @@ class FuzzyMatcher:
                 self.logger.error(f"Error loading {channel_file}: {e}")
 
         self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
+        self._load_broadcast_stations()
         return True
 
     def extract_callsign(self, channel_name):

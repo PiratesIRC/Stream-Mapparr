@@ -6,6 +6,46 @@ _Nothing yet._
 
 ---
 
+## v1.26.1720023 (June 21, 2026)
+
+**Type**: Bugfix release — OTA (broadcast) callsign matching restored, and a
+data-loss guard for overwrite runs. Fixes bug-063 (user-reported: running
+Match & Assign against US: ABC/CBS/FOX/NBC left almost every channel with no
+streams).
+
+### Fixed
+
+- **Overwrite no longer wipes streams on a zero-match run.** In
+  `add_streams_to_channels`, a channel that matched 0 streams while
+  `overwrite_streams=True` previously had all its existing `ChannelStream`
+  rows deleted and nothing assigned — so a run that matched nothing (wrong
+  threshold, a database/callsign gap) silently emptied every channel.
+  "Overwrite" now only replaces when there are actual replacement streams;
+  an empty match set leaves existing streams untouched.
+
+- **OTA affiliates match by callsign again.** OTA detection in
+  `_match_streams_to_channel` depended solely on a `US_channels.json` database
+  lookup, but that database carries no `broadcast`/`callsign` entries — so
+  affiliates like `ABC - AL Montgomery (WNCF)` fell through to strict fuzzy
+  name matching and matched nothing. New `_resolve_ota_callsign()` resolves the
+  callsign from the FCC station table first, then falls back to a
+  parenthesized callsign in the Dispatcharr channel name.
+
+### Added
+
+- **FCC station table (`networks.json`) is now loaded and used.** Stream-Mapparr
+  already shipped `networks.json` (1915 US OTA stations: callsign → network /
+  city / state) but never loaded it. `FuzzyMatcher._load_broadcast_stations()`
+  (ported from Channel-Maparr) now indexes it into `channel_lookup` on every
+  load, giving authoritative callsign validation. `_build_us_callsign_database`
+  (used by `Match US OTA Only`) is repointed from the empty `US_channels.json`
+  to `networks.json`, reviving that action. **`networks.json` is now part of the
+  deploy file set** (it was missing from the container entirely).
+
+- 19 regression tests in `tests/test_ota_callsign_fallback.py`.
+
+---
+
 ## v1.26.1650116 (June 13, 2026)
 
 **Type**: Maintenance — plugin manifest cleanup (no runtime behavior change).

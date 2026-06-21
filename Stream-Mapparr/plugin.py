@@ -78,7 +78,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1650116"
+    PLUGIN_VERSION = "1.26.1720023"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2191,6 +2191,45 @@ class Plugin:
         # This is mostly a placeholder if needed for string-based checks
         return None
 
+    def _extract_paren_callsign(self, channel_name):
+        """Extract a US TV callsign carried in PARENTHESES in the channel name,
+        e.g. 'ABC - AL Montgomery (WNCF)' -> 'WNCF', '... (WWL)' -> 'WWL',
+        '... (WFAA-TV)' -> 'WFAA'. Returns the base callsign (suffix stripped),
+        uppercased, or None.
+
+        Parenthesized callsigns are the reliable OTA signal baked into
+        Dispatcharr affiliate channel names; looser callsign positions are
+        intentionally ignored here to avoid misclassifying premium channels.
+        This lets OTA callsign matching work even when US_channels.json has no
+        broadcast/callsign entry for the channel. bug-063.
+        """
+        if not channel_name:
+            return None
+        m = re.search(r'\(([KW][A-Z]{2,3})(?:-(?:TV|CD|LP|DT|LD))?\)',
+                      channel_name, re.IGNORECASE)
+        if not m:
+            return None
+        callsign = m.group(1).upper()
+        if callsign in ('WEST', 'EAST', 'KIDS', 'WILD'):
+            return None
+        return callsign
+
+    def _resolve_ota_callsign(self, channel_name):
+        """Resolve an OTA callsign for a Dispatcharr channel name.
+
+        Prefers a callsign validated against the FCC station table
+        (networks.json, via fuzzy_matcher.match_broadcast_channel) — that is the
+        authoritative signal and rejects spurious callsign-shaped words in
+        premium channel names. Falls back to a parenthesized callsign in the
+        name for legitimate stations that are absent from the FCC table. Returns
+        the callsign (uppercase) or None. bug-063.
+        """
+        if self.fuzzy_matcher:
+            callsign, station = self.fuzzy_matcher.match_broadcast_channel(channel_name)
+            if station is not None:
+                return callsign
+        return self._extract_paren_callsign(channel_name)
+
     def _parse_callsign(self, callsign):
         """Extract clean callsign, removing suffixes after dash."""
         if not callsign:
@@ -2200,49 +2239,55 @@ class Plugin:
         return callsign.upper()
 
     def _build_us_callsign_database(self, logger):
-        """Build lookup dictionary of US OTA callsigns from US_channels.json.
-        
+        """Build lookup dictionary of US OTA callsigns from the FCC station
+        table (networks.json).
+
+        The per-country US_channels.json carries only premium (National/
+        Regional) entries with no callsigns, so the OTA callsign authority is
+        networks.json (callsign -> network_affiliation / city / state). bug-063.
+
         Returns:
-            dict: Callsign database mapping base callsigns to channel info
-                  Example: {"WKRG": {"base_name": "WKRG (CBS)", "category": "...", "type": "..."}}
+            dict: base callsign -> {base_name, category, type}
+                  Example: {"WKRG": {"base_name": "WKRG (CBS) Mobile AL", ...}}
         """
         callsign_db = {}
-        
-        # Load US_channels.json
+
         plugin_dir = os.path.dirname(__file__)
-        us_channels_path = os.path.join(plugin_dir, 'US_channels.json')
-        if not os.path.exists(us_channels_path):
-            logger.warning(f"[Stream-Mapparr] US_channels.json not found at {us_channels_path}")
+        stations_path = os.path.join(plugin_dir, 'networks.json')
+        if not os.path.exists(stations_path):
+            logger.warning(f"[Stream-Mapparr] networks.json not found at {stations_path}")
             return callsign_db
-        
+
         try:
-            with open(us_channels_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            channels = data.get('channels', [])
-            logger.info(f"[Stream-Mapparr] Parsing {len(channels)} entries from US_channels.json")
-            
-            for channel in channels:
-                channel_name = channel.get('channel_name', '')
-                
-                # Extract callsign from channel_name
-                callsign = self._extract_us_callsign(channel_name)
-                
-                if callsign:
-                    # Normalize to base callsign (remove suffixes)
-                    base_callsign = self._normalize_us_callsign(callsign)
-                    
-                    # Store in database (first occurrence becomes base_name)
-                    if base_callsign not in callsign_db:
-                        callsign_db[base_callsign] = {
-                            'base_name': channel_name,
-                            'category': channel.get('category', ''),
-                            'type': channel.get('type', '')
-                        }
-            
+            with open(stations_path, 'r', encoding='utf-8') as f:
+                stations = json.load(f)
+
+            logger.info(f"[Stream-Mapparr] Parsing {len(stations)} stations from networks.json")
+
+            for station in stations:
+                callsign = (station.get('callsign') or '').strip()
+                if not callsign:
+                    continue
+
+                # Normalize to base callsign (remove suffixes like -TV, -DT)
+                base_callsign = self._normalize_us_callsign(callsign)
+                if not base_callsign:
+                    continue
+
+                # First occurrence wins (primary station for the callsign).
+                if base_callsign not in callsign_db:
+                    network = (station.get('network_affiliation') or '').strip()
+                    city = (station.get('community_served_city') or '').title()
+                    state = (station.get('community_served_state') or '').upper()
+                    callsign_db[base_callsign] = {
+                        'base_name': f"{callsign} ({network}) {city} {state}".strip(),
+                        'category': network,
+                        'type': 'broadcast (OTA)',
+                    }
+
             logger.info(f"[Stream-Mapparr] Built US callsign database with {len(callsign_db)} unique callsigns")
             return callsign_db
-            
+
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error building US callsign database: {e}")
             import traceback
@@ -2346,9 +2391,17 @@ class Plugin:
         if "24/7" in channel_name.lower():
             logger.debug(f"[Stream-Mapparr] Cleaned channel name for matching: {cleaned_channel_name}")
 
-        # Check if this channel has a callsign (OTA broadcast channel)
+        # Determine the OTA callsign for this channel. Prefer the database
+        # entry, but fall back to a callsign carried in parentheses in the
+        # Dispatcharr channel name (e.g. "ABC - AL Montgomery (WNCF)") so OTA
+        # affiliates still match by callsign when US_channels.json has no
+        # broadcast/callsign entry for them. bug-063.
         if self._is_ota_channel(channel_info):
             callsign = channel_info['callsign']
+        else:
+            callsign = self._resolve_ota_callsign(channel_name)
+
+        if callsign:
             logger.debug(f"[Stream-Mapparr] Matching OTA channel: {channel_name} using callsign: {callsign}")
 
             matching_streams = []
@@ -4091,8 +4144,17 @@ class Plugin:
 
                             channels_updated += 1
                         else:
-                            if not dry_run and overwrite_streams:
-                                ChannelStream.objects.filter(channel_id=channel_id).delete()
+                            # bug-063: NEVER clear a channel's existing streams when
+                            # nothing matched. A zero-match result (wrong threshold,
+                            # a database/callsign gap, etc.) combined with
+                            # overwrite_streams=True previously deleted every
+                            # channel's streams and assigned nothing in their place,
+                            # wiping working assignments. "Overwrite" only replaces
+                            # when there are actual replacement streams to apply.
+                            logger.debug(
+                                f"[Stream-Mapparr] No streams matched '{channel['name']}' "
+                                f"(ID: {channel_id}); leaving existing streams untouched."
+                            )
                     except Exception as e:
                         logger.error(f"[Stream-Mapparr] Failed to update channel '{channel['name']}': {e}")
                 
