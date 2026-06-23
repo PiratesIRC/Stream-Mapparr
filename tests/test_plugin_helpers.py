@@ -183,3 +183,19 @@ def test_labeled_stream_names_unknown_or_missing_account_unlabeled(plugin_module
     streams = [{"name": "Foo", "m3u_account": 99}, {"name": "Bar"}]
     out = Plugin._labeled_stream_names(streams, {5: "x"})
     assert out == ["Foo", "Bar"]  # unknown / missing account -> no tag
+
+
+# --------------------------------------------------------------------------- #
+# Scheduler bootstrap — __init__ must arm the background scheduler (bug-065)
+# --------------------------------------------------------------------------- #
+
+def test_init_bootstraps_scheduler_via_load_settings(plugin_module, monkeypatch):
+    """bug-065: Dispatcharr re-instantiates the Plugin (calls __init__) but does NOT
+    reliably call on_load in this environment, so the scheduler never armed and
+    scheduled runs silently stopped. __init__ must bootstrap the scheduler the same
+    way the working sibling (event_channel_managarr) does — via _load_settings()."""
+    Plugin = plugin_module.Plugin
+    calls = []
+    monkeypatch.setattr(Plugin, "_load_settings", lambda self: calls.append(True))
+    Plugin()
+    assert calls == [True], "__init__ must call _load_settings() to arm the scheduler"

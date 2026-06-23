@@ -30,6 +30,11 @@ from core.utils import send_websocket_update
 # Background scheduling globals
 _bg_thread = None
 _stop_event = threading.Event()
+# bug-065 (QA): serialize the stop-then-start sequence so concurrent Plugin()
+# construction cannot race and orphan a scheduler thread (which would run forever
+# with _stop_event cleared and fire scheduled scans twice). Re-entrant because
+# _start_background_scheduler holds it while calling _stop_background_scheduler.
+_scheduler_lock = threading.RLock()
 
 # Setup logging - Dispatcharr provides a pre-configured logger via context
 LOGGER = logging.getLogger("plugins.stream_mapparr")
@@ -803,6 +808,15 @@ class Plugin:
 
         LOGGER.info(f"[Stream-Mapparr] {self.name} Plugin v{self.version} initialized")
 
+        # bug-065: Arm the background scheduler on construction. Dispatcharr
+        # re-instantiates the Plugin frequently but does NOT reliably invoke
+        # on_load in this environment, so bootstrapping the scheduler only from
+        # on_load left it permanently un-armed (scheduled runs silently stopped).
+        # Mirror the working sibling (event_channel_managarr), which bootstraps
+        # from __init__. _start_background_scheduler() stops any prior thread
+        # first, so repeated instantiation re-arms rather than stacking threads.
+        self._load_settings()
+
     def on_load(self, context):
         """Called when plugin is loaded"""
         LOGGER.info(f"[Stream-Mapparr] Loading {self.name} v{self.version}")
@@ -971,9 +985,16 @@ class Plugin:
         return times
 
     def _start_background_scheduler(self, settings):
-        """Start background scheduler thread"""
+        """Start background scheduler thread (serialized via _scheduler_lock so
+        concurrent Plugin instantiation cannot leave two live scheduler loops)."""
+        with _scheduler_lock:
+            self._start_background_scheduler_locked(settings)
+
+    def _start_background_scheduler_locked(self, settings):
+        """Real (re)start of the scheduler. MUST be called holding _scheduler_lock
+        (the public _start_background_scheduler wrapper guarantees this)."""
         global _bg_thread
-        
+
         # Stop existing scheduler if running
         self._stop_background_scheduler()
         
@@ -1097,12 +1118,13 @@ class Plugin:
     def _stop_background_scheduler(self):
         """Stop background scheduler thread"""
         global _bg_thread
-        if _bg_thread and _bg_thread.is_alive():
-            LOGGER.info("Stopping background scheduler")
-            _stop_event.set()
-            _bg_thread.join(timeout=PluginConfig.SCHEDULER_STOP_TIMEOUT)
-            _stop_event.clear()
-            LOGGER.info("Background scheduler stopped")
+        with _scheduler_lock:
+            if _bg_thread and _bg_thread.is_alive():
+                LOGGER.info("Stopping background scheduler")
+                _stop_event.set()
+                _bg_thread.join(timeout=PluginConfig.SCHEDULER_STOP_TIMEOUT)
+                _stop_event.clear()
+                LOGGER.info("Background scheduler stopped")
 
     def _check_version_update(self):
         """Check if a new version is available on GitHub."""
