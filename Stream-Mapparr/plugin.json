@@ -94,6 +94,22 @@
       }
     },
     {
+      "id": "view_check_progress",
+      "label": "\ud83d\udcca View Check Progress",
+      "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\ud83d\udcca View Progress"
+    },
+    {
+      "id": "view_last_results",
+      "label": "\ud83d\udccb View Last Results",
+      "description": "View a summary of the last completed operation.",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\ud83d\udccb View Last Results"
+    },
+    {
       "id": "clear_csv_exports",
       "label": "\ud83d\uddd1\ufe0f Clear CSV Exports",
       "description": "Delete all CSV export files created by this plugin.",

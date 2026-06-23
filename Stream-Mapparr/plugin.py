@@ -142,6 +142,9 @@ class PluginConfig:
     VERSION_CHECK_CACHE_FILE = "/data/stream_mapparr_version_check.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
+    PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
+    LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
+    PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
 
     # === OPERATION LOCK SETTINGS ===
     OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
@@ -207,6 +210,23 @@ class PluginConfig:
 # END CONFIGURATION
 # ============================================================================
 
+def format_eta(seconds):
+    """Human-readable duration: '45s', '1m 30s', '1h 1m'. Clamps None/negative to 0s."""
+    seconds = int(max(0, seconds or 0))
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m {seconds % 60}s"
+    return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
+
+
+def _progress_toast_interval_for(total_items):
+    """Adaptive seconds between live progress toasts (matches IPTV Checker cadence)."""
+    if not total_items:
+        return PluginConfig.PROGRESS_TOAST_MIN_INTERVAL
+    return 3 if total_items <= 50 else 5 if total_items <= 200 else 10
+
+
 class ProgressTracker:
     """
     Tracks operation progress with ETA calculation and periodic updates.
@@ -228,11 +248,22 @@ class ProgressTracker:
         self.logger = logger
         self.context = context
         self.send_progress_callback = send_progress_callback
-        
+
+        # Hand the owning Plugin the item count so its live progress toasts use
+        # the adaptive cadence (3s/5s/10s) matched to this job's size. The
+        # callback is the Plugin's bound _send_progress_update, so __self__ is
+        # the Plugin instance.
+        if callable(send_progress_callback) and hasattr(send_progress_callback, '__self__'):
+            try:
+                send_progress_callback.__self__._op_total_items = total_items
+            except Exception:
+                pass
+
         # Time tracking
         self.start_time = time.time()
         self.last_update_time = self.start_time
-        self.update_interval = 60  # Update every 60 seconds
+        # Adaptive cadence (IPTV-Checker parity): tighter updates for small jobs.
+        self.update_interval = _progress_toast_interval_for(total_items)
         
         # Progress tracking
         self.processed_items = 0
@@ -322,16 +353,7 @@ class ProgressTracker:
     
     def _format_eta(self, seconds):
         """Format ETA in human-readable format"""
-        if seconds < 60:
-            return f"{int(seconds)}s"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            remaining_seconds = int(seconds % 60)
-            return f"{minutes}m {remaining_seconds}s"
-        else:
-            hours = int(seconds / 3600)
-            remaining_minutes = int((seconds % 3600) / 60)
-            return f"{hours}h {remaining_minutes}m"
+        return format_eta(seconds)
     
     def _format_time(self, seconds):
         """Format elapsed time in human-readable format"""
@@ -757,6 +779,22 @@ class Plugin:
                 "title": "Manage Channel Visibility?",
                 "message": "This will disable ALL channels in the profile, then enable only channels with 1 or more streams that are not attached to other channels. Continue?"
             }
+        },
+        {
+            "id": "view_check_progress",
+            "label": "📊 View Check Progress",
+            "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "📊 View Progress",
+        },
+        {
+            "id": "view_last_results",
+            "label": "📋 View Last Results",
+            "description": "View a summary of the last completed operation.",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "📋 View Last Results",
         },
         {
             "id": "clear_csv_exports",
@@ -2774,12 +2812,35 @@ class Plugin:
         try:
             from core.utils import send_websocket_update
 
+            # Persist live progress + emit start/periodic toasts so the separate
+            # View Check Progress action (possibly a different Plugin instance)
+            # can read accurate state. Never let this break the primary path.
+            try:
+                _persisted_state = self._persist_progress(action_id, status, progress, message)
+            except Exception as e:
+                _persisted_state = None
+                LOGGER.debug(f"[Stream-Mapparr] progress persist failed: {e}")
+
             is_complete = progress >= 100 or status in ('success', 'completed', 'error')
             if not is_complete:
                 LOGGER.debug(f"[Stream-Mapparr] Progress: {action_id} - {progress}% - {message}")
                 return
 
             is_success = status in ('success', 'completed')
+
+            # Persist last-results summary for the View Last Results action
+            # (skip internal sub-steps so the parent op's summary is preserved).
+            if action_id not in self._INTERNAL_PROGRESS_ACTIONS:
+                try:
+                    duration = None
+                    st = _persisted_state if _persisted_state is not None else self._load_progress_state()
+                    if st.get('start_time') and st.get('end_time'):
+                        duration = round(st['end_time'] - st['start_time'], 1)
+                    self._save_last_results(action_id, 'success' if is_success else 'error',
+                                            message, details, duration)
+                except Exception as e:
+                    LOGGER.debug(f"[Stream-Mapparr] last-results persist failed: {e}")
+
             notification_data = {
                 'type': 'notification',
                 'level': 'success' if is_success else 'error',
@@ -2805,6 +2866,12 @@ class Plugin:
     _WEBHOOK_RESERVED_KEYS = frozenset({
         'plugin', 'event', 'action', 'status', 'message', 'timestamp',
     })
+
+    # Internal sub-steps that must NOT surface as their own "operation" in the
+    # progress/last-results state (e.g. load_process_channels is called inside
+    # preview/add actions — tracking it would double-fire the started toast and
+    # overwrite the parent op's last-results summary).
+    _INTERNAL_PROGRESS_ACTIONS = frozenset({'load_process_channels'})
 
     def _fire_webhook(self, settings, logger, action_id, message, status, details=None):
         """POST a JSON summary to the configured webhook URL in a daemon thread.
@@ -2837,7 +2904,7 @@ class Plugin:
                 if k not in self._WEBHOOK_RESERVED_KEYS:
                     payload_obj[k] = v
         try:
-            payload = json.dumps(payload_obj).encode('utf-8')
+            payload = self._build_webhook_body(url, payload_obj)
         except (TypeError, ValueError) as e:
             logger.warning(f"[Stream-Mapparr] Webhook payload not JSON-serializable: {e}")
             return
@@ -2857,6 +2924,185 @@ class Plugin:
                 logger.warning(f"[Stream-Mapparr] Webhook POST {url} failed: {e}")
 
         threading.Thread(target=_post, daemon=True, name='stream-mapparr-webhook').start()
+
+    @staticmethod
+    def _build_webhook_body(url, payload_obj):
+        """Shape the webhook body for the target platform (issue #32).
+
+        Discord and Slack incoming webhooks REJECT (HTTP 400) any JSON body that
+        lacks their required top-level key, so a generic payload never delivers.
+        Detect them and send the native shape ({"content": ...} / {"text": ...},
+        truncated to each platform's limit). Every other URL keeps the full
+        generic JSON payload unchanged. Returns UTF-8 encoded bytes.
+        """
+        import urllib.parse
+        host = urllib.parse.urlsplit(url or '').netloc.lower()
+        u = (url or '').lower()
+        message = payload_obj.get('message') or payload_obj.get('event') or 'Stream-Mapparr'
+        # Host-anchored detection so a stray 'discord.com' in a query string of
+        # some other endpoint can't be misclassified (QA L1).
+        if host.endswith(('discord.com', 'discordapp.com')) and '/api/webhooks/' in u:
+            body = {'content': str(message)[:2000]}        # Discord hard limit 2000
+        elif host == 'hooks.slack.com':
+            body = {'text': str(message)[:3000]}           # Slack practical limit
+        else:
+            body = payload_obj
+        return json.dumps(body).encode('utf-8')
+
+    # ----- Persisted progress + last-results state (View Check Progress / View Last Results) -----
+    def _write_json_atomic(self, path, data):
+        """Atomically write JSON via temp file + os.replace (never leaves a half file)."""
+        tmp = path + '.tmp'
+        try:
+            with open(tmp, 'w') as f:
+                json.dump(data, f, default=str)
+            os.replace(tmp, path)
+        except Exception as e:
+            LOGGER.warning(f"[Stream-Mapparr] Failed to write {path}: {e}")
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+    def _read_json_file(self, path):
+        """Read a JSON file, returning None if missing or corrupt."""
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return None
+        except (json.JSONDecodeError, ValueError) as e:
+            LOGGER.warning(f"[Stream-Mapparr] Corrupt JSON {path}: {e}")
+            return None
+
+    def _save_progress_state(self, state):
+        self._write_json_atomic(PluginConfig.PROGRESS_STATE_FILE, state)
+
+    def _load_progress_state(self):
+        data = self._read_json_file(PluginConfig.PROGRESS_STATE_FILE)
+        return data if isinstance(data, dict) else {"status": "idle"}
+
+    def _save_last_results(self, action_id, status, message, details, duration_seconds=None):
+        from datetime import datetime, timezone
+        self._write_json_atomic(PluginConfig.LAST_RESULTS_FILE, {
+            "action": action_id,
+            "status": status,
+            "message": message,
+            "details": details or {},
+            "duration_seconds": duration_seconds,
+            "completed_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        })
+
+    def _emit_plugin_toast(self, message):
+        """Push a lightweight live toast to the frontend (IPTV-Checker 'plugin' shape)."""
+        try:
+            from core.utils import send_websocket_update
+            send_websocket_update('updates', 'update', {
+                "type": "plugin", "plugin": "Stream-Mapparr", "message": message,
+            })
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] live toast failed: {e}")
+
+    def _persist_progress(self, action_id, status, progress, message):
+        """Record the running/completed state to disk and emit a rate-limited live
+        toast. Called for every _send_progress_update so 'View Check Progress'
+        (a separate action invocation, possibly a different Plugin instance) can
+        read accurate live state."""
+        if action_id in self._INTERNAL_PROGRESS_ACTIONS:
+            return None
+        now = time.time()
+        norm = 'running' if status == 'running' else ('complete' if status in ('success', 'completed') else 'error')
+        prev = self._load_progress_state()
+        # Start a fresh clock when a new running operation begins.
+        is_new_op = norm == 'running' and not (prev.get('action') == action_id and prev.get('status') == 'running')
+        start_time = now if is_new_op else prev.get('start_time', now)
+        state = {
+            "action": action_id, "status": norm, "progress": int(progress),
+            "message": message, "start_time": start_time, "updated_at": now,
+        }
+        if norm != 'running':
+            state["end_time"] = now
+        self._save_progress_state(state)
+
+        label = action_id.replace('_', ' ').title()
+        if is_new_op:
+            # "Started" toast — point the user at the progress action. The item
+            # count is not known yet here (the action builds its ProgressTracker
+            # later), so don't claim one — that count belongs to the % toasts.
+            self._last_progress_toast = now
+            self._emit_plugin_toast(f"🔄 {label}: started — use 📊 View Check Progress to monitor")
+        elif norm == 'running' and progress > 0:
+            interval = _progress_toast_interval_for(getattr(self, '_op_total_items', None))
+            if now - getattr(self, '_last_progress_toast', 0.0) >= interval:
+                self._last_progress_toast = now
+                elapsed = now - start_time
+                eta = elapsed * (100 - progress) / progress if 0 < progress < 100 else 0
+                self._emit_plugin_toast(f"🔄 {label}: {int(progress)}% · ETA {format_eta(eta)}")
+        return state
+
+    def _format_last_results(self, data):
+        """Human-readable summary block for the View Last Results toast."""
+        action = (data.get('action') or 'operation').replace('_', ' ').title()
+        lines = [f"📋 Last Results — {action}"]
+        if data.get('completed_at'):
+            lines.append(f"🕐 {data['completed_at']}")
+        if data.get('duration_seconds') is not None:
+            lines.append(f"⏱️ Took {format_eta(data['duration_seconds'])}")
+        lines.append("")
+        if data.get('message'):
+            lines.append(data['message'])
+        details = data.get('details') or {}
+        printable = {k: v for k, v in details.items() if v is not None}
+        if printable:
+            lines.append("")
+            for k, v in printable.items():
+                lines.append(f"  • {k.replace('_', ' ')}: {v}")
+        return "\n".join(lines)
+
+    def view_check_progress_action(self, settings, logger):
+        """📊 Show live progress + ETA of the currently running operation."""
+        st = self._load_progress_state()
+        if st.get('status') == 'running':
+            label = (st.get('action') or 'operation').replace('_', ' ').title()
+            progress = st.get('progress', 0)
+            start = st.get('start_time')
+            now = time.time()
+            updated = st.get('updated_at', start or now)
+            if start and progress > 0:
+                elapsed = now - start
+                eta = elapsed * (100 - progress) / progress if progress < 100 else 0
+                eta_str = format_eta(eta)
+            else:
+                eta_str = "calculating..."
+            msg = f"🔄 {label}: {progress}% · ETA {eta_str}"
+            if (now - updated) > 180:
+                msg += ("\n\n⚠️ No progress update in 3+ minutes — the run may have "
+                        "stalled or already finished. Check 📋 View Last Results.")
+            return {"status": "success", "message": msg}
+
+        last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
+        if last:
+            label = (last.get('action') or 'operation').replace('_', ' ').title()
+            return {"status": "success", "message":
+                    f"No operation is currently running.\n\nLast run — {label}: {last.get('message', '')}"}
+        return {"status": "success", "message":
+                "No operation is currently running.\n\nStart Match & Assign, Sort, or Probe "
+                "Throughput, then check back here for live progress and ETA."}
+
+    def view_last_results_action(self, settings, logger):
+        """📋 Show a summary of the last completed operation."""
+        st = self._load_progress_state()
+        # Only defer to the progress view for a FRESH running op. A crashed or
+        # container-restarted run leaves a stale 'running' flag that must not
+        # wedge this view forever (QA M3).
+        if st.get('status') == 'running' and (time.time() - st.get('updated_at', 0)) <= 180:
+            return {"status": "success", "message":
+                    "An operation is currently running.\n\nUse 📊 View Check Progress to see live status."}
+        last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
+        if not last:
+            return {"status": "success", "message":
+                    "No results yet.\n\nRun Match & Assign, Sort, or Probe Throughput, then check back here."}
+        return {"status": "success", "message": self._format_last_results(last)}
 
     def _check_operation_lock(self, logger):
         """
@@ -3054,6 +3300,8 @@ class Plugin:
                 "cleanup_periodic_tasks": self.cleanup_periodic_tasks_action,
                 "clear_csv_exports": self.clear_csv_exports_action,
                 "clear_operation_lock": self.clear_operation_lock_action,
+                "view_check_progress": self.view_check_progress_action,
+                "view_last_results": self.view_last_results_action,
             }
 
             if action in background_actions:
@@ -3094,6 +3342,9 @@ class Plugin:
                 )
 
                 def _execute_with_progress():
+                    # Reset per-op item count so progress-toast cadence doesn't
+                    # inherit a stale value from a previous operation (QA M2).
+                    self._op_total_items = None
                     self._send_progress_update(action, 'running', 0, 'Starting operation...', context)
                     # Use keyword so `context` binds correctly even for actions
                     # whose signature has an `is_scheduled` parameter in third
