@@ -67,14 +67,12 @@ REGIONAL_PATTERNS = [
     r'\s[Ee][Aa][Ss][Tt]',
     # Regional: " West" or " west" (word with space prefix)
     r'\s[Ww][Ee][Ss][Tt]',
-    # Regional: " Pacific" or " pacific" (word with space prefix)
-    r'\s[Pp][Aa][Cc][Ii][Ff][Ii][Cc]',
-    # Regional: " Central" or " central" (word with space prefix)
-    r'\s[Cc][Ee][Nn][Tt][Rr][Aa][Ll]',
-    # Regional: " Mountain" or " mountain" (word with space prefix)
-    r'\s[Mm][Oo][Uu][Nn][Tt][Aa][Ii][Nn]',
-    # Regional: " Atlantic" or " atlantic" (word with space prefix)
-    r'\s[Aa][Tt][Ll][Aa][Nn][Tt][Ii][Cc]',
+    # bug-066: bare " Pacific"/" Central"/" Mountain"/" Atlantic" are removed as
+    # bare-suffix timezones ONLY in their parenthesized form (below). As bare words
+    # they are brand tokens far more often than feed markers ("Comedy Central",
+    # "The Atlantic"), so stripping them collapsed distinct channels onto one
+    # grouping key and mis-assigned shared streams. East/West (the canonical US
+    # dual-feed suffixes) stay bare-strippable; the rarer zones require parentheses.
     # Regional: (East) or (EAST) (parenthesized format)
     r'\s*\([Ee][Aa][Ss][Tt]\)\s*',
     # Regional: (West) or (WEST) (parenthesized format)

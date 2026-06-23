@@ -55,6 +55,43 @@ def test_word_boundary_tag_does_not_strip_substring(matcher):
     assert "Feast" in out
 
 
+def test_brand_central_not_stripped_as_timezone(matcher):
+    """bug-066: bare 'Central' is a brand word in 'Comedy Central', not a timezone
+    feed. It must survive strip_all so the channel does not collapse to 'Comedy'."""
+    m = matcher()
+    assert "CENTRAL" in m.normalize_name("Comedy Central", ignore_regional=True).upper()
+
+
+def test_comedy_central_distinct_from_comedy_tv(matcher):
+    """bug-066: 'Comedy Central' and 'Comedy TV' are different channels and must not
+    both collapse to 'Comedy' (which mis-assigned shared streams across them)."""
+    m = matcher()
+    assert (m.normalize_name("Comedy Central", ignore_regional=True)
+            != m.normalize_name("Comedy TV", ignore_regional=True))
+
+
+def test_brand_atlantic_not_stripped_as_timezone(matcher):
+    """bug-066: same class as Central — bare 'Atlantic'/'Pacific'/'Mountain' are
+    brand words far more often than US timezone feeds; keep them under strip_all."""
+    m = matcher()
+    assert "ATLANTIC" in m.normalize_name("The Atlantic", ignore_regional=True).upper()
+
+
+def test_bare_east_west_still_stripped_under_strip_all(matcher):
+    """Guard: the canonical dual-feed suffixes East/West MUST still strip under
+    strip_all (the common 'HBO East'/'HBO West' merge behaviour is preserved)."""
+    m = matcher()
+    assert "EAST" not in m.normalize_name("FX East", ignore_regional=True).upper()
+    assert "WEST" not in m.normalize_name("FX West", ignore_regional=True).upper()
+
+
+def test_parenthesized_central_still_stripped_under_strip_all(matcher):
+    """Guard: an explicit parenthesized timezone tag '(Central)' is a genuine feed
+    marker and must still strip under strip_all (only the BARE word is preserved)."""
+    m = matcher()
+    assert m.normalize_name("ESPN (Central)", ignore_regional=True).upper().strip() == "ESPN"
+
+
 # --------------------------------------------------------------------------- #
 # calculate_similarity
 # --------------------------------------------------------------------------- #
