@@ -145,6 +145,7 @@ class PluginConfig:
     PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
     LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
     PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
+    PROGRESS_STALE_SECONDS = 180     # a 'running' flag older than this is treated as stalled/crashed
 
     # === OPERATION LOCK SETTINGS ===
     OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
@@ -227,16 +228,23 @@ def _progress_toast_interval_for(total_items):
     return 3 if total_items <= 50 else 5 if total_items <= 200 else 10
 
 
+# Stream ordering tables for a zoned channel (lower = assigned earlier/primary).
+# bug-068 routing policy, named so the two tables are greppable side by side:
+_WEST_CHANNEL_ZONE_RANK = {'WEST': 0, 'DEFAULT': 1, 'EAST': 2}   # West: own > generic > East (never empty)
+_EAST_CHANNEL_ZONE_RANK = {'EAST': 0, 'DEFAULT': 0, 'WEST': 2}   # Default/East: East+generic > West
+
+
 def _zone_affinity_rank(channel_zone, stream_zone):
-    """Stream ordering priority for a zoned channel (lower = assigned earlier /
-    primary). Encodes the routing policy (bug-068):
-      WEST channel:           WEST(0) < generic/DEFAULT(1) < EAST(2)   — never empty.
-      DEFAULT/EAST channel:   EAST/DEFAULT(0) < WEST(2)                — the default
-                              feed is East-like; generic counts as East.
-    """
-    if channel_zone == 'WEST':
-        return {'WEST': 0, 'DEFAULT': 1, 'EAST': 2}.get(stream_zone, 1)
-    return {'EAST': 0, 'DEFAULT': 0, 'WEST': 2}.get(stream_zone, 1)
+    """Stream ordering priority for a zoned channel (lower = assigned earlier).
+    West channel: WEST > generic > EAST (never empty). Default/East channel
+    (the default feed is East-like; generic counts as East): East+generic > West."""
+    table = _WEST_CHANNEL_ZONE_RANK if channel_zone == 'WEST' else _EAST_CHANNEL_ZONE_RANK
+    return table.get(stream_zone, 1)
+
+
+def _eta_from_progress(elapsed, progress):
+    """Linear-extrapolated seconds remaining from elapsed time and percent done."""
+    return elapsed * (100 - progress) / progress if 0 < progress < 100 else 0
 
 
 class ProgressTracker:
@@ -244,7 +252,7 @@ class ProgressTracker:
     Tracks operation progress with ETA calculation and periodic updates.
     Provides minute-by-minute progress reporting with estimated time remaining.
     """
-    def __init__(self, total_items, action_id, logger, context=None, send_progress_callback=None):
+    def __init__(self, total_items, action_id, logger, context=None, send_progress_callback=None, plugin=None):
         """
         Initialize progress tracker.
         
@@ -262,14 +270,9 @@ class ProgressTracker:
         self.send_progress_callback = send_progress_callback
 
         # Hand the owning Plugin the item count so its live progress toasts use
-        # the adaptive cadence (3s/5s/10s) matched to this job's size. The
-        # callback is the Plugin's bound _send_progress_update, so __self__ is
-        # the Plugin instance.
-        if callable(send_progress_callback) and hasattr(send_progress_callback, '__self__'):
-            try:
-                send_progress_callback.__self__._op_total_items = total_items
-            except Exception:
-                pass
+        # the adaptive cadence (3s/5s/10s) matched to this job's size.
+        if plugin is not None:
+            plugin._op_total_items = total_items
 
         # Time tracking
         self.start_time = time.time()
@@ -1541,6 +1544,22 @@ class Plugin:
             per_channel[ch['id']] = (base, zone)
             base_zones.setdefault(base, set()).add(zone)
         return {cid: zone for cid, (base, zone) in per_channel.items() if len(base_zones[base]) >= 2}
+
+    def _channels_to_update_for_group(self, sorted_channels, visible_channel_limit, zone_routed):
+        """Channels in a group that receive streams: the top `visible_channel_limit`,
+        plus the top channel of any zone-routed sibling whose feed zone isn't yet
+        represented (bug-068 — zone siblings like East/West are distinct feeds, not
+        the duplicates the limit is meant to cap; only relevant when same-case
+        siblings collapse into one group)."""
+        channels = sorted_channels[:visible_channel_limit]
+        if zone_routed:
+            covered = {zone_routed.get(c['id']) for c in channels}
+            for ch in sorted_channels[visible_channel_limit:]:
+                z = zone_routed.get(ch['id'])
+                if z and z not in covered:
+                    channels.append(ch)
+                    covered.add(z)
+        return channels
 
     def _order_streams_for_zone(self, matched_streams, channel_zone):
         """Stable re-sort of a channel's matched streams by zone affinity — own zone
@@ -3044,7 +3063,7 @@ class Plugin:
         try:
             from core.utils import send_websocket_update
             send_websocket_update('updates', 'update', {
-                "type": "plugin", "plugin": "Stream-Mapparr", "message": message,
+                "type": "plugin", "plugin": self.name, "message": message,
             })
         except Exception as e:
             LOGGER.debug(f"[Stream-Mapparr] live toast failed: {e}")
@@ -3081,8 +3100,7 @@ class Plugin:
             interval = _progress_toast_interval_for(getattr(self, '_op_total_items', None))
             if now - getattr(self, '_last_progress_toast', 0.0) >= interval:
                 self._last_progress_toast = now
-                elapsed = now - start_time
-                eta = elapsed * (100 - progress) / progress if 0 < progress < 100 else 0
+                eta = _eta_from_progress(now - start_time, progress)
                 self._emit_plugin_toast(f"🔄 {label}: {int(progress)}% · ETA {format_eta(eta)}")
         return state
 
@@ -3115,13 +3133,11 @@ class Plugin:
             now = time.time()
             updated = st.get('updated_at', start or now)
             if start and progress > 0:
-                elapsed = now - start
-                eta = elapsed * (100 - progress) / progress if progress < 100 else 0
-                eta_str = format_eta(eta)
+                eta_str = format_eta(_eta_from_progress(now - start, progress))
             else:
                 eta_str = "calculating..."
             msg = f"🔄 {label}: {progress}% · ETA {eta_str}"
-            if (now - updated) > 180:
+            if (now - updated) > PluginConfig.PROGRESS_STALE_SECONDS:
                 msg += ("\n\n⚠️ No progress update in 3+ minutes — the run may have "
                         "stalled or already finished. Check 📋 View Last Results.")
             return {"status": "success", "message": msg}
@@ -3141,7 +3157,7 @@ class Plugin:
         # Only defer to the progress view for a FRESH running op. A crashed or
         # container-restarted run leaves a stale 'running' flag that must not
         # wedge this view forever (QA M3).
-        if st.get('status') == 'running' and (time.time() - st.get('updated_at', 0)) <= 180:
+        if st.get('status') == 'running' and (time.time() - st.get('updated_at', 0)) <= PluginConfig.PROGRESS_STALE_SECONDS:
             return {"status": "success", "message":
                     "An operation is currently running.\n\nUse 📊 View Check Progress to see live status."}
         last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
@@ -4181,7 +4197,8 @@ class Plugin:
                 action_id="preview_changes",
                 logger=logger,
                 context=context,
-                send_progress_callback=self._send_progress_update
+                send_progress_callback=self._send_progress_update,
+                plugin=self,
             )
             progress_tracker.set_progress_range(30, 80)  # This phase handles 30-80% of progress
             
@@ -4403,7 +4420,8 @@ class Plugin:
                 action_id="add_streams_to_channels",
                 logger=logger,
                 context=context,
-                send_progress_callback=self._send_progress_update
+                send_progress_callback=self._send_progress_update,
+                plugin=self,
             )
             progress_tracker.set_progress_range(20, 80)  # This phase handles 20-80% of progress
 
@@ -4428,19 +4446,8 @@ class Plugin:
                     'stream_count': len(matched_streams)
                 }
 
-                channels_to_update = sorted_channels[:visible_channel_limit]
-                # bug-068: when zone siblings (e.g. East + West feeds) land in the
-                # SAME group (same-case names), they are DISTINCT feeds, not the
-                # duplicates `visible_channel_limit` is meant to cap — so ensure the
-                # top channel of each distinct zone is assigned even beyond the
-                # limit. (Different-case siblings are already separate groups.)
-                if zone_routed:
-                    covered_zones = {zone_routed.get(c['id']) for c in channels_to_update}
-                    for ch in sorted_channels[visible_channel_limit:]:
-                        z = zone_routed.get(ch['id'])
-                        if z and z not in covered_zones:
-                            channels_to_update.append(ch)
-                            covered_zones.add(z)
+                channels_to_update = self._channels_to_update_for_group(
+                    sorted_channels, visible_channel_limit, zone_routed)
                 group_match_cache[group_key] = {
                     'matched_streams': matched_streams,
                     'channels_to_update': channels_to_update,
@@ -5440,7 +5447,8 @@ class Plugin:
             probed_fail = 0
             total_eligible = sum(len(q) for q in queues.values())
             tracker = ProgressTracker(total_eligible, "probe_throughput", logger,
-                                      context=context, send_progress_callback=self._send_progress_update)
+                                      context=context, send_progress_callback=self._send_progress_update,
+                                      plugin=self)
 
             while any(queues.values()):
                 # Pick the account whose queue is non-empty and next_eligible is soonest.

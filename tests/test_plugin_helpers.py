@@ -239,3 +239,19 @@ def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matche
     ordered = p._order_streams_for_zone(streams, 'WEST')
     assert ordered[0]['id'] == 12    # WEST promoted to primary
     assert ordered[-1]['id'] == 10   # EAST demoted to last (fallback)
+
+
+def test_channels_to_update_includes_each_zone_sibling(plugin_module):
+    """bug-068 bypass: at limit=1 a same-group West sibling is still assigned, but a
+    duplicate same-zone channel is NOT (the limit still caps true duplicates)."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    sorted_channels = [{'id': 1}, {'id': 2}, {'id': 3}]   # 1,2 = DEFAULT; 3 = WEST
+    zone_routed = {1: 'DEFAULT', 2: 'DEFAULT', 3: 'WEST'}
+    out = p._channels_to_update_for_group(sorted_channels, 1, zone_routed)
+    assert [c['id'] for c in out] == [1, 3]   # top DEFAULT + the West sibling; dup DEFAULT excluded
+
+
+def test_channels_to_update_no_zone_routing_respects_limit(plugin_module):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    out = p._channels_to_update_for_group([{'id': 1}, {'id': 2}], 1, {})
+    assert [c['id'] for c in out] == [1]   # common case unchanged
