@@ -95,10 +95,13 @@ case that would have caught it.
 
 | File | Covers | Needs Django stub? |
 |---|---|---|
-| `test_fuzzy_matcher.py` | normalization, similarity, callsign extraction, the numeric-sibling guard (bug-021), zone expansion | No — pure stdlib + rapidfuzz |
-| `test_plugin_helpers.py` | `_parse_tags`, `_parse_priority_list`, `_audio_rank`, `_is_probe_fresh` (bug-008) | Yes (via conftest) |
+| `test_fuzzy_matcher.py` | normalization, similarity, callsign extraction, the numeric-sibling guard (bug-021), zone expansion, bare-timezone over-strip (bug-066) | No — pure stdlib + rapidfuzz |
+| `test_plugin_helpers.py` | `_parse_tags`, `_parse_priority_list`, `_audio_rank`, `_is_probe_fresh` (bug-008), scheduler `__init__` bootstrap (bug-065) | Yes (via conftest) |
+| `test_progress_notifications.py` | `format_eta`, Discord/Slack webhook reshaping (bug-067), progress/last-results round-trips, View Progress/Last Results, live-toast wiring | Yes (via conftest) |
 | `test_databases.py` | schema of every `*_channels.json` (the US file is 3.6 MB) | No |
 | `test_version_sync.py` | `plugin.json` version == `PLUGIN_VERSION`, calver format | No |
+
+The suite is **226 tests** as of v1.26.1742332.
 
 ### How importing `plugin.py` works in tests
 
@@ -177,6 +180,19 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   otherwise a bad run locks out re-probing for a TTL window (bug-008).
 - **Don't use `django.utils.timezone.utc`** (removed in Django 5.0). Use
   `timezone.now()` or the stdlib `dt_timezone.utc` alias (bug-006).
+- **The background scheduler bootstraps from `Plugin.__init__`, not `on_load`**
+  (bug-065). This Dispatcharr build never calls `on_load` but re-instantiates the
+  Plugin constantly, so arming only from `on_load` left the scheduler permanently
+  dead. `__init__ → _load_settings → _start_background_scheduler`, serialized by a
+  re-entrant `_scheduler_lock` (concurrent construction otherwise orphans a
+  scheduler thread and double-fires scans). The scheduler reads
+  `stream_mapparr_settings.json`, which can drift from the DB
+  (`PluginConfig.settings`) — sync the file when changing schedule outside the UI.
+- **`_send_progress_update` is the single progress hub** — it persists
+  `stream_mapparr_progress.json` / `stream_mapparr_last_results.json` and drives
+  live toasts for *all* long-running actions. Don't add a parallel progress path;
+  route through it. `load_process_channels` is in `_INTERNAL_PROGRESS_ACTIONS`
+  (suppressed) so internal sub-steps don't clobber the parent op's state.
 - **Channel-database `type` contract:** only a `type` containing the substring
   `"broadcast"` is semantically significant — it marks an OTA channel and
   REQUIRES a `callsign` (matched by callsign). Every other `type` string

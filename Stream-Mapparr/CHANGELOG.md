@@ -6,6 +6,61 @@ _Nothing yet._
 
 ---
 
+## v1.26.1742332 (June 23, 2026)
+
+**Type**: Bugfix + feature release — restores the background scheduler, fixes a
+matcher over-strip that merged distinct channels, adds IPTV-Checker-style
+progress/results visibility with live notifications, and fixes Discord/Slack
+webhook delivery (issue #32).
+
+### Fixed
+
+- **Background scheduler now actually runs (bug-065).** The scheduler armed only
+  from `on_load()`, which this Dispatcharr build never invokes — while it
+  re-instantiates the `Plugin` constantly. Scheduled runs had silently stopped
+  for days (no `Background scheduler started` / `Scheduled scan triggered` in the
+  logs; only manual runs). It now bootstraps from `Plugin.__init__()` via
+  `_load_settings()`, mirroring the working `event_channel_managarr` sibling. The
+  stop→start sequence is serialized with a re-entrant `_scheduler_lock` so
+  concurrent construction can't orphan a scheduler thread (would otherwise
+  double-fire a scheduled scan).
+
+- **Distinct channels no longer collapse onto one another (bug-066).** Bare
+  timezone words ` Pacific`/` Central`/` Mountain`/` Atlantic` were stripped as
+  feed markers in `REGIONAL_PATTERNS`, so "Comedy Central" → "Comedy" (collided
+  with "Comedy TV") and "The Atlantic" → "The". As bare words these are brand
+  tokens far more often than US timezone feeds — they are removed from the bare
+  set. Bare `East`/`West` (the canonical dual-feed suffixes) and all
+  parenthesized timezone tags (`(Central)`) are kept. Surfaced from a live-DB
+  audit where Starz Encore East/West and Comedy Central/Comedy TV shared
+  identical stream pools.
+
+- **Discord & Slack webhooks deliver again (bug-067 / issue #32).** Completion
+  webhooks POSTed a custom JSON object, which Discord and Slack reject (HTTP 400)
+  because the body lacks their required key. `_build_webhook_body` now sends the
+  native shape — `{"content": …}` to Discord, `{"text": …}` to Slack
+  (host-anchored detection, truncated to platform limits) — while every other URL
+  keeps the generic JSON payload unchanged.
+
+### Added
+
+- **📊 View Check Progress** and **📋 View Last Results** actions. Progress
+  (action, %, ETA) is persisted to `/data/stream_mapparr_progress.json` and the
+  last completed run's summary to `/data/stream_mapparr_last_results.json` (atomic
+  writes), so the view actions read accurate live/last state even though each
+  action call may hit a fresh `Plugin` instance.
+
+- **Live progress notifications.** Long-running operations now emit a "started"
+  toast, periodic `% + ETA` toasts at an adaptive cadence (3s/5s/10s by job
+  size), and a completion toast — generic across Match & Assign, Sort, Probe,
+  OTA, and Visibility. `load_process_channels` is treated as an internal sub-step
+  (no duplicate toasts).
+
+- ~70 regression tests across `tests/test_progress_notifications.py`,
+  `test_fuzzy_matcher.py`, and `test_plugin_helpers.py` (suite now 226).
+
+---
+
 ## v1.26.1720023 (June 21, 2026)
 
 **Type**: Bugfix release — OTA (broadcast) callsign matching restored, and a

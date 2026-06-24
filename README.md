@@ -29,8 +29,13 @@ Small jobs (estimated under ~25 seconds) run **synchronously** — the Dispatcha
 Larger jobs run in a **background thread**. The UI shows a "started in background" notification up front; completion is reported via:
 
 - Docker logs: `docker logs -f dispatcharr | grep Stream-Mapparr` (look for `COMPLETED`)
-- Optional **webhook** POST to an HTTP(S) endpoint of your choice (see settings)
+- Optional **webhook** POST to an HTTP(S) endpoint of your choice (see settings) — Discord and Slack supported natively
 - WebSocket event to the frontend
+
+While a long operation runs, the plugin also pushes a **"started" toast**, periodic **`% + ETA`** toasts (adaptive cadence), and a **completion** toast. You can check on a run at any time:
+
+- **📊 View Check Progress** — current action, percentage, and ETA of the running operation
+- **📋 View Last Results** — summary (counts, CSV filename, duration) of the last completed run
 
 Buttons re-enable instantly. Do not click again while an operation is in flight — an operation lock prevents concurrent runs and auto-expires after 10 minutes.
 
@@ -63,7 +68,8 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
-- **Webhook notifications**: POST JSON summary (action, counts, CSV filename, dry-run flag) to any HTTP(S) endpoint on completion — wire into Discord, Slack, Home Assistant, ntfy, etc.
+- **Webhook notifications**: POST a summary (action, counts, CSV filename, dry-run flag) to any HTTP(S) endpoint on completion. **Discord** and **Slack** webhook URLs are auto-detected and sent in their native message shape (`{"content"}` / `{"text"}`); any other endpoint receives the generic JSON payload — wire into Home Assistant, ntfy, etc.
+- **Live progress + last-results**: `📊 View Check Progress` and `📋 View Last Results` actions report the running operation's %/ETA and the last completed run's summary, backed by on-disk state so they work across UI sessions.
 
 ### Reporting
 - **CSV exports**: Detailed reports with threshold recommendations and token mismatch analysis
@@ -135,6 +141,8 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Sort Alternate Streams** | Re-sort existing streams by quality (and throughput tier, when probe data is available). CSV gains `tiers`, `throughput_mbps`, and `edge_ips` columns aligned with `stream_names`. |
 | **Probe Stream Throughput** | Measure sustained throughput for streams currently assigned to channels in the selected profile + groups. Updates `/data/stream_mapparr_throughput_cache.json`. Run before *Sort Alternate Streams* to feed measured Mbps into the sort. |
 | **Manage Channel Visibility** | Enable/disable channels based on stream count |
+| **View Check Progress** | Show the current operation's progress (%) and ETA |
+| **View Last Results** | Show a summary of the last completed operation |
 | **Clear CSV Exports** | Delete all plugin CSV files |
 
 ## Scheduling
@@ -173,7 +181,12 @@ Set **Webhook URL** to any HTTP(S) endpoint and enable **Fire Webhook On Complet
 }
 ```
 
-The URL is fetched server-side from Dispatcharr — only enter endpoints you trust.
+**Discord and Slack** are auto-detected by URL and receive their native body shape instead of the payload above, so delivery actually succeeds (a generic body returns HTTP 400 from those platforms):
+
+- Discord (`https://discord.com/api/webhooks/…`) → `{"content": "<message>"}` (truncated to 2000 chars)
+- Slack (`https://hooks.slack.com/…`) → `{"text": "<message>"}`
+
+Any other endpoint receives the full generic JSON payload above. The URL is fetched server-side from Dispatcharr — only enter endpoints you trust.
 
 ## Troubleshooting
 
