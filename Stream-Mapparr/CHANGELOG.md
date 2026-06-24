@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Scheduled run no longer fires once per worker (bug-069).** Dispatcharr runs
+  several worker processes; after the bug-065 fix each armed a scheduler, so the
+  05:00 job ran N times (observed: 5 sort CSVs in one minute). Ported the proven
+  cross-worker pattern from event-channel-managarr: a shared last-run file
+  (`/data/stream_mapparr_scheduler_last_run.json`, `{HH:MM → date}`) plus an
+  `fcntl.flock` guard (`/data/stream_mapparr_scheduler.lock`) that makes the
+  read-check-stamp atomic. Only the worker that wins the slot runs the job; the
+  rest skip before doing any work. Harmless before for deterministic Sort, but
+  required before scheduled Match & Assign (concurrent ORM writes). Degrades to a
+  plain check-and-stamp on non-POSIX hosts (tests/dev).
+
 ### Added
 
 - **Zone-aware East/West stream routing (bug-068).** Distinct feeds like

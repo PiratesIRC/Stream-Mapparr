@@ -267,3 +267,42 @@ def test_streams_for_channel_reorders_only_routed(plugin_module, matcher):
     routed = p._streams_for_channel(streams, 5, {5: 'WEST'})
     assert [s['id'] for s in routed] == [2, 1]                  # West first
     assert p._streams_for_channel(streams, 5, {}) is streams    # non-routed unchanged
+
+
+# --------------------------------------------------------------------------- #
+# Cross-worker scheduled-slot claim — bug-069 (multi-worker duplicate runs)
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def tmp_sched(plugin_module, tmp_path, monkeypatch):
+    monkeypatch.setattr(plugin_module.PluginConfig, "SCHEDULER_LAST_RUN_FILE",
+                        str(tmp_path / "sched_last_run.json"))
+    monkeypatch.setattr(plugin_module.PluginConfig, "SCHEDULER_LOCK_FILE",
+                        str(tmp_path / "sched.lock"))
+    return tmp_path
+
+
+def test_claim_scheduled_slot_dedups_same_slot(plugin_module, tmp_sched):
+    """First worker wins the slot; a second worker (same slot+date) is told to skip."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    import logging
+    log = logging.getLogger("t")
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is True
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is False
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is False
+
+
+def test_claim_scheduled_slot_new_day_reclaims(plugin_module, tmp_sched):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    import logging
+    log = logging.getLogger("t")
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is True
+    assert p._claim_scheduled_slot("05:00", "2026-06-25", log) is True   # next day -> fresh
+    assert p._claim_scheduled_slot("05:00", "2026-06-25", log) is False
+
+
+def test_claim_scheduled_slot_independent_times(plugin_module, tmp_sched):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    import logging
+    log = logging.getLogger("t")
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is True
+    assert p._claim_scheduled_slot("16:00", "2026-06-24", log) is True   # different time slot

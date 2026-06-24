@@ -12,6 +12,10 @@ import urllib.request
 import urllib.error
 import time
 import pytz
+try:
+    import fcntl  # POSIX-only; provides the cross-worker scheduler flock (bug-069)
+except ImportError:  # Windows / non-Docker test host
+    fcntl = None
 from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from django.db import transaction
@@ -142,6 +146,8 @@ class PluginConfig:
     VERSION_CHECK_CACHE_FILE = "/data/stream_mapparr_version_check.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
+    SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
+    SCHEDULER_LOCK_FILE = "/data/stream_mapparr_scheduler.lock"               # flock guard for the claim
     PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
     LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
     PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
@@ -1037,6 +1043,46 @@ class Plugin:
                     times.append(datetime.strptime(time_str, '%H%M').time())
         return times
 
+    def _read_scheduler_last_run(self):
+        """Shared across all worker processes: {time_key: date_str} of which slot
+        last ran on which date (the durable cross-worker claim record, bug-069)."""
+        data = self._read_json_file(PluginConfig.SCHEDULER_LAST_RUN_FILE)
+        return data if isinstance(data, dict) else {}
+
+    def _write_scheduler_last_run(self, data):
+        self._write_json_atomic(PluginConfig.SCHEDULER_LAST_RUN_FILE, data)
+
+    def _claim_scheduled_slot(self, time_key, date_str, logger):
+        """Atomically claim a scheduled slot across ALL Dispatcharr worker processes
+        so the job runs once per slot, not once per worker (bug-069). Returns True
+        only for the worker that wins the slot. A cross-process flock makes the
+        read-check-stamp atomic; the shared last-run file is the durable record. On
+        a non-POSIX host (no fcntl) it degrades to a plain check-and-stamp, which is
+        correct for the single-process test/dev case."""
+        lock_fd = None
+        try:
+            try:
+                lock_fd = open(PluginConfig.SCHEDULER_LOCK_FILE, 'a')
+                if fcntl is not None:
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # blocking; held only for the stamp
+            except OSError as e:
+                logger.warning(f"[Stream-Mapparr] scheduler lock unavailable ({e}); proceeding without cross-worker guard")
+                lock_fd = None
+            last_run = self._read_scheduler_last_run()
+            if last_run.get(time_key) == date_str:
+                return False  # another worker already claimed/ran this slot today
+            last_run[time_key] = date_str
+            self._write_scheduler_last_run(last_run)
+            return True
+        finally:
+            if lock_fd is not None:
+                try:
+                    if fcntl is not None:
+                        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                    lock_fd.close()
+                except OSError:
+                    pass
+
     def _start_background_scheduler(self, settings):
         """Start background scheduler thread (serialized via _scheduler_lock so
         concurrent Plugin instantiation cannot leave two live scheduler loops)."""
@@ -1095,6 +1141,15 @@ class Plugin:
                         
                         # Run if within configured time window and have not run today for this time
                         if -PluginConfig.SCHEDULER_TIME_WINDOW <= time_diff <= PluginConfig.SCHEDULER_TIME_WINDOW and last_run.get(scheduled_time) != current_date:
+                            # In-memory guard so THIS thread doesn't re-tick the slot today.
+                            last_run[scheduled_time] = current_date
+                            # bug-069: claim the slot across ALL Dispatcharr worker
+                            # processes so the job runs once per slot, not once per
+                            # worker. Losers skip here (before doing any work).
+                            time_key = scheduled_time.strftime('%H:%M')
+                            if not self._claim_scheduled_slot(time_key, str(current_date), LOGGER):
+                                LOGGER.info(f"[Stream-Mapparr] Scheduled slot {time_key} already handled by another worker — skipping duplicate run")
+                                break
                             LOGGER.info(f"[Stream-Mapparr] Scheduled scan triggered at {now.strftime('%Y-%m-%d %H:%M %Z')}")
                             try:
                                 # Step 0: Wait for IPTV Checker if enabled
