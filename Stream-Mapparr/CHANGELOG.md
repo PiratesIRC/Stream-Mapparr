@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+_Nothing yet._
+
+---
+
+## v1.26.1751210 (June 24, 2026)
+
+**Type**: Feature + bugfix release. Zone-aware East/West stream routing and a
+multi-worker scheduler-dedup fix — both verified live on the container (the
+scheduled run was test-fired and confirmed to run exactly once). Two independent
+QA passes plus a `/simplify` quality pass across the changes.
+
 ### Fixed
 
 - **Scheduled run no longer fires once per worker (bug-069).** Dispatcharr runs
@@ -11,9 +22,12 @@
   (`/data/stream_mapparr_scheduler_last_run.json`, `{HH:MM → date}`) plus an
   `fcntl.flock` guard (`/data/stream_mapparr_scheduler.lock`) that makes the
   read-check-stamp atomic. Only the worker that wins the slot runs the job; the
-  rest skip before doing any work. Harmless before for deterministic Sort, but
-  required before scheduled Match & Assign (concurrent ORM writes). Degrades to a
-  plain check-and-stamp on non-POSIX hosts (tests/dev).
+  rest skip before doing any work. (QA: the lock fd is closed if `flock` raises
+  after `open` succeeds; a claim-loser skips only its slot, not the whole loop.)
+  Harmless before for deterministic Sort, but required before scheduled Match &
+  Assign (concurrent ORM writes). Degrades to a plain check-and-stamp on non-POSIX
+  hosts (tests/dev). Live-verified: a test-fired slot showed one trigger + one
+  "skipping duplicate run" + one CSV.
 
 ### Added
 

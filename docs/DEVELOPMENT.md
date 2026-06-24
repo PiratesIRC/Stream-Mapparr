@@ -101,7 +101,7 @@ case that would have caught it.
 | `test_databases.py` | schema of every `*_channels.json` (the US file is 3.6 MB) | No |
 | `test_version_sync.py` | `plugin.json` version == `PLUGIN_VERSION`, calver format | No |
 
-The suite is **226 tests** as of v1.26.1742332.
+The suite is **243 tests** as of v1.26.1751210.
 
 ### How importing `plugin.py` works in tests
 
