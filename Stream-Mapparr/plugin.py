@@ -1058,7 +1058,12 @@ class Plugin:
         only for the worker that wins the slot. A cross-process flock makes the
         read-check-stamp atomic; the shared last-run file is the durable record. On
         a non-POSIX host (no fcntl) it degrades to a plain check-and-stamp, which is
-        correct for the single-process test/dev case."""
+        correct for the single-process test/dev case.
+
+        Stamp-early semantics: the slot is recorded at claim time (before the
+        up-to-3.5h IPTV-checker wait + run), so a winner that crashes mid-run
+        forfeits today's slot rather than risking a partial double-run — re-running
+        on the next scheduled day is the safer default for a match/sort job."""
         lock_fd = None
         try:
             try:
@@ -1067,6 +1072,13 @@ class Plugin:
                     fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)  # blocking; held only for the stamp
             except OSError as e:
                 logger.warning(f"[Stream-Mapparr] scheduler lock unavailable ({e}); proceeding without cross-worker guard")
+                # QA: close before nulling — if open() succeeded but flock() raised,
+                # the fd would otherwise leak (the finally guards on lock_fd not None).
+                if lock_fd is not None:
+                    try:
+                        lock_fd.close()
+                    except OSError:
+                        pass
                 lock_fd = None
             last_run = self._read_scheduler_last_run()
             if last_run.get(time_key) == date_str:
@@ -1149,7 +1161,7 @@ class Plugin:
                             time_key = scheduled_time.strftime('%H:%M')
                             if not self._claim_scheduled_slot(time_key, str(current_date), LOGGER):
                                 LOGGER.info(f"[Stream-Mapparr] Scheduled slot {time_key} already handled by another worker — skipping duplicate run")
-                                break
+                                continue  # skip THIS slot only; still evaluate other scheduled times
                             LOGGER.info(f"[Stream-Mapparr] Scheduled scan triggered at {now.strftime('%Y-%m-%d %H:%M %Z')}")
                             try:
                                 # Step 0: Wait for IPTV Checker if enabled

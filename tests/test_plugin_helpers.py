@@ -306,3 +306,21 @@ def test_claim_scheduled_slot_independent_times(plugin_module, tmp_sched):
     log = logging.getLogger("t")
     assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is True
     assert p._claim_scheduled_slot("16:00", "2026-06-24", log) is True   # different time slot
+
+
+def test_claim_scheduled_slot_survives_flock_failure(plugin_module, tmp_sched, monkeypatch):
+    """QA bug-069: if flock raises (e.g. ENOLCK on some filesystems) after the lock
+    file opened, the except branch must still close the fd (no leak) and the claim
+    must proceed degraded (no cross-worker guard) without crashing — and still
+    function (stamp + dedup)."""
+    import logging, types
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    log = logging.getLogger("t")
+
+    def boom(*a, **k):
+        raise OSError("no lock on this filesystem")
+
+    monkeypatch.setattr(plugin_module, "fcntl",
+                        types.SimpleNamespace(LOCK_EX=2, LOCK_UN=8, flock=boom))
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is True    # proceeds degraded
+    assert p._claim_scheduled_slot("05:00", "2026-06-24", log) is False   # still dedups via the file
