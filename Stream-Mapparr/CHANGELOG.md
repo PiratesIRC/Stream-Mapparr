@@ -2,7 +2,26 @@
 
 ## Unreleased
 
-_Nothing yet._
+### Added
+
+- **Zone-aware East/West stream routing (bug-068).** Distinct feeds like
+  "Starz Encore" and "STARZ Encore (W)" no longer just share one quality-sorted
+  pool — each routed channel's streams are re-ordered so the West channel's
+  primary is a West feed and the East/default channel's primary is an East/generic
+  feed. `FuzzyMatcher.extract_zone()` derives WEST/EAST/DEFAULT from `(W)`/`(E)`/
+  `(WEST)`/`(EAST)` and bare `WEST`/`EAST` words. Routing activates **only** for
+  channels that share a zone-stripped base name with a different-zone sibling, so
+  the common single-feed case is unchanged. Zone siblings that collapse into one
+  group (same-case names) bypass `visible_channel_limit` so each zone still gets a
+  channel.
+
+  _Known limitations (deliberate, this iteration):_ routing **re-orders** the
+  matched pool (per the chosen "West never empty, falls back to generic/East"
+  policy) rather than partitioning it, so both channels still carry the full pool
+  as alternates. It is applied in **Match & Assign only** — **Preview** does not
+  show the zone order, and **Sort Alternate Streams** re-sorts by pure quality and
+  will revert the zone preference. **Pacific** folds into the DEFAULT (East-like)
+  bucket. Extending zone routing to Sort/Preview is a follow-up.
 
 ---
 

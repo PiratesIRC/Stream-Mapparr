@@ -4429,6 +4429,18 @@ class Plugin:
                 }
 
                 channels_to_update = sorted_channels[:visible_channel_limit]
+                # bug-068: when zone siblings (e.g. East + West feeds) land in the
+                # SAME group (same-case names), they are DISTINCT feeds, not the
+                # duplicates `visible_channel_limit` is meant to cap — so ensure the
+                # top channel of each distinct zone is assigned even beyond the
+                # limit. (Different-case siblings are already separate groups.)
+                if zone_routed:
+                    covered_zones = {zone_routed.get(c['id']) for c in channels_to_update}
+                    for ch in sorted_channels[visible_channel_limit:]:
+                        z = zone_routed.get(ch['id'])
+                        if z and z not in covered_zones:
+                            channels_to_update.append(ch)
+                            covered_zones.add(z)
                 group_match_cache[group_key] = {
                     'matched_streams': matched_streams,
                     'channels_to_update': channels_to_update,

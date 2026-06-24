@@ -122,6 +122,18 @@ def test_extract_zone_bare_single_letter_is_not_a_zone(matcher):
     assert matcher().extract_zone("EastEnders") == "DEFAULT"
 
 
+def test_extract_zone_brand_word_false_positives_are_accepted_but_harmless(matcher):
+    """ACCEPTED false positives (QA): a bare WEST/EAST brand word classifies as a
+    zone. This is HARMLESS by design — zone routing only activates when a same-base
+    DIFFERENT-zone sibling exists (_zone_routed_map), so a lone 'Key West' or 'West
+    Wing' is never zone-routed. Locked here so the boundary is understood and a
+    future tightening doesn't silently change it."""
+    m = matcher()
+    assert m.extract_zone("Key West") == "WEST"
+    assert m.extract_zone("West Wing") == "WEST"
+    assert m.extract_zone("BBC East Midlands") == "EAST"
+
+
 # --------------------------------------------------------------------------- #
 # calculate_similarity
 # --------------------------------------------------------------------------- #
