@@ -93,6 +93,36 @@ def test_parenthesized_central_still_stripped_under_strip_all(matcher):
 
 
 # --------------------------------------------------------------------------- #
+# extract_zone — canonical East/West feed zone for zone-aware routing (Starz E/W)
+# --------------------------------------------------------------------------- #
+def test_extract_zone_west_parenthesized(matcher):
+    assert matcher().extract_zone("STARZ Encore (W)") == "WEST"
+    assert matcher().extract_zone("HBO (WEST)") == "WEST"
+
+
+def test_extract_zone_west_bare_word(matcher):
+    assert matcher().extract_zone("STARZ ENCORE WEST HD") == "WEST"
+
+
+def test_extract_zone_east(matcher):
+    assert matcher().extract_zone("STARZ ENCORE EAST HD") == "EAST"
+    assert matcher().extract_zone("HBO (E)") == "EAST"
+
+
+def test_extract_zone_default_when_unmarked(matcher):
+    assert matcher().extract_zone("Starz Encore") == "DEFAULT"
+    assert matcher().extract_zone("STARZ ENCORE HD") == "DEFAULT"
+
+
+def test_extract_zone_bare_single_letter_is_not_a_zone(matcher):
+    # 'W' is a real UK channel; 'E!' is Entertainment — neither is a feed zone.
+    assert matcher().extract_zone("W") == "DEFAULT"
+    assert matcher().extract_zone("E! Entertainment") == "DEFAULT"
+    # 'EASTENDERS' contains 'EAST' but is not an East feed.
+    assert matcher().extract_zone("EastEnders") == "DEFAULT"
+
+
+# --------------------------------------------------------------------------- #
 # calculate_similarity
 # --------------------------------------------------------------------------- #
 

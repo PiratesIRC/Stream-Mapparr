@@ -199,3 +199,43 @@ def test_init_bootstraps_scheduler_via_load_settings(plugin_module, monkeypatch)
     monkeypatch.setattr(Plugin, "_load_settings", lambda self: calls.append(True))
     Plugin()
     assert calls == [True], "__init__ must call _load_settings() to arm the scheduler"
+
+
+# --------------------------------------------------------------------------- #
+# Zone-aware routing — Starz East/West (bug-068)
+# --------------------------------------------------------------------------- #
+def test_zone_affinity_rank_west_channel_prefers_west(plugin_module):
+    f = plugin_module._zone_affinity_rank
+    assert f('WEST', 'WEST') < f('WEST', 'DEFAULT') < f('WEST', 'EAST')
+
+
+def test_zone_affinity_rank_default_channel_is_east_like(plugin_module):
+    f = plugin_module._zone_affinity_rank
+    assert f('DEFAULT', 'EAST') == 0
+    assert f('DEFAULT', 'DEFAULT') == 0
+    assert f('DEFAULT', 'WEST') == 2
+
+
+def test_zone_routed_map_only_marks_mixed_zone_siblings(plugin_module, matcher):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = matcher()
+    channels = [
+        {'id': 1, 'name': 'Starz Encore'},        # DEFAULT, has a West sibling
+        {'id': 2, 'name': 'STARZ Encore (W)'},     # WEST
+        {'id': 3, 'name': 'ESPN'},                 # lone, no zone sibling
+    ]
+    routed = p._zone_routed_map(channels, None, True, True, True, True)
+    assert routed == {1: 'DEFAULT', 2: 'WEST'}     # ESPN (3) NOT routed -> no regression
+
+
+def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matcher):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = matcher()
+    streams = [  # input already quality-sorted; East is "best quality" here
+        {'id': 10, 'name': 'STARZ ENCORE EAST HD'},
+        {'id': 11, 'name': 'STARZ ENCORE HD'},
+        {'id': 12, 'name': 'STARZ ENCORE WEST HD'},
+    ]
+    ordered = p._order_streams_for_zone(streams, 'WEST')
+    assert ordered[0]['id'] == 12    # WEST promoted to primary
+    assert ordered[-1]['id'] == 10   # EAST demoted to last (fallback)

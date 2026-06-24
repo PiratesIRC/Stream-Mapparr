@@ -116,6 +116,14 @@ MISC_PATTERNS = [
     r'\s*\([^)]*\)\s*',
 ]
 
+# Canonical feed-zone detection (East/West) for zone-aware stream routing.
+# Matches parenthesized (W)/(E)/(WEST)/(EAST) or the bare words WEST/EAST. Bare
+# single letters W/E are intentionally NOT matched (e.g. the UK channel "W",
+# "E! Entertainment") and "EAST"/"WEST" embedded in a larger word ("EastEnders")
+# is excluded by the word boundaries.
+_ZONE_WEST_RE = re.compile(r'\(\s*W(?:EST)?\s*\)|\bWEST\b', re.IGNORECASE)
+_ZONE_EAST_RE = re.compile(r'\(\s*E(?:AST)?\s*\)|\bEAST\b', re.IGNORECASE)
+
 
 # --------------------------------------------------------------------------- #
 # Stylized-Unicode decoration stripping
@@ -582,6 +590,22 @@ class FuzzyMatcher:
         if not norm or len(norm) < 2:
             return None
         return self.process_string_for_matching(norm)
+
+    @staticmethod
+    def extract_zone(name):
+        """Canonical feed zone for zone-aware routing: 'WEST', 'EAST', or 'DEFAULT'.
+
+        Recognizes parenthesized (W)/(E)/(WEST)/(EAST) and the bare words
+        WEST/EAST. Bare single letters W/E (outside parentheses) are NOT zones —
+        too many false positives ("W", "E! Entertainment"). 'DEFAULT' means
+        unmarked (conventionally the East/primary feed in US lineups).
+        """
+        n = name or ''
+        if _ZONE_WEST_RE.search(n):
+            return 'WEST'
+        if _ZONE_EAST_RE.search(n):
+            return 'EAST'
+        return 'DEFAULT'
 
     def normalize_name(self, name, user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
                        ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):

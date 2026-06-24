@@ -227,6 +227,18 @@ def _progress_toast_interval_for(total_items):
     return 3 if total_items <= 50 else 5 if total_items <= 200 else 10
 
 
+def _zone_affinity_rank(channel_zone, stream_zone):
+    """Stream ordering priority for a zoned channel (lower = assigned earlier /
+    primary). Encodes the routing policy (bug-068):
+      WEST channel:           WEST(0) < generic/DEFAULT(1) < EAST(2)   — never empty.
+      DEFAULT/EAST channel:   EAST/DEFAULT(0) < WEST(2)                — the default
+                              feed is East-like; generic counts as East.
+    """
+    if channel_zone == 'WEST':
+        return {'WEST': 0, 'DEFAULT': 1, 'EAST': 2}.get(stream_zone, 1)
+    return {'EAST': 0, 'DEFAULT': 0, 'WEST': 2}.get(stream_zone, 1)
+
+
 class ProgressTracker:
     """
     Tracks operation progress with ETA calculation and periodic updates.
@@ -1506,6 +1518,40 @@ class Plugin:
                 tags.append(tag)
 
         return tags
+
+    def _zone_routed_map(self, channels, ignore_tags, ignore_quality, ignore_regional,
+                         ignore_geographic, ignore_misc):
+        """Return {channel_id: zone} for channels that share a zone-stripped base
+        name with a sibling of a DIFFERENT feed zone (e.g. "Starz Encore" [DEFAULT]
+        and "STARZ Encore (W)" [WEST]). Lone channels with no zone sibling are
+        omitted, so zone routing NEVER changes the common single-feed case
+        (bug-068). Base name is the cleaned (regional-stripped) name, case-folded,
+        so the two channels collapse onto one base even though their grouping keys
+        differ by case.
+        """
+        if not self.fuzzy_matcher:
+            return {}
+        base_zones = {}
+        per_channel = {}
+        for ch in channels:
+            name = ch.get('name', '')
+            base = self._clean_channel_name(name, ignore_tags, ignore_quality, ignore_regional,
+                                            ignore_geographic, ignore_misc).strip().lower()
+            zone = self.fuzzy_matcher.extract_zone(name)
+            per_channel[ch['id']] = (base, zone)
+            base_zones.setdefault(base, set()).add(zone)
+        return {cid: zone for cid, (base, zone) in per_channel.items() if len(base_zones[base]) >= 2}
+
+    def _order_streams_for_zone(self, matched_streams, channel_zone):
+        """Stable re-sort of a channel's matched streams by zone affinity — own zone
+        first, generic next, other zone last — preserving the existing quality/
+        throughput order within each tier (bug-068)."""
+        if not self.fuzzy_matcher or not matched_streams:
+            return matched_streams
+        return sorted(
+            matched_streams,
+            key=lambda s: _zone_affinity_rank(channel_zone, self.fuzzy_matcher.extract_zone(s.get('name', ''))),
+        )
 
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
@@ -4334,6 +4380,16 @@ class Plugin:
                 if group_key not in channel_groups: channel_groups[group_key] = []
                 channel_groups[group_key].append(channel)
 
+            # bug-068: zone-aware routing. Map channels that share a zone-stripped
+            # base name with a different-zone sibling (e.g. "Starz Encore" +
+            # "STARZ Encore (W)") to their feed zone so West feeds prefer the West
+            # channel. Lone channels are omitted -> the common case is unchanged.
+            zone_routed = self._zone_routed_map(
+                [ch for chans in channel_groups.values() for ch in chans],
+                ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+            if zone_routed:
+                logger.info(f"[Stream-Mapparr] Zone-aware routing active for {len(zone_routed)} channel(s) with East/West siblings")
+
             channels_updated = 0
             total_streams_added = 0
             channels_skipped = 0
@@ -4387,6 +4443,14 @@ class Plugin:
                         channels_skipped += 1
                         continue
 
+                    # bug-068: route zone-specific streams to the matching zone
+                    # channel (West feeds → "STARZ Encore (W)"); non-routed channels
+                    # keep the quality order unchanged.
+                    streams_for_channel = (
+                        self._order_streams_for_zone(matched_streams, zone_routed[channel_id])
+                        if channel_id in zone_routed else matched_streams
+                    )
+
                     try:
                         if matched_streams:
                             # Only apply changes if not in dry run mode
@@ -4394,16 +4458,17 @@ class Plugin:
                                 if overwrite_streams:
                                     ChannelStream.objects.filter(channel_id=channel_id).delete()
 
-                                # Bulk insert to collapse N round-trips to 1. The list is already
-                                # sorted by quality (see _sort_streams_by_quality), so the enumerate
-                                # index is the correct `order` value for each row.
+                                # Bulk insert to collapse N round-trips to 1. The list is
+                                # quality-sorted (see _sort_streams_by_quality), optionally
+                                # zone-reordered above, so the enumerate index is the
+                                # correct `order` value for each row.
                                 existing_stream_ids = (
                                     set() if overwrite_streams
                                     else set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
                                 )
                                 rows = [
                                     ChannelStream(channel_id=channel_id, stream_id=stream['id'], order=index)
-                                    for index, stream in enumerate(matched_streams)
+                                    for index, stream in enumerate(streams_for_channel)
                                     if overwrite_streams or stream['id'] not in existing_stream_ids
                                 ]
                                 if rows:
