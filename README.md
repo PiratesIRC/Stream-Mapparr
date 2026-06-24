@@ -50,6 +50,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **US OTA callsign matching**: US broadcast affiliates (e.g. `ABC - TX Dallas (WFAA)`) are matched by their FCC callsign — automatically during **Match & Assign** and via the dedicated **Match US OTA Only** action — using the bundled FCC station table (`networks.json`, ~1,900 stations)
 - **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL, NO
 - **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
+- **Zone-aware East/West routing**: When you keep separate East and West channels (for example `Starz Encore` and `STARZ Encore (W)`), each channel is given its matching feed as the primary stream. West streams lead on the West channel, East and generic streams lead on the default channel. This applies in Match & Assign, Sort, and Preview, and it activates only when a zone sibling exists, so single-feed channels are unaffected.
 - **Country-restricted matching** (opt-in): Only match streams from the same detected country/group — e.g. `CANADA/CA` channels match only `CANADA/CA` streams
 - **Normalization cache**: Pre-normalizes stream names once for batch matching performance
 - **rapidfuzz acceleration**: Uses C-accelerated Levenshtein when available (20-50x faster), with pure Python early-termination fallback
@@ -64,7 +65,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **Auto-deduplication**: Removes duplicate stream names during assignment
 
 ### Automation
-- **Built-in scheduler**: Configure daily runs at one or more HHMM times; the timezone follows Dispatcharr's global setting
+- **Built-in scheduler**: Configure daily runs at one or more HHMM times. The timezone follows Dispatcharr's global setting. Scheduled runs are multi-worker safe, so the job runs once per slot even when Dispatcharr is running several worker processes.
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
@@ -151,7 +152,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 2. Enable **CSV Export** if desired
 3. Click **Update Schedule**
 
-The scheduler runs in a background thread and restarts automatically with the container.
+The scheduler runs in a background thread and re-arms automatically when the container restarts. When Dispatcharr runs several worker processes, a shared on-disk claim makes sure the scheduled job runs once per slot rather than once per worker.
 
 ## CSV Reports
 

@@ -164,6 +164,31 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   the container. Stale version strings in docs are a recurring bug class — grep
   for the old version before you finish.
 
+### Marketplace (Dispatcharr Plugin Hub)
+
+The Hub is the **Dispatcharr/Plugins** repo; the fork lives at `Dispatcharr-Plugins-Fork`
+(`origin` = PiratesIRC/Plugins, `upstream` = Dispatcharr/Plugins). Stream-Mapparr now uses
+the **external `source_url` format** (per the Hub `CONTRIBUTING.md`): `plugins/stream-mapparr/`
+holds only a slim `plugin.json` (`source_type: "external"`, `source_url` with a `{version}`
+placeholder pointing at the GitHub release zip) plus `logo.png`. The registry downloads,
+scans (CodeQL + ClamAV), re-hosts, and GPG-signs the release zip on each version bump. To
+publish a new version: branch fresh off `upstream/main` (do not disturb other in-progress
+branches), bump `version` in the manifest, push to the fork, and open a PR to
+`Dispatcharr/Plugins` titled `[stream-mapparr] …`. Validation enforces the version increment
+and that `source_url` resolves. The `{version}` substitutes the bare-calver tag, so the
+`source_url` is `…/releases/download/{version}/Stream-Mapparr.zip` (no `v`).
+
+### Tooling notes (this environment)
+
+- **`gh` is not installed.** GitHub Releases, issue comments/close, and Hub PRs are done
+  via the GitHub API using the existing git credential (`git credential fill` → token →
+  `urllib` POST/PATCH). Never print the token.
+- **`docker cp` and stdin-piped `docker exec` trip the shell harness here.** Deploy by
+  staging files into the `/config` bind mount (host `O:\docker\dispatcharr\config`) then
+  `docker exec dispatcharr cp /config/<file> /data/plugins/stream-mapparr/<file>` (plain
+  `docker exec` works). The legacy `zip.cmd` has a different user's hardcoded paths; build
+  the zip with PowerShell `Compress-Archive` on the inner `Stream-Mapparr/` folder.
+
 ---
 
 ## 6. Conventions & gotchas (the short list)
@@ -193,6 +218,20 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   live toasts for *all* long-running actions. Don't add a parallel progress path;
   route through it. `load_process_channels` is in `_INTERNAL_PROGRESS_ACTIONS`
   (suppressed) so internal sub-steps don't clobber the parent op's state.
+- **The scheduled run is deduped across workers, not per-process** (bug-069). Each
+  worker arms its own scheduler; `_claim_scheduled_slot` (shared last-run file +
+  `fcntl.flock`) makes the run fire once per slot. `fcntl` is `None` on Windows, so
+  the tests exercise the plain check-and-stamp path; the real flock path is
+  verified by running the claim in the Linux container.
+- **Zone routing is per-channel, gated by `_zone_routed_map`** (bug-068). It only
+  fires when a zone-stripped base name has a different-zone sibling, so lone
+  channels never change. Route every per-channel order through
+  `_streams_for_channel` (Match & Assign, Sort, Preview all share it) — do not
+  re-derive zone affinity inline. The matcher copies have **diverged** on regional
+  stripping: bug-066 (drop bare Pacific/Central/Mountain/Atlantic) is correct for
+  the channel matchers (Stream-Mapparr, Channel-Maparr) but breaks EPG-Janitor /
+  Lineuparr (they intentionally strip bare Pacific). Run each plugin's suite before
+  porting a matcher change.
 - **Channel-database `type` contract:** only a `type` containing the substring
   `"broadcast"` is semantically significant — it marks an OTA channel and
   REQUIRES a `callsign` (matched by callsign). Every other `type` string
