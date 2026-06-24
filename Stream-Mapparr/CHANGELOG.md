@@ -15,13 +15,13 @@
   group (same-case names) bypass `visible_channel_limit` so each zone still gets a
   channel.
 
-  _Known limitations (deliberate, this iteration):_ routing **re-orders** the
-  matched pool (per the chosen "West never empty, falls back to generic/East"
-  policy) rather than partitioning it, so both channels still carry the full pool
-  as alternates. It is applied in **Match & Assign only** — **Preview** does not
-  show the zone order, and **Sort Alternate Streams** re-sorts by pure quality and
-  will revert the zone preference. **Pacific** folds into the DEFAULT (East-like)
-  bucket. Extending zone routing to Sort/Preview is a follow-up.
+  Applied consistently across **Match & Assign**, **Sort Alternate Streams**, and
+  **Preview** (via a shared `_streams_for_channel` seam) — so Preview reflects the
+  per-channel order the real run applies, and Sort no longer reverts the zone
+  preference. _Note:_ routing **re-orders** the matched pool (per the chosen "West
+  never empty, falls back to generic/East" policy) rather than partitioning it, so
+  both channels carry the full pool as alternates; **Pacific** folds into the
+  DEFAULT (East-like) bucket.
 
 ---
 

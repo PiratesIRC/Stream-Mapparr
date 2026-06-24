@@ -1572,6 +1572,14 @@ class Plugin:
             key=lambda s: _zone_affinity_rank(channel_zone, self.fuzzy_matcher.extract_zone(s.get('name', ''))),
         )
 
+    def _streams_for_channel(self, streams, channel_id, zone_routed):
+        """A single channel's stream list, zone-reordered if the channel is zone-routed
+        (bug-068). Returns the input list unchanged for non-routed channels. Shared by
+        Match & Assign, Sort, and Preview so all three agree on the per-channel order."""
+        if channel_id in zone_routed:
+            return self._order_streams_for_zone(streams, zone_routed[channel_id])
+        return streams
+
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
         """Remove brackets and their contents from channel name for matching, and remove ignore tags."""
@@ -4183,6 +4191,12 @@ class Plugin:
                 if group_key not in channel_groups: channel_groups[group_key] = []
                 channel_groups[group_key].append(channel)
 
+            # bug-068: same zone-aware routing as Match & Assign, so the preview
+            # reflects the per-channel order the real run will apply.
+            zone_routed = self._zone_routed_map(
+                [ch for chans in channel_groups.values() for ch in chans],
+                ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+
             all_matches = []
             total_channels_to_update = 0
             low_match_channels = []  # Track channels with few matches for recommendations
@@ -4224,11 +4238,13 @@ class Plugin:
                     'stream_count': len(matched_streams)
                 }
 
-                channels_to_update = sorted_channels[:visible_channel_limit]
-                channels_not_updated = sorted_channels[visible_channel_limit:]
+                channels_to_update = self._channels_to_update_for_group(sorted_channels, visible_channel_limit, zone_routed)
+                _updated_ids = {c['id'] for c in channels_to_update}
+                channels_not_updated = [c for c in sorted_channels if c['id'] not in _updated_ids]
 
                 for channel in channels_to_update:
                     match_count = len(matched_streams)
+                    streams_for_channel = self._streams_for_channel(matched_streams, channel['id'], zone_routed)
 
                     # Get detailed threshold analysis
                     threshold_matches = self._get_matches_at_thresholds(
@@ -4246,7 +4262,7 @@ class Plugin:
                         "channel_name": channel['name'],
                         "threshold": current_threshold,
                         "matched_streams": match_count,
-                        "stream_names": self._label_streams(matched_streams, logger),
+                        "stream_names": self._label_streams(streams_for_channel, logger),
                         "will_update": True,
                         "is_current": True
                     })
@@ -4257,7 +4273,7 @@ class Plugin:
                         low_match_channels.append({
                             'name': channel['name'],
                             'count': match_count,
-                            'streams': self._label_streams(matched_streams[:3], logger)
+                            'streams': self._label_streams(streams_for_channel[:3], logger)
                         })
                     
                     # Add rows for additional matches at lower thresholds
@@ -4462,13 +4478,9 @@ class Plugin:
                         channels_skipped += 1
                         continue
 
-                    # bug-068: route zone-specific streams to the matching zone
-                    # channel (West feeds → "STARZ Encore (W)"); non-routed channels
-                    # keep the quality order unchanged.
-                    streams_for_channel = (
-                        self._order_streams_for_zone(matched_streams, zone_routed[channel_id])
-                        if channel_id in zone_routed else matched_streams
-                    )
+                    # bug-068: zone-route this channel's streams (West feeds →
+                    # "STARZ Encore (W)"); non-routed channels keep quality order.
+                    streams_for_channel = self._streams_for_channel(matched_streams, channel_id, zone_routed)
 
                     try:
                         if matched_streams:
@@ -5026,6 +5038,13 @@ class Plugin:
                 channels_in_profile = filtered_channels
                 logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
             
+            # bug-068: zone-aware ordering so Sort keeps West feeds on West channels
+            # instead of reverting to pure quality (which would undo Match & Assign).
+            _ig_q, _ig_r, _ig_g, _ig_m = self._resolve_ignore_flags(settings)
+            _ig_tags_str = settings.get('ignore_tags', '').strip()
+            _ig_tags = self._parse_tags(_ig_tags_str) if _ig_tags_str else []
+            zone_routed = self._zone_routed_map(channels_in_profile, _ig_tags, _ig_q, _ig_r, _ig_g, _ig_m)
+
             # Build M3U priority map if M3U sources are specified
             selected_m3us_str = settings.get('selected_m3us', '').strip()
             m3u_priority_map = {}
@@ -5095,9 +5114,11 @@ class Plugin:
                 channel_name = channel['name']
                 streams = channel.get('streams', [])
                 
-                # Sort streams by quality
+                # Sort streams by quality, then zone-route (bug-068) so a West
+                # channel keeps West feeds first instead of reverting to quality only.
                 sorted_streams = self._sort_streams_by_quality(streams)
-                
+                sorted_streams = self._streams_for_channel(sorted_streams, channel_id, zone_routed)
+
                 # Check if order changed
                 original_ids = [s['id'] for s in streams]
                 sorted_ids = [s['id'] for s in sorted_streams]

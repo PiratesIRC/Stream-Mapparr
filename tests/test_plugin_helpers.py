@@ -255,3 +255,15 @@ def test_channels_to_update_no_zone_routing_respects_limit(plugin_module):
     p = plugin_module.Plugin.__new__(plugin_module.Plugin)
     out = p._channels_to_update_for_group([{'id': 1}, {'id': 2}], 1, {})
     assert [c['id'] for c in out] == [1]   # common case unchanged
+
+
+def test_streams_for_channel_reorders_only_routed(plugin_module, matcher):
+    """bug-068 shared seam: a routed channel gets zone-ordered streams; a non-routed
+    channel gets the original list untouched (same object). Shared by Match & Assign,
+    Sort, and Preview so all three agree on per-channel order."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = matcher()
+    streams = [{'id': 1, 'name': 'X EAST'}, {'id': 2, 'name': 'X WEST'}]
+    routed = p._streams_for_channel(streams, 5, {5: 'WEST'})
+    assert [s['id'] for s in routed] == [2, 1]                  # West first
+    assert p._streams_for_channel(streams, 5, {}) is streams    # non-routed unchanged
