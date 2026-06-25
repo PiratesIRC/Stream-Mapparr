@@ -134,6 +134,31 @@ touch the similarity math, that test must stay green.
 > — every caller compares `>= threshold`, so match decisions and all kept scores
 > are identical. The parity test deliberately checks the unthresholded score.
 
+> **Reconciliation reference (2026-06-25):** Stream-Mapparr's `calculate_similarity`
+> is already canonical (`1 - distance / max(len)`, rapidfuzz
+> `Levenshtein.normalized_similarity`), so it serves as the reference for the
+> cross-plugin matcher reconciliation alongside EPG-Janitor. When porting a
+> similarity change between matcher copies, reconcile the others toward this
+> formula, not away from it.
+
+### Normalization ports from Lineuparr PR #13 (landed 2026-06-25)
+
+Three normalization hardening fixes were ported from Lineuparr into
+`fuzzy_matcher.py` (`calculate_similarity` untouched — see the reconciliation note
+above). All are regression-locked in `tests/test_fuzzy_matcher.py`; full suite green
+at **243 passed**.
+
+- **Non-ASCII preservation in `process_string_for_matching`.** After the NFKD fold the
+  builder now keeps any `char.isalnum()` (alphanumerics of any script) instead of the
+  old ASCII-only `a-z0-9` filter. Cyrillic / CJK / Arabic names previously collapsed to
+  `''`, which compared as a false 100% match against any other all-non-ASCII name.
+- **Leading box-bar bouquet-tag strip in `normalize_name`.** `_LEADING_BAR_TAG_RE` removes
+  a leading `┃…┃` / `│…│` tag (`"┃CANAL+┃ NPO 1"` → `"NPO 1"`).
+- **Box-bar delimiters in `GEOGRAPHIC_PATTERNS`.** `┃` (U+2503) and `│` (U+2502) accepted
+  as colon-equivalents after a 2-3 letter code, and as matched pairs (`┃XX┃` / `│XX│`,
+  matched pair only). Stream-Mapparr has no `PROVIDER_PREFIX_PATTERNS` list, so only
+  `GEOGRAPHIC_PATTERNS` changed (this is where the matcher copies differ).
+
 ---
 
 ## 4. Continuous integration

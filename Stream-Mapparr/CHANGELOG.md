@@ -2,7 +2,30 @@
 
 ## Unreleased
 
-_Nothing yet._
+### Matching & normalization (landed on main June 25, 2026)
+
+Three matcher robustness fixes ported from Lineuparr (PR #13). `calculate_similarity`
+was NOT touched: Stream-Mapparr was already canonical (`1 - distance / max(len)`,
+rapidfuzz `Levenshtein.normalized_similarity`) and is the reconciliation reference
+alongside EPG-Janitor.
+
+- **Non-ASCII names no longer collapse to empty in `process_string_for_matching`.**
+  The matching-string builder NFKD-folds, then keeps any `char.isalnum()` (alphanumerics
+  of any script) instead of the old ASCII-only `a-z0-9` filter. Cyrillic / CJK / Arabic
+  names previously reduced to `''`, which compared as a false **100% match** against any
+  other all-non-ASCII name; they now survive and match on their actual characters.
+
+- **Leading box-bar bouquet tags are stripped in `normalize_name`.** A new
+  `_LEADING_BAR_TAG_RE` removes a leading `┃…┃` / `│…│` provider/bouquet tag
+  (`"┃CANAL+┃ NPO 1"` → `"NPO 1"`). Box bars never occur in real channel names, so the
+  strip is always safe and also covers leading `┃XX┃` country/source tags.
+
+- **Box-bar delimiters added to `GEOGRAPHIC_PATTERNS`.** `┃` (U+2503) and `│` (U+2502)
+  are now accepted as colon-equivalents after a 2-3 letter code (`"NL┃ NPO 1"` → `"NPO 1"`)
+  and as matched pairs (`┃XX┃` / `│XX│`, matched pair only so a stray `|US┃` is left alone).
+  Stream-Mapparr has no `PROVIDER_PREFIX_PATTERNS` list, so only `GEOGRAPHIC_PATTERNS` changed.
+
+Full local suite green: **243 passed**.
 
 ---
 
