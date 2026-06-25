@@ -88,22 +88,28 @@ REGIONAL_PATTERNS = [
 ]
 
 # Geographic prefix patterns: US:, USA:, etc.
+# Strip a leading box-bar bouquet/source tag with arbitrary inner text
+# ("┃CANAL+┃ NPO 1" -> "NPO 1"); box bars never occur in real names, so this
+# is always safe and also covers leading "┃XX┃" country/source tags.
+_LEADING_BAR_TAG_RE = re.compile(r'^\s*[┃│]\s*[^┃│]*[┃│]\s*')
+
+
 GEOGRAPHIC_PATTERNS = [
     # Country codes in various formats
     # Matches patterns like: US, USA, FR, UK, CA, DE, etc.
     # With separators: US:, USA:, |FR|, US -, FR -, etc.
     
-    # Format: XX: or XXX: (e.g., US:, USA:, FR:, UK:)
-    # This is safe because the colon clearly indicates a prefix
-    r'\b[A-Z]{2,3}:\s*',
+    # Format: XX: or XXX: (e.g., US:, USA:, FR:, UK:). Box bars (┃│) are
+    # accepted as colon-equivalents so "NL┃ NPO 1" -> "NPO 1".
+    r'\b[A-Z]{2,3}[:┃│]\s*',
     
     # Format: XX - or XXX - (e.g., US - , USA - , FR - )
     # Safe because the dash clearly indicates a separator
     r'\b[A-Z]{2,3}\s*-\s*',
     
-    # Format: |XX| or |XXX| (e.g., |US|, |FR|, |UK|)
-    # Safe because pipes clearly indicate a tag
-    r'\|[A-Z]{2,3}\|\s*',
+    # Format: |XX| or |XXX| and box-bar pairs ┃XX┃ / │XX│ (matched pair only,
+    # so a stray "|US┃" is left alone). Pipes/bars clearly indicate a tag.
+    r'(?:\|[A-Z]{2,3}\||┃[A-Z]{2,3}┃|│[A-Z]{2,3}│)\s*',
     
     # Format: [XX] or [XXX] (e.g., [US], [FR], [UK])
     # Safe because brackets clearly indicate a tag
@@ -631,6 +637,8 @@ class FuzzyMatcher:
         # Store original for logging
         original_name = name
 
+        name = _LEADING_BAR_TAG_RE.sub('', name)  # leading "┃CANAL+┃" bouquet tag
+
         # Map emoji-as-letters (⚽ = 'o' in "SP⚽RTS") and strip emoji decoration, before
         # the stylized-Unicode strip and ASCII regexes below — so "beIN SP⚽RTS" -> "beIN sports".
         name = _normalize_emoji(name)
@@ -914,10 +922,9 @@ class FuzzyMatcher:
         Properly handles Unicode characters (e.g., French accents).
         Normalizes spacing around numbers to handle "ITV1" vs "ITV 1" cases.
         """
-        # First, normalize Unicode to decomposed form (NFD)
-        # This separates base characters from accent marks
-        # e.g., "é" becomes "e" + combining acute accent
-        s = unicodedata.normalize('NFD', s)
+        # First, NFKD-fold: compatibility decomposition so "ＨＢＯ"->"HBO", "²"->"2",
+        # "ﬁ"->"fi", and accents split into base + combining mark (dropped below).
+        s = unicodedata.normalize('NFKD', s)
         
         # Remove combining characters (accent marks)
         # Keep only base characters
@@ -928,13 +935,14 @@ class FuzzyMatcher:
         
         # Normalize spacing around numbers: add space before numbers if not already present
         # This makes "itv1" and "itv 1" equivalent after tokenization
-        # Pattern: letter followed immediately by digit -> insert space between them
-        s = re.sub(r'([a-z])(\d)', r'\1 \2', s)
+        # Pattern: letter (any script) followed immediately by digit -> insert space
+        s = re.sub(r'([^\W\d_])(\d)', r'\1 \2', s)
         
-        # Replace non-alphanumeric with space
+        # Replace non-alphanumeric with space. isalnum() keeps alphanumerics of any
+        # script (Cyrillic/CJK/Arabic) instead of erasing them to '' (false matches).
         cleaned_s = ""
         for char in s:
-            if 'a' <= char <= 'z' or '0' <= char <= '9':
+            if char.isalnum():
                 cleaned_s += char
             else:
                 cleaned_s += ' '
