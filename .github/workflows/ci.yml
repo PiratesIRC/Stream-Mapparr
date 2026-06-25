@@ -37,5 +37,24 @@ jobs:
       - name: Validate channel databases
         run: python scripts/validate_databases.py
 
+      # Guards against the bug-087 packaging failure (backslash path separators
+      # from Compress-Archive break the Linux-side install). Validates every
+      # committed Stream-Mapparr.zip; no-op when none is checked in.
+      - name: Validate committed release zip(s)
+        run: |
+          shopt -s globstar nullglob
+          zips=(**/Stream-Mapparr.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "No committed Stream-Mapparr.zip — skipping."
+            exit 0
+          fi
+          rc=0
+          for z in "${zips[@]}"; do
+            echo "::group::$z"
+            python scripts/validate_zip.py "$z" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
       - name: Run test suite
         run: python -m pytest -q
