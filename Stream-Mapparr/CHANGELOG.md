@@ -6,6 +6,34 @@ _Nothing yet._
 
 ---
 
+## v1.26.1761110 (June 25, 2026)
+
+**Type**: Packaging hotfix. No functional code change — a version-only
+re-release of v1.26.1751210 with a correctly-built release zip.
+
+### Fixed
+
+- **Install fails with "missing plugin.py or package __init__.py" (bug-087).**
+  The v1.26.1751210 release zip was packaged on Windows with a tool that writes
+  ZIP entry paths using backslash (`\`) separators (PowerShell `Compress-Archive`
+  / .NET Framework `ZipFile.CreateFromDirectory`). The ZIP spec mandates forward
+  slashes; on Dispatcharr's Linux host the backslash is a literal filename
+  character, so every entry extracted as a flat file (`Stream-Mapparr\plugin.py`)
+  with no real package directory — failing both direct installs and the Plugin
+  Hub (external `source_url` mode re-hosts this zip, and only re-fetches on a
+  version bump, so a new version was required to fix the marketplace). The zip is
+  now built with forward-slash separators and verified before upload.
+
+### Added
+
+- **`scripts/validate_zip.py` + CI gate.** A release-zip validator that parses the
+  raw central-directory bytes for backslash separators (Python's `zipfile`
+  normalizes them away on read, hiding the defect), confirms the package root, and
+  rejects dev junk. Wired into `.github/workflows/ci.yml` to validate any committed
+  release zip. The same guard was ported across the plugin cohort.
+
+---
+
 ## v1.26.1751210 (June 24, 2026)
 
 **Type**: Feature + bugfix release. Zone-aware East/West stream routing and a
