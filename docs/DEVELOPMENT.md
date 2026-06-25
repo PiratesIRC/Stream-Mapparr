@@ -101,7 +101,7 @@ case that would have caught it.
 | `test_databases.py` | schema of every `*_channels.json` (the US file is 3.6 MB) | No |
 | `test_version_sync.py` | `plugin.json` version == `PLUGIN_VERSION`, calver format | No |
 
-The suite is **243 tests** as of v1.26.1751210.
+The suite is **243 tests** as of v1.26.1761110.
 
 ### How importing `plugin.py` works in tests
 
@@ -163,6 +163,8 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   (`CHANGELOG.md`, `README.md`, `CLAUDE.md` current-version line), and deploy to
   the container. Stale version strings in docs are a recurring bug class — grep
   for the old version before you finish.
+- **Validate the zip before attaching it:** `python scripts/validate_zip.py
+  Stream-Mapparr.zip` must print OK (see the packaging note in §5 tooling — bug-087).
 
 ### Marketplace (Dispatcharr Plugin Hub)
 
@@ -178,16 +180,33 @@ branches), bump `version` in the manifest, push to the fork, and open a PR to
 and that `source_url` resolves. The `{version}` substitutes the bare-calver tag, so the
 `source_url` is `…/releases/download/{version}/Stream-Mapparr.zip` (no `v`).
 
+> **bug-087 caution:** because the registry re-hosts the release zip and only re-fetches on a
+> version **bump** (it forbids re-submitting the same version), a broken release zip cannot be
+> fixed in place — replacing the asset does not update the marketplace. The fix is to bump,
+> re-release a corrected zip, and open a new manifest-bump PR. So a bad zip propagates to the
+> Hub; `scripts/validate_zip.py` before upload is the cheap insurance.
+
 ### Tooling notes (this environment)
 
-- **`gh` is not installed.** GitHub Releases, issue comments/close, and Hub PRs are done
-  via the GitHub API using the existing git credential (`git credential fill` → token →
-  `urllib` POST/PATCH). Never print the token.
+- **`gh` is installed** (via winget; authenticated as PiratesIRC). If `gh` isn't on PATH in
+  a fresh shell, it lives at
+  `…\Microsoft\WinGet\Packages\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\bin\gh.exe`.
+  GitHub Releases, issue comments/close, and Hub PRs are done with `gh` directly.
 - **`docker cp` and stdin-piped `docker exec` trip the shell harness here.** Deploy by
   staging files into the `/config` bind mount (host `O:\docker\dispatcharr\config`) then
   `docker exec dispatcharr cp /config/<file> /data/plugins/stream-mapparr/<file>` (plain
-  `docker exec` works). The legacy `zip.cmd` has a different user's hardcoded paths; build
-  the zip with PowerShell `Compress-Archive` on the inner `Stream-Mapparr/` folder.
+  `docker exec` works).
+- **Build the release zip with 7-Zip (`zip.cmd`) or `git archive` — NEVER PowerShell
+  `Compress-Archive` or .NET Framework `ZipFile.CreateFromDirectory` (bug-087).** Those
+  write ZIP entry paths with backslash (`\`) separators, which violate the ZIP spec; on
+  Dispatcharr's Linux host the backslash is a literal filename char, so the package
+  extracts as flat files (`Stream-Mapparr\plugin.py`) and install fails with "missing
+  plugin.py or package __init__.py". The legacy `zip.cmd` has a different user's hardcoded
+  paths — fix the paths or build with `git archive`, then **always** gate the artifact with
+  `python scripts/validate_zip.py Stream-Mapparr.zip` before upload (it parses raw
+  central-directory bytes; `zipfile.namelist()` normalizes backslashes away and cannot see
+  the defect). On Windows, a reliable forward-slash build is .NET `ZipArchive.CreateEntry`
+  with explicit `"Stream-Mapparr/"+name` entry names.
 
 ---
 
