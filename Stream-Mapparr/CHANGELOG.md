@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Shared matcher core migration (landed on main June 28, 2026)
+
+The copy-pasted, drifting `fuzzy_matcher.py` is retired. The pure matching primitives
+(`normalize_name`, `calculate_similarity`, `process_string_for_matching`, the callsign
+ladder, the regex tables) now live **once** in a shared core, `<workspace>/_shared/
+matching_core.py`, vendored **byte-identically** into the inner folder as `matching_core.py`.
+This plugin's `FuzzyMatcher` now **subclasses `FuzzyMatcherCore`** and keeps only its
+plugin-specific layer (zone routing, OTA callsign resolution, channel-DB loading).
+Stream-Mapparr was the migration canary. Matcher fixes now go to the shared core (edit
+`_shared/matching_core.py`, re-vendor with `scripts/sync_core.py`, regenerate the golden
+baseline if behavior changed) — no more hand-porting a fix to four copies.
+
+- **Hash-pinned + gated.** The vendored core is sha256-pinned in `scripts/core_manifest.json`
+  and enforced by a parity gate (`tests/test_core_parity.py`) plus a golden gate
+  (`tests/test_matcher_golden.py`) in CI; `.gitattributes` pins `matching_core.py` to LF so a
+  CRLF checkout can't change the hash. `matching_core.py` is kept out of `bump_version.py`
+  stamping. **Deploy `matching_core.py` with the code** — `fuzzy_matcher.py` imports
+  `FuzzyMatcherCore` from it, so the plugin won't load without it.
+- **`strip_bare_region` opt-in.** Stripping bare time-zone region words (Pacific/Central/
+  Mountain/Atlantic) for scoring is now a class-attr opt-in (`_STRIP_BARE_REGION`); the core
+  default leaves them in, preserving Stream-Mapparr's bug-066 behavior (off here). Lineuparr /
+  EPG-Janitor opt in.
+- **`calculate_similarity` `>= min_ratio` gate.** The early-termination parameter is now
+  `min_ratio`, and rapidfuzz's `score_cutoff` is replaced by a Python `>= min_ratio` gate
+  applied identically on both code paths (a score landing exactly on the cutoff is kept;
+  below-cutoff is zeroed on both). No change to live match decisions.
+
 ### Matching & normalization (landed on main June 25, 2026)
 
 Three matcher robustness fixes ported from Lineuparr (PR #13). `calculate_similarity`
