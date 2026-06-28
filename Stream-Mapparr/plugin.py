@@ -87,7 +87,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1761110"
+    PLUGIN_VERSION = "1.26.1791529"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2680,7 +2680,7 @@ class Plugin:
                             # Calculate similarity to ensure it meets threshold
                             similarity = self.fuzzy_matcher.calculate_similarity(
                                 stream_lower, channel_lower,
-                                threshold=self.fuzzy_matcher.match_threshold / 100.0)
+                                min_ratio=self.fuzzy_matcher.match_threshold / 100.0)
                             if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
                                 matching_streams.append(stream)
                         continue
@@ -2748,7 +2748,7 @@ class Plugin:
                             # Calculate full string similarity
                             similarity = self.fuzzy_matcher.calculate_similarity(
                                 stream_lower, channel_lower,
-                                threshold=self.fuzzy_matcher.match_threshold / 100.0)
+                                min_ratio=self.fuzzy_matcher.match_threshold / 100.0)
                             if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
                                 matching_streams.append(stream)
 
