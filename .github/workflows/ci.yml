@@ -29,6 +29,7 @@ jobs:
         run: |
           python -m py_compile Stream-Mapparr/plugin.py
           python -m py_compile Stream-Mapparr/fuzzy_matcher.py
+          python -m py_compile Stream-Mapparr/matching_core.py
           python -m py_compile Stream-Mapparr/__init__.py
 
       - name: Version sync (plugin.json == plugin.py)
@@ -55,6 +56,12 @@ jobs:
             echo "::endgroup::"
           done
           exit $rc
+
+      # Explicit, named drift gate: freezes the pure matcher primitives against
+      # tests/matcher_golden_baseline.json (Stage 0 of the matcher standardization
+      # plan). -o addopts="" neutralizes any inherited ini options for a clean run.
+      - name: Matcher golden drift gate
+        run: python -m pytest tests/test_matcher_golden.py -q -o addopts=""
 
       - name: Run test suite
         run: python -m pytest -q

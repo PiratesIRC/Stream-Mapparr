@@ -148,7 +148,7 @@ def test_similarity_identical_and_empty(matcher):
 def test_similarity_threshold_early_out(matcher):
     """When lengths differ too much to ever meet the threshold, return 0.0."""
     m = matcher()
-    assert m.calculate_similarity("a", "abcdefghij", threshold=0.9) == 0.0
+    assert m.calculate_similarity("a", "abcdefghij", min_ratio=0.9) == 0.0
 
 
 def test_rapidfuzz_and_pure_python_agree(fuzzy_module, matcher):
@@ -158,24 +158,40 @@ def test_rapidfuzz_and_pure_python_agree(fuzzy_module, matcher):
     make results depend on whether rapidfuzz is installed. Skips if rapidfuzz
     isn't present (nothing to compare against).
     """
-    if not fuzzy_module._USE_RAPIDFUZZ:
+    import sys as _sys
+    m = matcher()
+    # calculate_similarity now lives on the shared matching_core (FuzzyMatcherCore's
+    # module); the rapidfuzz flag it reads lives there, so toggle it there.
+    core_mod = _sys.modules[m.__class__.__mro__[1].__module__]
+    if not core_mod._USE_RAPIDFUZZ:
         pytest.skip("rapidfuzz not installed; only one path available")
 
     pairs = [("fox sports 1", "fox sports 2"),
              ("cnn", "cnn hd"),
              ("discovery channel", "discovery"),
              ("bbc one", "bbc two")]
-    m = matcher()
 
     fast = [m.calculate_similarity(a, b) for a, b in pairs]
-    fuzzy_module._USE_RAPIDFUZZ = False
+    core_mod._USE_RAPIDFUZZ = False
     try:
         slow = [m.calculate_similarity(a, b) for a, b in pairs]
     finally:
-        fuzzy_module._USE_RAPIDFUZZ = True
+        core_mod._USE_RAPIDFUZZ = True
 
     for (a, b), f, s in zip(pairs, fast, slow):
         assert f == pytest.approx(s, abs=1e-9), f"path divergence on {a!r} vs {b!r}: {f} != {s}"
+
+    # And the score_cutoff path: a below-threshold pair must return 0.0 on BOTH paths
+    # (this is exactly what the restored rapidfuzz score_cutoff guarantees).
+    below = [("a", "abcdefghij"), ("xyz", "abcdefghij")]
+    bf = [m.calculate_similarity(a, b, min_ratio=0.9) for a, b in below]
+    core_mod._USE_RAPIDFUZZ = False
+    try:
+        bs = [m.calculate_similarity(a, b, min_ratio=0.9) for a, b in below]
+    finally:
+        core_mod._USE_RAPIDFUZZ = True
+    for (a, b), f, s in zip(below, bf, bs):
+        assert f == s == 0.0, f"below-threshold path divergence on {a!r} vs {b!r}: {f} vs {s}"
 
 
 # --------------------------------------------------------------------------- #

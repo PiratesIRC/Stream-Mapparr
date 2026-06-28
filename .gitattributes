@@ -1,3 +1,10 @@
 # The git hook is executed by bash; CRLF would break it (\r: command not found).
 .githooks/pre-commit text eol=lf
 *.sh text eol=lf
+
+# The vendored shared core is sha256-pinned by tests/test_core_parity.py against
+# scripts/core_manifest.json, so it MUST stay LF on every OS — a CRLF checkout
+# (Windows autocrlf) would change the hash and break the drift gate. Same for any
+# future vendored shared file.
+matching_core.py text eol=lf
+aliases_base.py text eol=lf

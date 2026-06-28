@@ -11,12 +11,24 @@ import logging
 import unicodedata
 from glob import glob
 
-# Optional C-accelerated Levenshtein (20-50x faster when available)
-try:
-    from rapidfuzz.distance import Levenshtein as _rf_lev
-    _USE_RAPIDFUZZ = True
-except ImportError:
-    _USE_RAPIDFUZZ = False
+# The pure matching primitives (normalize_name, calculate_similarity,
+# process_string_for_matching, the callsign ladder, the regex tables, ...) live in the
+# vendored shared core. This plugin subclasses it (class FuzzyMatcher below) and keeps
+# only its plugin-specific layer. See MATCHER-STANDARDIZATION-PLAN.md.
+try:  # plugin package context (production)
+    from .matching_core import (
+        FuzzyMatcherCore,
+        _is_decorative_char,  # noqa: F401  re-exported for the decoration unit tests
+        _normalize_emoji,  # noqa: F401
+        _strip_stylized_tokens,  # noqa: F401
+    )
+except ImportError:  # standalone load (tests / direct import)
+    from matching_core import (
+        FuzzyMatcherCore,
+        _is_decorative_char,  # noqa: F401
+        _normalize_emoji,  # noqa: F401
+        _strip_stylized_tokens,  # noqa: F401
+    )
 
 # Version: YY.DDD.HHMM (Julian date format: Year.DayOfYear.Time)
 __version__ = "26.165.0009"
@@ -24,103 +36,6 @@ __version__ = "26.165.0009"
 # Setup logging
 LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 
-# Categorized regex patterns for granular control during fuzzy matching
-# Note: All patterns are applied with re.IGNORECASE flag in normalize_name()
-
-# Quality-related patterns: [4K], HD, (SD), etc.
-QUALITY_PATTERNS = [
-    # Quality tags in any format: brackets, parentheses, or standalone
-    # These patterns match quality tags at the beginning, middle, or end of names
-    # Matches: [4K], (4K), 4K, [FHD], (FHD), FHD, etc.
-    # Quality keywords list: 4K, 8K, UHD, FHD, HD, SD, FD, Unknown, Unk, Slow, Dead, Backup
-    
-    # Bracketed quality tags: [4K], [UHD], [FHD], [HD], [SD], etc.
-    r'\s*\[(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead|Backup)\]\s*',
-    
-    # Parenthesized quality tags: (4K), (UHD), (FHD), (HD), (SD), etc.
-    r'\s*\((4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead|Backup)\)\s*',
-    
-    # Standalone quality tags at START of string (with word boundary)
-    r'^\s*(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s*',
-    
-    # Standalone quality tags at END of string (with word boundary)
-    r'\s*\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)$',
-    
-    # Standalone quality tags in MIDDLE (with word boundaries on both sides)
-    r'\s+\b(4K|8K|UHD|FHD|HD|SD|FD|Unknown|Unk|Slow|Dead)\b\s+',
-]
-
-# Numeric resolution markers the keyword QUALITY_PATTERNS miss: 720p, 1080p/i, 2160p,
-# 3840P, 480p, etc. — a 3-4 digit run glued directly to p/i. The 3-digit lower bound
-# excludes 2-digit noise; the 4-digit upper bound excludes 5-digit numbers (10800p won't
-# match). The p/i must be GLUED to the digits (no space): real markers are always written
-# "720P"/"3840P", and requiring the glue avoids stripping a spaced standalone P/I such as a
-# roman numeral ("Volume 100 I"). The p/i \b anchor keeps bare numbers (1080, "Channel 4")
-# intact. Applied with re.IGNORECASE in the ignore_quality block, like QUALITY_PATTERNS.
-RESOLUTION_PATTERNS = [
-    r'\b\d{3,4}[pi]\b',
-]
-
-# Regional indicator patterns: East, West, Pacific, Central, Mountain, Atlantic
-REGIONAL_PATTERNS = [
-    # Regional: " East" or " east" (word with space prefix)
-    r'\s[Ee][Aa][Ss][Tt]',
-    # Regional: " West" or " west" (word with space prefix)
-    r'\s[Ww][Ee][Ss][Tt]',
-    # bug-066: bare " Pacific"/" Central"/" Mountain"/" Atlantic" are removed as
-    # bare-suffix timezones ONLY in their parenthesized form (below). As bare words
-    # they are brand tokens far more often than feed markers ("Comedy Central",
-    # "The Atlantic"), so stripping them collapsed distinct channels onto one
-    # grouping key and mis-assigned shared streams. East/West (the canonical US
-    # dual-feed suffixes) stay bare-strippable; the rarer zones require parentheses.
-    # Regional: (East) or (EAST) (parenthesized format)
-    r'\s*\([Ee][Aa][Ss][Tt]\)\s*',
-    # Regional: (West) or (WEST) (parenthesized format)
-    r'\s*\([Ww][Ee][Ss][Tt]\)\s*',
-    # Regional: (Pacific) or (PACIFIC) (parenthesized format)
-    r'\s*\([Pp][Aa][Cc][Ii][Ff][Ii][Cc]\)\s*',
-    # Regional: (Central) or (CENTRAL) (parenthesized format)
-    r'\s*\([Cc][Ee][Nn][Tt][Rr][Aa][Ll]\)\s*',
-    # Regional: (Mountain) or (MOUNTAIN) (parenthesized format)
-    r'\s*\([Mm][Oo][Uu][Nn][Tt][Aa][Ii][Nn]\)\s*',
-    # Regional: (Atlantic) or (ATLANTIC) (parenthesized format)
-    r'\s*\([Aa][Tt][Ll][Aa][Nn][Tt][Ii][Cc]\)\s*',
-]
-
-# Geographic prefix patterns: US:, USA:, etc.
-# Strip a leading box-bar bouquet/source tag with arbitrary inner text
-# ("┃CANAL+┃ NPO 1" -> "NPO 1"); box bars never occur in real names, so this
-# is always safe and also covers leading "┃XX┃" country/source tags.
-_LEADING_BAR_TAG_RE = re.compile(r'^\s*[┃│]\s*[^┃│]*[┃│]\s*')
-
-
-GEOGRAPHIC_PATTERNS = [
-    # Country codes in various formats
-    # Matches patterns like: US, USA, FR, UK, CA, DE, etc.
-    # With separators: US:, USA:, |FR|, US -, FR -, etc.
-    
-    # Format: XX: or XXX: (e.g., US:, USA:, FR:, UK:). Box bars (┃│) are
-    # accepted as colon-equivalents so "NL┃ NPO 1" -> "NPO 1".
-    r'\b[A-Z]{2,3}[:┃│]\s*',
-    
-    # Format: XX - or XXX - (e.g., US - , USA - , FR - )
-    # Safe because the dash clearly indicates a separator
-    r'\b[A-Z]{2,3}\s*-\s*',
-    
-    # Format: |XX| or |XXX| and box-bar pairs ┃XX┃ / │XX│ (matched pair only,
-    # so a stray "|US┃" is left alone). Pipes/bars clearly indicate a tag.
-    r'(?:\|[A-Z]{2,3}\||┃[A-Z]{2,3}┃|│[A-Z]{2,3}│)\s*',
-    
-    # Format: [XX] or [XXX] (e.g., [US], [FR], [UK])
-    # Safe because brackets clearly indicate a tag
-    r'\[[A-Z]{2,3}\]\s*',
-]
-
-# Miscellaneous patterns: (CX), (Backup), single-letter tags, etc.
-MISC_PATTERNS = [
-    # Remove ALL content within parentheses (e.g., (CX), (B), (PRIME), (Backup), etc.)
-    r'\s*\([^)]*\)\s*',
-]
 
 # Canonical feed-zone detection (East/West) for zone-aware stream routing.
 # Matches parenthesized (W)/(E)/(WEST)/(EAST) or the bare words WEST/EAST. Bare
@@ -131,102 +46,10 @@ _ZONE_WEST_RE = re.compile(r'\(\s*W(?:EST)?\s*\)|\bWEST\b', re.IGNORECASE)
 _ZONE_EAST_RE = re.compile(r'\(\s*E(?:AST)?\s*\)|\bEAST\b', re.IGNORECASE)
 
 
-# --------------------------------------------------------------------------- #
-# Stylized-Unicode decoration stripping
-# --------------------------------------------------------------------------- #
-# Streams tag names with stylized-Unicode tier/format markers (superscript
-# "WEATHERNATION RAW", small-cap "FHD", bullet-prefixed "CNN") that the ASCII tag
-# regexes below cannot see. We drop whole tokens that are pure decoration BEFORE
-# the ASCII pipeline runs. Detection is by Unicode character *name* (not code-point
-# ranges), so it covers superscripts, "modifier letter" superscript capitals, and
-# Latin small-caps wherever they live (e.g. small-cap H is U+029C in IPA Extensions
-# and modifier V is U+2C7D in Latin-Ext-C, both outside the obvious blocks).
-
-# Ornament glyphs whose Unicode name carries no decoration keyword.
-_DECORATIVE_SYMBOLS = frozenset("◉")  # FISHEYE; add individual chars (not strings) here
-
-
-def _is_decorative_char(ch):
-    """True for a stylized letterform/ornament that carries no semantic content in a
-    channel name (superscripts, subscripts, modifier-letter superscript capitals,
-    Latin small-capitals, curated bullets). ASCII and ordinary letters return False."""
-    if ch.isascii():
-        return False
-    if ch in _DECORATIVE_SYMBOLS:
-        return True
-    try:
-        nm = unicodedata.name(ch)
-    except ValueError:
-        # unnamed code point (control char / lone surrogate) -> not decoration
-        return False
-    return ('SUPERSCRIPT' in nm or 'SUBSCRIPT' in nm
-            or 'SMALL CAPITAL' in nm or 'MODIFIER LETTER' in nm)
-
-
-def _strip_stylized_tokens(name):
-    """Drop whitespace tokens that are pure stylized decoration, then NFKD-canonicalize
-    the remainder. A token is decoration when it has >=1 decorative char, no ASCII
-    alphanumeric, and every char is decorative or ASCII punctuation (so a bullet glued
-    to a colon, or "HD/RAW" written in superscripts, are dropped too). Real ASCII words
-    (Gold/VIP) and non-Latin letters (Arabic/Cyrillic/CJK) are always kept. ASCII-only
-    input is returned unchanged via the fast path (no per-char work; NFKD is a no-op
-    on ASCII, so skipping it changes nothing)."""
-    if name.isascii():
-        return name
-    kept = []
-    for tok in name.split():
-        has_decorative = any(_is_decorative_char(c) for c in tok)
-        has_ascii_alnum = any(c.isascii() and c.isalnum() for c in tok)
-        only_decorative_or_punct = all(
-            _is_decorative_char(c) or (c.isascii() and not c.isalnum()) for c in tok
-        )
-        if has_decorative and only_decorative_or_punct and not has_ascii_alnum:
-            continue  # pure decoration -> drop the whole token
-        kept.append(tok)
-    return unicodedata.normalize('NFKD', ' '.join(kept))
-
-
-# --------------------------------------------------------------------------- #
-# Emoji-as-letter + emoji decoration normalization
-# --------------------------------------------------------------------------- #
-# Some streams use an emoji AS A LETTER inside a word: "SP⚽RTS" / "Sp⚽rts" where the
-# soccer ball stands in for 'o' (= SPORTS, the beIN family). _strip_stylized_tokens keeps
-# the token (it has ASCII alnum) and process_string_for_matching would turn the ball into a
-# space ("sp rts"), so it never matches "sports". We substitute the glyph for the letter it
-# replaces (only when flanked by ASCII letters) and strip emoji used purely as decoration.
-
-# Emoji that visually replace an ASCII letter when embedded in a word. Extensible.
-_EMOJI_LETTER_MAP = {'⚽': 'o'}            # SOCCER BALL = 'o'  (SP⚽RTS -> SPORTS)
-# Pictographic ornaments to delete. NOTE: ⚽ is intentionally in BOTH maps — the letter
-# map handles it mid-word (-> 'o'); here it catches any ⚽ NOT flanked by ASCII letters
-# (standalone/edge), which the substitution above leaves untouched.
-_EMOJI_ORNAMENTS = frozenset('♬☾⚽')       # beamed notes, last-quarter moon, soccer ball
-# Zero-width / invisible code points that only add noise to a name.
-_ZERO_WIDTH = ('️', '‍')         # VARIATION SELECTOR-16, ZERO WIDTH JOINER
-
-
-def _normalize_emoji(name):
-    """Map emoji-as-letters to their letter and strip emoji decoration.
-
-    The letter substitution fires ONLY when the glyph is flanked by ASCII letters
-    (so "SP⚽RTS" -> "SPoRTS" but a standalone/edge "⚽" is treated as decoration and
-    dropped). Zero-width selectors and ornament pictographs are deleted outright.
-    ASCII-only input is returned unchanged (no emoji possible)."""
-    if name.isascii():
-        return name
-    for zw in _ZERO_WIDTH:
-        if zw in name:
-            name = name.replace(zw, '')
-    for glyph, letter in _EMOJI_LETTER_MAP.items():
-        if glyph in name:
-            name = re.sub(r'(?<=[A-Za-z])' + re.escape(glyph) + r'(?=[A-Za-z])', letter, name)
-    if any(c in _EMOJI_ORNAMENTS for c in name):
-        name = ''.join(c for c in name if c not in _EMOJI_ORNAMENTS)
-    return name
-
-
-class FuzzyMatcher:
-    """Handles fuzzy matching for channel and stream names with normalization and database loading."""
+class FuzzyMatcher(FuzzyMatcherCore):
+    """Stream-Mapparr matcher: the shared pure core (FuzzyMatcherCore) plus this
+    plugin's layer — channel/broadcast DB loading, zone expansion, and the matching
+    entry points (find_best_match / alias_lookup / fuzzy_match / OTA)."""
     
     def __init__(self, plugin_dir=None, match_threshold=85, logger=None):
         """
@@ -237,9 +60,8 @@ class FuzzyMatcher:
             match_threshold: Minimum similarity score (0-100) for a match to be accepted
             logger: Logger instance (optional)
         """
+        super().__init__(match_threshold=match_threshold, logger=logger)
         self.plugin_dir = plugin_dir or os.path.dirname(__file__)
-        self.match_threshold = match_threshold
-        self.logger = logger or LOGGER
 
         # Channel data storage
         self.broadcast_channels = []  # Channels with callsigns
@@ -354,6 +176,10 @@ class FuzzyMatcher:
         
         self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
         self._load_broadcast_stations()
+        # Feed the real, DB-known callsigns to the core's confidence ladder so a
+        # denylisted-but-real station (KING/WAVE/WOOD/WHO) is rescued and still
+        # extracts, while junk K/W words (WITH/WIND/...) stay denied.
+        self.set_known_callsigns({k.upper() for k in self.channel_lookup})
         return True
 
     def _load_broadcast_stations(self):
@@ -488,59 +314,13 @@ class FuzzyMatcher:
 
         self.logger.info(f"Total channels loaded: {total_broadcast} broadcast, {total_premium} premium")
         self._load_broadcast_stations()
+        # Feed the real, DB-known callsigns to the core's confidence ladder so a
+        # denylisted-but-real station (KING/WAVE/WOOD/WHO) is rescued and still
+        # extracts, while junk K/W words (WITH/WIND/...) stay denied.
+        self.set_known_callsigns({k.upper() for k in self.channel_lookup})
         return True
 
-    def extract_callsign(self, channel_name):
-        """
-        Extract US TV callsign from channel name with priority order.
-        Returns None if common false positives appear alone.
-        """
-        # Remove common prefixes
-        channel_name = re.sub(r'^D\d+-', '', channel_name)
-        channel_name = re.sub(r'^USA?\s*[^a-zA-Z0-9]*\s*', '', channel_name, flags=re.IGNORECASE)
-        
-        # Priority 1: Callsigns in parentheses (most reliable)
-        paren_match = re.search(r'\(([KW][A-Z]{3})(?:-[A-Z\s]+)?\)', channel_name, re.IGNORECASE)
-        if paren_match:
-            callsign = paren_match.group(1).upper()
-            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
-                return callsign
-
-        # Priority 1b: grandfathered 3-letter callsigns in parentheses without a suffix
-        # (WWL/WJZ/KYW/WRC). Suffixed forms fall through to Priority 2. bug-062.
-        paren3_match = re.search(r'\(([KW][A-Z]{2})\)', channel_name, re.IGNORECASE)
-        if paren3_match:
-            callsign = paren3_match.group(1).upper()
-            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
-                return callsign
-
-        # Priority 2: Callsigns with suffix in parentheses
-        paren_suffix_match = re.search(r'\(([KW][A-Z]{2,4}-(?:TV|CD|LP|DT|LD))\)', channel_name, re.IGNORECASE)
-        if paren_suffix_match:
-            callsign = paren_suffix_match.group(1).upper()
-            return callsign
-        
-        # Priority 3: Callsigns at the end
-        end_match = re.search(r'\b([KW][A-Z]{2,4}(?:-(?:TV|CD|LP|DT|LD))?)\s*(?:\.[a-z]+)?\s*$', channel_name, re.IGNORECASE)
-        if end_match:
-            callsign = end_match.group(1).upper()
-            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
-                return callsign
-        
-        # Priority 4: Any word matching callsign pattern
-        word_match = re.search(r'\b([KW][A-Z]{2,4}(?:-(?:TV|CD|LP|DT|LD))?)\b', channel_name, re.IGNORECASE)
-        if word_match:
-            callsign = word_match.group(1).upper()
-            if callsign not in ['WEST', 'EAST', 'KIDS', 'WOMEN', 'WILD', 'WORLD']:
-                return callsign
-        
-        return None
     
-    def normalize_callsign(self, callsign):
-        """Remove suffix from callsign for display."""
-        if callsign:
-            callsign = re.sub(r'-(?:TV|CD|LP|DT|LD)$', '', callsign)
-        return callsign
     
     def precompute_normalizations(self, names, user_ignored_tags=None,
                                    ignore_quality=True, ignore_regional=True,
@@ -613,181 +393,6 @@ class FuzzyMatcher:
             return 'EAST'
         return 'DEFAULT'
 
-    def normalize_name(self, name, user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
-                       ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
-        """
-        Normalize channel or stream name for matching by removing tags, prefixes, and other noise.
-
-        Args:
-            name: Name to normalize
-            user_ignored_tags: Additional user-configured tags to ignore (list of strings)
-            ignore_quality: If True, remove ALL quality indicators in any format (e.g., 4K, [4K], (4K), FHD, [FHD], (FHD), HD, SD, UHD, 8K)
-            ignore_regional: If True, remove regional indicator patterns (e.g., East)
-            ignore_geographic: If True, remove ALL country code patterns (e.g., US, USA, US:, |FR|, FR -, [UK])
-            ignore_misc: If True, remove ALL content within parentheses (e.g., (CX), (B), (PRIME), (Backup))
-            remove_cinemax: If True, remove "Cinemax" prefix (useful when channel name contains "max")
-            remove_country_prefix: If True, remove country code prefixes (e.g., CA:, UK , DE: ) from start of name
-
-        Returns:
-            Normalized name
-        """
-        if user_ignored_tags is None:
-            user_ignored_tags = []
-
-        # Store original for logging
-        original_name = name
-
-        name = _LEADING_BAR_TAG_RE.sub('', name)  # leading "┃CANAL+┃" bouquet tag
-
-        # Map emoji-as-letters (⚽ = 'o' in "SP⚽RTS") and strip emoji decoration, before
-        # the stylized-Unicode strip and ASCII regexes below — so "beIN SP⚽RTS" -> "beIN sports".
-        name = _normalize_emoji(name)
-
-        # Strip stylized-Unicode decoration (superscript/small-cap tier markers,
-        # bullets) up front so the ASCII tag regexes below see plain text. Runs
-        # unconditionally: a token written in superscript/small-caps is decoration
-        # regardless of tag_handling, and it would otherwise block matches
-        # (e.g. a superscript-RAW suffix never matches channel "WeatherNation").
-        name = _strip_stylized_tokens(name)
-
-        # CRITICAL FIX (v25.019.0100): Apply quality patterns FIRST, before space normalization
-        # This prevents space normalization from breaking quality tags like "4K" -> "4 K"
-        # which would then fail to match quality patterns looking for "4K"
-        # Bug: Streams with "4K" suffix were not matching because "4K" was split to "4 K"
-        # by the space normalization step, then quality patterns couldn't find "4K" at end
-        if ignore_quality:
-            # Strip numeric resolution markers (3840P/2160P/1080P/720P/...) before the
-            # digit/letter spacer below would split "3840P" into "3840 P".
-            # Must run before QUALITY_PATTERNS so that removing " 4K " does not glue
-            # "SPoRTS" to "3840P" and break the word-boundary anchor.
-            for pattern in RESOLUTION_PATTERNS:
-                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-            for pattern in QUALITY_PATTERNS:
-                name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-
-        # Normalize spacing around numbers (AFTER quality patterns are removed)
-        # This ensures "ITV1" and "ITV 1" are treated identically during matching
-        # Pattern: Insert space before number if preceded by letter, and after number if followed by letter
-        # Examples: "ITV1" -> "ITV 1", "BBC2" -> "BBC 2", "E4" -> "E 4"
-        name = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', name)  # Letter followed by digit
-        name = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', name)  # Digit followed by letter
-
-        # Normalize hyphens to spaces for better token matching
-        # This ensures "UK-ITV" becomes "UK ITV" and matches properly
-        # Common patterns: "UK-ITV 1", "US-CNN", etc.
-        name = re.sub(r'-', ' ', name)
-        
-        # Remove ALL leading parenthetical prefixes like (US) (PRIME2), (SP2), (D1), etc.
-        # Loop until no more leading parentheses are found
-        while name.lstrip().startswith('('):
-            new_name = re.sub(r'^\s*\([^\)]+\)\s*', '', name)
-            if new_name == name:  # No change, break to avoid infinite loop
-                break
-            name = new_name
-
-        # Remove country code prefix if requested (e.g., "CA:", "UK ", "USA: ")
-        # This handles multi-country databases where streams may be prefixed with country codes
-        if remove_country_prefix:
-            # Known quality tags that should NOT be removed (to avoid false positives)
-            quality_tags = {'HD', 'SD', 'FD', 'UHD', 'FHD'}
-
-            # Check for 2-3 letter prefix with colon or space at start
-            # Fixed regex: [:\s] instead of [:|\\s] (pipe and backslash were incorrect)
-            prefix_match = re.match(r'^([A-Z]{2,3})[:\s]\s*', name)
-            if prefix_match:
-                prefix = prefix_match.group(1).upper()
-                # Only remove if it's NOT a quality tag
-                if prefix not in quality_tags:
-                    name = name[len(prefix_match.group(0)):]
-
-        # Remove "Cinemax" prefix if requested (for channels containing "max")
-        if remove_cinemax:
-            name = re.sub(r'\bCinemax\b\s*', '', name, flags=re.IGNORECASE)
-
-        # Build list of patterns to apply based on category flags
-        # NOTE: Quality patterns are now applied earlier (before space normalization)
-        # to prevent "4K" from being split to "4 K" before removal
-        patterns_to_apply = []
-
-        if ignore_regional:
-            patterns_to_apply.extend(REGIONAL_PATTERNS)
-
-        if ignore_geographic:
-            patterns_to_apply.extend(GEOGRAPHIC_PATTERNS)
-
-        if ignore_misc:
-            # CRITICAL FIX: Only apply MISC_PATTERNS (which removes ALL parentheses) if we're also
-            # ignoring regional tags. Otherwise, MISC_PATTERNS would strip regional indicators like
-            # "(WEST)" even when the user has set ignore_regional=False.
-            # This ensures that "BBC America" won't match "BBC AMERICA (WEST)" when ignore_regional=False
-            if ignore_regional:
-                # Safe to remove ALL parentheses since regional indicators are already being ignored
-                patterns_to_apply.extend(MISC_PATTERNS)
-            else:
-                # User wants to preserve regional indicators - skip MISC_PATTERNS to avoid
-                # removing parenthetical content that might be regional indicators
-                # Note: This means some misc tags like (CX), (B), (PRIME) won't be removed
-                # when ignore_regional=False, but this is the correct behavior to preserve
-                # regional tags like (WEST), (EAST), etc.
-                pass
-
-        # Apply selected hardcoded patterns
-        for pattern in patterns_to_apply:
-            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
-
-        # Apply user-configured ignored tags with improved handling
-        for tag in user_ignored_tags:
-            escaped_tag = re.escape(tag)
-
-            # Check if tag contains brackets or parentheses - if so, match literally
-            if '[' in tag or ']' in tag or '(' in tag or ')' in tag:
-                # Literal match for bracketed/parenthesized tags, remove with trailing whitespace
-                name = re.sub(escaped_tag + r'\s*', '', name, flags=re.IGNORECASE)
-            else:
-                # CRITICAL FIX: Word boundaries (\b) only work with alphanumeric characters
-                # Tags with Unicode/special characters (like ┃NLZIET┃) fail with word boundaries
-                # Check if tag contains only word characters (alphanumeric + underscore)
-                if re.match(r'^\w+$', tag):
-                    # Safe to use word boundaries for pure word tags
-                    # This prevents "East" from matching the "east" in "Feast"
-                    name = re.sub(r'\b' + escaped_tag + r'\b', '', name, flags=re.IGNORECASE)
-                else:
-                    # Tag contains special/Unicode characters - can't use word boundaries
-                    # Match the tag followed by optional whitespace
-                    name = re.sub(escaped_tag + r'\s*', '', name, flags=re.IGNORECASE)
-        
-        # Remove callsigns in parentheses
-        # CRITICAL FIX: Don't remove regional indicators like (WEST), (EAST), etc. when ignore_regional=False
-        # The callsign pattern \([KW][A-Z]{3}...\) accidentally matches (WEST), (WETA), (KOMO), etc.
-        # We need to exclude known regional indicators even when matching callsigns
-        if ignore_regional:
-            # Safe to remove callsigns without checking for regional indicators
-            name = re.sub(r'\([KW][A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)
-        else:
-            # Only remove callsigns that are NOT regional indicators
-            # Use negative lookahead to exclude WEST, EAST, etc.
-            # Pattern matches (K or W) + 3 letters, but NOT if those 3 letters form a regional word
-            name = re.sub(r'\([KW](?!EST\)|ACIFIC\)|ENTRAL\)|OUNTAIN\)|TLANTIC\))[A-Z]{3}(?:-(?:TV|CD|LP|DT|LD))?\)', '', name, flags=re.IGNORECASE)
-
-        # Remove other tags in parentheses (but only if we're also ignoring regional tags)
-        # Otherwise this would remove regional indicators like (WEST), (EAST), etc.
-        if ignore_regional:
-            name = re.sub(r'\([A-Z0-9]+\)', '', name)
-        
-        # Remove common pattern fixes
-        name = re.sub(r'^The\s+', '', name, flags=re.IGNORECASE)
-        name = re.sub(r'\s+Network\s*$', '', name, flags=re.IGNORECASE)
-        name = re.sub(r'\s+Channel\s*$', '', name, flags=re.IGNORECASE)
-        name = re.sub(r'\s+TV\s*$', '', name, flags=re.IGNORECASE)
-        
-        # Clean up whitespace
-        name = re.sub(r'\s+', ' ', name).strip()
-
-        # Log debug message if normalization resulted in empty string (indicates overly aggressive stripping)
-        if not name:
-            self.logger.debug(f"normalize_name returned empty string for input: '{original_name}' (original input was stripped too aggressively)")
-
-        return name
     
     def extract_tags(self, name, user_ignored_tags=None):
         """
@@ -849,107 +454,7 @@ class FuzzyMatcher:
         
         return regional, extra_tags, quality_tags
     
-    def calculate_similarity(self, str1, str2, threshold=None):
-        """
-        Calculate Levenshtein distance-based similarity ratio between two strings.
-
-        Args:
-            str1: First string
-            str2: Second string
-            threshold: Optional minimum similarity (0.0-1.0). When set, returns 0.0
-                       early if the score cannot possibly meet this threshold.
-                       Used with rapidfuzz's score_cutoff and for pure-Python early termination.
-
-        Returns:
-            Similarity ratio between 0.0 and 1.0
-        """
-        if len(str1) == 0 or len(str2) == 0:
-            return 0.0
-
-        # Fast path: use C-accelerated rapidfuzz when available
-        if _USE_RAPIDFUZZ:
-            cutoff = threshold if threshold is not None else 0.0
-            return _rf_lev.normalized_similarity(str1, str2, score_cutoff=cutoff)
-
-        # Pure Python fallback with optional early termination.
-        # bug-026: this MUST match rapidfuzz Levenshtein.normalized_similarity,
-        # which is 1 - distance / max(len). The previous formula
-        # (len1 + len2 - distance) / (len1 + len2) scored higher for the same
-        # edit distance, so results depended on whether rapidfuzz was installed
-        # (at threshold 95, "Fox Sports 1" vs "Fox Sports 2" flipped the match
-        # decision). Production runs the rapidfuzz path; this aligns the fallback.
-        if len(str1) < len(str2):
-            str1, str2 = str2, str1
-
-        max_len = len(str1)  # the longer string after the swap
-
-        # Early rejection: the minimum possible edit distance is the length
-        # difference, so similarity can never exceed (max_len - diff) / max_len.
-        if threshold is not None:
-            max_possible = (max_len - (len(str1) - len(str2))) / max_len
-            if max_possible < threshold:
-                return 0.0
-
-        previous_row = list(range(len(str2) + 1))
-
-        for i, c1 in enumerate(str1):
-            current_row = [i + 1]
-            for j, c2 in enumerate(str2):
-                insertions = previous_row[j + 1] + 1
-                deletions = current_row[j] + 1
-                substitutions = previous_row[j] + (c1 != c2)
-                current_row.append(min(insertions, deletions, substitutions))
-
-            # Early termination: a lower bound on the final distance is the
-            # current row minimum minus the str1 chars still unprocessed.
-            if threshold is not None:
-                min_distance_so_far = min(current_row)
-                remaining = len(str1) - i - 1
-                best_possible_distance = max(0, min_distance_so_far - remaining)
-                best_possible_ratio = (max_len - best_possible_distance) / max_len
-                if best_possible_ratio < threshold:
-                    return 0.0
-
-            previous_row = current_row
-
-        distance = previous_row[-1]
-        return (max_len - distance) / max_len
     
-    def process_string_for_matching(self, s):
-        """
-        Normalize a string for token-sort fuzzy matching.
-        Lowercases, removes accents, removes punctuation, sorts tokens.
-        Properly handles Unicode characters (e.g., French accents).
-        Normalizes spacing around numbers to handle "ITV1" vs "ITV 1" cases.
-        """
-        # First, NFKD-fold: compatibility decomposition so "ＨＢＯ"->"HBO", "²"->"2",
-        # "ﬁ"->"fi", and accents split into base + combining mark (dropped below).
-        s = unicodedata.normalize('NFKD', s)
-        
-        # Remove combining characters (accent marks)
-        # Keep only base characters
-        s = ''.join(char for char in s if unicodedata.category(char) != 'Mn')
-        
-        # Convert to lowercase
-        s = s.lower()
-        
-        # Normalize spacing around numbers: add space before numbers if not already present
-        # This makes "itv1" and "itv 1" equivalent after tokenization
-        # Pattern: letter (any script) followed immediately by digit -> insert space
-        s = re.sub(r'([^\W\d_])(\d)', r'\1 \2', s)
-        
-        # Replace non-alphanumeric with space. isalnum() keeps alphanumerics of any
-        # script (Cyrillic/CJK/Arabic) instead of erasing them to '' (false matches).
-        cleaned_s = ""
-        for char in s:
-            if char.isalnum():
-                cleaned_s += char
-            else:
-                cleaned_s += ' '
-        
-        # Split, sort, and rejoin
-        tokens = sorted([token for token in cleaned_s.split() if token])
-        return " ".join(tokens)
     
     def find_best_match(self, query_name, candidate_names, user_ignored_tags=None, remove_cinemax=False,
                         ignore_quality=True, ignore_regional=True, ignore_geographic=True, ignore_misc=True):
@@ -1020,7 +525,7 @@ class FuzzyMatcher:
                 processed_candidate = self.process_string_for_matching(candidate_normalized)
 
             score = self.calculate_similarity(processed_query, processed_candidate,
-                                              threshold=self.match_threshold / 100.0)
+                                              min_ratio=self.match_threshold / 100.0)
 
             if score > best_score:
                 best_score = score
@@ -1143,7 +648,7 @@ class FuzzyMatcher:
                 return candidate, 100, "exact"
 
             # Very high similarity (97%+)
-            ratio = self.calculate_similarity(normalized_query_lower, candidate_lower, threshold=0.97)
+            ratio = self.calculate_similarity(normalized_query_lower, candidate_lower, min_ratio=0.97)
             if ratio >= 0.97 and ratio > best_ratio:
                 best_match = candidate
                 best_ratio = ratio
@@ -1169,7 +674,7 @@ class FuzzyMatcher:
                 length_ratio = min(len(normalized_query_lower), len(candidate_lower)) / max(len(normalized_query_lower), len(candidate_lower))
                 if length_ratio >= 0.75:
                     ratio = self.calculate_similarity(normalized_query_lower, candidate_lower,
-                                                      threshold=self.match_threshold / 100.0)
+                                                      min_ratio=self.match_threshold / 100.0)
                     if ratio > best_ratio:
                         best_match = candidate
                         best_ratio = ratio
@@ -1198,7 +703,7 @@ class FuzzyMatcher:
                 continue
 
             score = self.calculate_similarity(processed_query, processed_candidate,
-                                              threshold=threshold_ratio)
+                                              min_ratio=threshold_ratio)
             if score > best_score:
                 best_score = score
                 best_fuzzy = candidate

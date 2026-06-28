@@ -22,6 +22,12 @@ import pytest
 PLUGIN_DIR = Path(__file__).resolve().parent.parent / "Stream-Mapparr"
 _PKG = "stream_mapparr_under_test"
 
+# The plugin vendors matching_core.py beside fuzzy_matcher.py; put the inner folder on
+# sys.path so a standalone (non-package) load of fuzzy_matcher can import it absolutely
+# (the fuzzy_matcher import tries a relative import first, then falls back to this).
+if str(PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_DIR))
+
 
 def _install_runtime_stubs():
     """Inject fake django / apps / core / pytz modules into sys.modules.
