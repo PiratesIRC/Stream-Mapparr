@@ -87,7 +87,11 @@ def _load_fuzzy_matcher():
     Layout: <repo>/tests/test_matcher_golden.py and <repo>/<repo_name>/fuzzy_matcher.py.
     """
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    inner = os.path.join(repo_root, os.path.basename(repo_root))
+    inner = next(
+        (os.path.join(repo_root, _e) for _e in sorted(os.listdir(repo_root))
+         if os.path.isfile(os.path.join(repo_root, _e, "fuzzy_matcher.py"))),
+        os.path.join(repo_root, os.path.basename(repo_root)),
+    )
     path = os.path.join(inner, "fuzzy_matcher.py")
     saved_path = list(sys.path)
     saved_aliases = sys.modules.pop("aliases", None)

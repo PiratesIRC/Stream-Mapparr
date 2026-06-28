@@ -49,7 +49,7 @@ def locate():
     repo_root = here.parent.parent           # <Plugin>/
     workspace = repo_root.parent             # <workspace>/
     shared_dir = workspace / "_shared"
-    inner_dir = repo_root / repo_root.name   # <Plugin>/<Plugin>/
+    inner_dir = next((p.parent for p in repo_root.glob("*/fuzzy_matcher.py")), repo_root / repo_root.name)
     manifest_path = here.parent / "core_manifest.json"
     return inner_dir, shared_dir, manifest_path
 

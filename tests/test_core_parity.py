@@ -13,7 +13,11 @@ import os
 import pytest
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_INNER = os.path.join(_REPO, os.path.basename(_REPO))
+_INNER = next(
+    (os.path.join(_REPO, _e) for _e in sorted(os.listdir(_REPO))
+     if os.path.isfile(os.path.join(_REPO, _e, "fuzzy_matcher.py"))),
+    os.path.join(_REPO, os.path.basename(_REPO)),
+)
 _MANIFEST = os.path.join(_REPO, "scripts", "core_manifest.json")
 
 with open(_MANIFEST, encoding="utf-8") as _fh:
