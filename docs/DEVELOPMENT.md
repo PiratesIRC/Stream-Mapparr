@@ -49,7 +49,7 @@ python -m pytest -k probe_fresh -q                  # one behavior
 ### Verify before deploy
 
 ```bash
-python -m py_compile Stream-Mapparr/plugin.py Stream-Mapparr/fuzzy_matcher.py
+python -m py_compile Stream-Mapparr/plugin.py Stream-Mapparr/fuzzy_matcher.py Stream-Mapparr/matching_core.py
 python scripts/check_version_sync.py
 python scripts/validate_databases.py
 ```
@@ -62,12 +62,14 @@ Use the **`/deploy-plugin`** skill, or do it by hand. The critical rule:
 > "hot-reload on `plugin.json` mtime" did NOT fire reliably in practice
 > (verified 2026-06-13: three mtime-bumped deploys kept running the stale
 > in-memory module for an hour). Bump the version, copy **every** changed file
-> (incl. new modules like `aliases.py` and changed `fuzzy_matcher.py`), then
+> (incl. the vendored shared core `matching_core.py` — `fuzzy_matcher.py` imports
+> `FuzzyMatcherCore` from it, so the plugin won't load without it — plus new modules
+> like `aliases.py` and changed `fuzzy_matcher.py`), then
 > `docker restart dispatcharr` and confirm the logged version.
 
 ```bash
 python Stream-Mapparr/bump_version.py
-for f in plugin.py plugin.json fuzzy_matcher.py aliases.py networks.json; do
+for f in plugin.py plugin.json fuzzy_matcher.py matching_core.py aliases.py networks.json; do
   MSYS_NO_PATHCONV=1 docker cp "Stream-Mapparr/$f" dispatcharr:/data/plugins/stream-mapparr/
 done
 # copy any changed *_channels.json too. networks.json (FCC OTA station table) is
@@ -96,6 +98,8 @@ case that would have caught it.
 | File | Covers | Needs Django stub? |
 |---|---|---|
 | `test_fuzzy_matcher.py` | normalization, similarity, callsign extraction, the numeric-sibling guard (bug-021), zone expansion, bare-timezone over-strip (bug-066) | No — pure stdlib + rapidfuzz |
+| `test_core_parity.py` | shared-core drift gate: sha256 of the vendored `matching_core.py` == `scripts/core_manifest.json` | No |
+| `test_matcher_golden.py` | matcher golden drift gate: pure primitives vs `tests/matcher_golden_baseline.json` | No — pure stdlib + rapidfuzz |
 | `test_plugin_helpers.py` | `_parse_tags`, `_parse_priority_list`, `_audio_rank`, `_is_probe_fresh` (bug-008), scheduler `__init__` bootstrap (bug-065) | Yes (via conftest) |
 | `test_progress_notifications.py` | `format_eta`, Discord/Slack webhook reshaping (bug-067), progress/last-results round-trips, View Progress/Last Results, live-toast wiring | Yes (via conftest) |
 | `test_databases.py` | schema of every `*_channels.json` (the US file is 3.6 MB) | No |
@@ -128,25 +132,30 @@ live behavior didn't change — only the fallback was corrected to agree.
 `test_rapidfuzz_and_pure_python_agree` enforces this going forward; if you ever
 touch the similarity math, that test must stay green.
 
-> Note: when `calculate_similarity` is called *with* a `threshold`, the two paths
-> can still return different numeric values for scores **below** the cutoff
-> (rapidfuzz zeroes them; the fallback may return the low score). That's harmless
-> — every caller compares `>= threshold`, so match decisions and all kept scores
-> are identical. The parity test deliberately checks the unthresholded score.
+> Note: the early-termination parameter is now `min_ratio` (the shared core replaced
+> rapidfuzz's `score_cutoff` with a Python `>= min_ratio` gate applied identically on both
+> paths). A score landing exactly on the cutoff is **kept** (`>=`, inclusive) and a
+> below-cutoff score is zeroed on both paths, so match decisions and all kept scores are
+> identical regardless of whether rapidfuzz is installed. The parity test deliberately
+> checks the unthresholded (`min_ratio=0`) score.
 
-> **Reconciliation reference (2026-06-25):** Stream-Mapparr's `calculate_similarity`
-> is already canonical (`1 - distance / max(len)`, rapidfuzz
-> `Levenshtein.normalized_similarity`), so it serves as the reference for the
-> cross-plugin matcher reconciliation alongside EPG-Janitor. When porting a
-> similarity change between matcher copies, reconcile the others toward this
-> formula, not away from it.
+> **Superseded by the shared-core migration (2026-06-28):** there are no longer separate
+> drifting matcher copies to reconcile. `calculate_similarity` (and every other pure
+> primitive) now lives once in the vendored shared core `matching_core.py`; this plugin's
+> `FuzzyMatcher` subclasses `FuzzyMatcherCore`. A similarity change is made in
+> `_shared/matching_core.py` and re-vendored with `scripts/sync_core.py` — never
+> hand-ported across plugins. The canonical `1 - distance / max(len)` formula (rapidfuzz
+> `Levenshtein.normalized_similarity`) is what landed in the core. See **Shared matcher
+> core** below.
 
 ### Normalization ports from Lineuparr PR #13 (landed 2026-06-25)
 
-Three normalization hardening fixes were ported from Lineuparr into
-`fuzzy_matcher.py` (`calculate_similarity` untouched — see the reconciliation note
-above). All are regression-locked in `tests/test_fuzzy_matcher.py`; full suite green
-at **243 passed**.
+Three normalization hardening fixes were ported from Lineuparr into the matcher
+(`calculate_similarity` untouched — see the reconciliation note above). All are
+regression-locked in `tests/test_fuzzy_matcher.py`; full suite green at **243 passed**.
+_These primitives now live in the shared core_ — post the 2026-06-28 migration the bullets
+below describe `matching_core.py`, inherited via the `FuzzyMatcher(FuzzyMatcherCore)`
+subclass, not a private copy.
 
 - **Non-ASCII preservation in `process_string_for_matching`.** After the NFKD fold the
   builder now keeps any `char.isalnum()` (alphanumerics of any script) instead of the
@@ -159,6 +168,39 @@ at **243 passed**.
   matched pair only). Stream-Mapparr has no `PROVIDER_PREFIX_PATTERNS` list, so only
   `GEOGRAPHIC_PATTERNS` changed (this is where the matcher copies differ).
 
+### Shared matcher core (migration landed 2026-06-28)
+
+The era of a copy-pasted, drifting `fuzzy_matcher.py` is over. The pure matching
+primitives — `normalize_name`, `calculate_similarity`, `process_string_for_matching`, the
+callsign ladder, and the regex tables — now live **once** in the shared core
+`<workspace>/_shared/matching_core.py`, vendored **byte-identically** into the inner folder
+as `matching_core.py`. This plugin's `FuzzyMatcher` **subclasses `FuzzyMatcherCore`** and
+keeps only its plugin-specific layer (zone routing, OTA callsign resolution, channel-DB
+loading). Stream-Mapparr was the migration canary.
+
+**To change matcher behavior** (do NOT hand-port to four copies anymore — that process is
+retired):
+
+1. Edit `_shared/matching_core.py`.
+2. Re-vendor: `python scripts/sync_core.py` (copies the file into the inner folder and
+   rewrites `scripts/core_manifest.json` with its sha256). `--check` verifies the vendored
+   copy is byte-identical to `_shared` (runs locally / in the pre-commit hook, since CI has
+   no `_shared`); `--dry-run` previews.
+3. If behavior changed, regenerate the golden baseline (`tests/matcher_golden_baseline.json`).
+4. Commit. Keep `matching_core.py` **out** of `bump_version.py`'s version stamping, or the
+   hash gate fails forever.
+
+Guards: the vendored core is **hash-pinned** (`scripts/core_manifest.json`) and enforced by
+`tests/test_core_parity.py` (sha256 of the inner copy == manifest) plus the golden gate
+(`tests/test_matcher_golden.py`); `.gitattributes` pins `matching_core.py` to LF so a CRLF
+checkout can't change the hash.
+
+Two core improvements landed with the migration: a **`strip_bare_region` opt-in** (a subclass
+sets `_STRIP_BARE_REGION = True` to strip bare time-zone region words for scoring;
+Stream-Mapparr leaves it off, preserving the bug-066 behavior) and the
+**`calculate_similarity` `>= min_ratio` Python gate** that replaced rapidfuzz's
+`score_cutoff` (so both code paths gate identically — see the parity note above).
+
 ---
 
 ## 4. Continuous integration
@@ -166,9 +208,11 @@ at **243 passed**.
 `.github/workflows/ci.yml` runs on every push to `main`, every PR, and manual
 dispatch. It is the only gate between a commit and a user pulling broken code.
 
-Steps: install dev deps → byte-compile both modules → version sync → database
-validation → `pytest`. Byte-compilation works without Django because compiling
-does not execute imports.
+Steps: install dev deps → byte-compile the sources (`plugin.py`, `fuzzy_matcher.py`,
+`matching_core.py`, `__init__.py`) → version sync → database validation → matcher golden
+drift gate (`tests/test_matcher_golden.py`) → `pytest` (which includes the shared-core
+hash-pin parity gate `tests/test_core_parity.py`). Byte-compilation works without Django
+because compiling does not execute imports.
 
 The pre-commit hook (`.githooks/pre-commit`) runs a fast subset locally so most
 failures are caught before they ever reach CI.
@@ -271,11 +315,13 @@ and that `source_url` resolves. The `{version}` substitutes the bare-calver tag,
   fires when a zone-stripped base name has a different-zone sibling, so lone
   channels never change. Route every per-channel order through
   `_streams_for_channel` (Match & Assign, Sort, Preview all share it) — do not
-  re-derive zone affinity inline. The matcher copies have **diverged** on regional
-  stripping: bug-066 (drop bare Pacific/Central/Mountain/Atlantic) is correct for
-  the channel matchers (Stream-Mapparr, Channel-Maparr) but breaks EPG-Janitor /
-  Lineuparr (they intentionally strip bare Pacific). Run each plugin's suite before
-  porting a matcher change.
+  re-derive zone affinity inline. Regional stripping is now a **shared-core opt-in**, not a
+  per-copy divergence: bug-066 (drop bare Pacific/Central/Mountain/Atlantic) is the default
+  in `matching_core.py`, correct for the channel matchers (Stream-Mapparr, Channel-Maparr);
+  EPG-Janitor / Lineuparr opt back into stripping bare Pacific by setting
+  `_STRIP_BARE_REGION = True` on their subclass. Stream-Mapparr leaves it off. A matcher
+  change goes to the shared core (see "Shared matcher core" in §3), not a hand-port — but
+  still run the suite, since the golden + parity gates lock the behavior.
 - **Channel-database `type` contract:** only a `type` containing the substring
   `"broadcast"` is semantically significant — it marks an OTA channel and
   REQUIRES a `callsign` (matched by callsign). Every other `type` string
@@ -301,15 +347,21 @@ and that `source_url` resolves. The `{version}` substitutes the bare-calver tag,
 ```
 Stream-Mapparr/
   plugin.py            # main plugin (~260 KB) — Plugin class, actions, ORM, scheduler, probe
-  fuzzy_matcher.py     # matching library — no Django dependency, unit-test heaven
-  bump_version.py      # version sync tool (run before every deploy/release)
+  matching_core.py     # VENDORED shared core (FuzzyMatcherCore) — byte-identical to
+                       #   <workspace>/_shared/matching_core.py; hash-pinned, LF-locked; deploy it!
+  fuzzy_matcher.py     # plugin matcher layer — FuzzyMatcher(FuzzyMatcherCore); no Django dependency
+  bump_version.py      # version sync tool (run before every deploy/release; does NOT stamp matching_core.py)
   aliases.py           # built-in US channel-name alias table
   *_channels.json      # per-country channel databases (US is 3.6 MB)
   networks.json        # FCC OTA station table (callsign authority) — deploy it!
 tests/                 # pytest suite (this doc, section 3)
+  test_core_parity.py        # vendored core sha256 == core_manifest.json
+  test_matcher_golden.py     # pure primitives vs matcher_golden_baseline.json
 scripts/
   check_version_sync.py    # CI/hook: plugin.json == plugin.py
   validate_databases.py    # CI/hook: channel DB schema
+  sync_core.py             # re-vendor _shared/matching_core.py + rewrite core_manifest.json
+  core_manifest.json       # sha256 pin of the vendored shared core
 .github/workflows/ci.yml   # CI pipeline
 .githooks/pre-commit       # local fast gate (opt in with core.hooksPath)
 docs/DEVELOPMENT.md        # you are here
