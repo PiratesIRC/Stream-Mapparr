@@ -87,7 +87,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1791529"
+    PLUGIN_VERSION = "1.26.1801300"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2423,12 +2423,65 @@ class Plugin:
         premium channel names. Falls back to a parenthesized callsign in the
         name for legitimate stations that are absent from the FCC table. Returns
         the callsign (uppercase) or None. bug-063.
+
+        A common-word callsign (KING/WHO/WILL...) is only accepted when it is a
+        HIGH-confidence extraction in the channel name (parenthesized "(KING)",
+        suffixed, or end-of-name) — otherwise a non-station channel like
+        "24/7 KING OF THE HILL" would resolve to the KING-TV affiliate and grab
+        its streams. bug-098.
         """
         if self.fuzzy_matcher:
-            callsign, station = self.fuzzy_matcher.match_broadcast_channel(channel_name)
-            if station is not None:
-                return callsign
+            callsign, high_conf = self.fuzzy_matcher._extract_callsign_with_confidence(channel_name)
+            if callsign:
+                _cs, station = self.fuzzy_matcher.match_broadcast_channel(channel_name)
+                if station is not None:
+                    if self._callsign_needs_corroboration(callsign) and not high_conf:
+                        return None
+                    return callsign
         return self._extract_paren_callsign(channel_name)
+
+    def _callsign_needs_corroboration(self, callsign):
+        """True when an OTA callsign is also a common English word (KING/WHO/
+        WOLF/WAVE/WOOD/WEEK...). These live in the matcher's callsign denylist
+        but are rescued into channel_lookup when a real station carries them, so
+        a bare word-boundary search for the callsign would vacuum up unrelated
+        streams ("KING OF THE HILL" -> KING-TV). bug-098."""
+        if not callsign or not self.fuzzy_matcher:
+            return False
+        deny = getattr(self.fuzzy_matcher, '_CALLSIGN_DENYLIST', frozenset())
+        base = self.fuzzy_matcher.normalize_callsign(callsign) or callsign
+        return callsign.upper() in deny or base.upper() in deny
+
+    def _callsign_corroborated(self, stream_name, callsign):
+        """Whether a stream name corroborates a common-word OTA callsign beyond
+        merely containing the word. Accepts a parenthesized "(KING)" or suffixed
+        "KING-TV" form of THIS callsign, or the station's network affiliation
+        ("NBC") or community-served city ("SEATTLE") appearing in the name.
+        Real OTA streams always carry one of these; false positives ("DOCTOR
+        WHO", "TEEN WOLF") carry none. bug-098."""
+        if not stream_name:
+            return False
+        upper = stream_name.upper()
+        cs = re.escape(callsign.upper())
+        # Parenthesized or broadcast-suffixed form of this exact callsign.
+        if re.search(r'\(' + cs + r'\)', upper):
+            return True
+        if re.search(r'\b' + cs + r'-(?:TV|DT|CD|LP|LD)\b', upper):
+            return True
+        # Network affiliation / community city from the FCC station record.
+        station = None
+        if self.fuzzy_matcher:
+            lookup = getattr(self.fuzzy_matcher, 'channel_lookup', {})
+            station = lookup.get(callsign.upper()) or lookup.get(
+                (self.fuzzy_matcher.normalize_callsign(callsign) or callsign).upper())
+        if station:
+            net = (station.get('network_affiliation') or '').strip().upper()
+            if net and re.search(r'\b' + re.escape(net) + r'\b', upper):
+                return True
+            city = (station.get('community_served_city') or '').strip().upper()
+            if city and city in upper:
+                return True
+        return False
 
     def _parse_callsign(self, callsign):
         """Extract clean callsign, removing suffixes after dash."""
@@ -2606,9 +2659,15 @@ class Plugin:
 
             matching_streams = []
             callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
+            needs_corroboration = self._callsign_needs_corroboration(callsign)
 
             for stream in working_streams:
                 if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
+                    if needs_corroboration and not self._callsign_corroborated(stream['name'], callsign):
+                        logger.debug(
+                            f"[Stream-Mapparr] Dropping uncorroborated common-word "
+                            f"callsign match: {stream['name']!r} for {callsign}")
+                        continue
                     matching_streams.append(stream)
 
             if matching_streams:
@@ -4868,12 +4927,15 @@ class Plugin:
                 # Create regex pattern for base callsign + variations
                 # Matches: WKRG, WKRG-DT, WKRG-DT2, etc. (case-sensitive)
                 callsign_pattern = r'\b' + re.escape(base_callsign) + r'(?:-[A-Z]{2}\d?)?\b'
-                
+                needs_corroboration = self._callsign_needs_corroboration(base_callsign)
+
                 for stream in working_streams:
                     stream_name = stream.get('name', '')
-                    
+
                     # Search for uppercase callsign occurrences only
                     if re.search(callsign_pattern, stream_name):
+                        if needs_corroboration and not self._callsign_corroborated(stream_name, base_callsign):
+                            continue
                         matching_streams.append(stream)
                 
                 if not matching_streams:
