@@ -125,6 +125,40 @@ def test_match_broadcast_channel_returns_fcc_station(real_matcher):
     assert station.get("network_affiliation")            # FCC field present
 
 
+# --------------------------------------------------------------------------- #
+# bug-098 CORE hardening: the DB-rescue of a common-word callsign (KING/WHO/
+# WOLF...) is confined to PARENTHESIZED positions and to the OTA branded
+# "<callsign> <number>" form (KING 5 / WAVE 3 / WOOD TV8 / WHO 13). A bare
+# common word at end-of-name ("WOLF KING", "Doctor Who") or as a loose word
+# followed by ordinary text ("King of the Hill") no longer extracts a callsign,
+# so a dropped subclass override can never reintroduce bug-098.
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.parametrize("name,expected", [
+    ("NBC - WA Seattle (KING)", "KING"),   # parenthesized -> always rescued
+    ("KING 5", "KING"),                     # branded number form preserved
+    ("WAVE 3", "WAVE"),
+    ("WOOD TV8", "WOOD"),
+    ("WHO 13", "WHO"),
+    ("WFAA", "WFAA"),                       # non-denylisted callsign unaffected
+])
+def test_common_word_callsign_rescued_only_in_station_context(real_matcher, name, expected):
+    assert real_matcher.extract_callsign(name) == expected
+
+
+@pytest.mark.parametrize("name", [
+    "24/7 KING OF THE HILL",   # loose word + ordinary text
+    "THE KING OF QUEENS",
+    "WOLF KING",               # denylisted word at end-of-name
+    "Doctor Who",              # denylisted word at end-of-name
+    "Classic Doctor Who",
+    "Teen Wolf",
+    "24/7 WILL FERRELL MOVIES",
+])
+def test_common_word_in_plain_text_extracts_no_callsign(real_matcher, name):
+    assert real_matcher.extract_callsign(name) is None
+
+
 def test_resolve_ota_callsign_fcc_validated(plugin_module, real_matcher):
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = real_matcher
