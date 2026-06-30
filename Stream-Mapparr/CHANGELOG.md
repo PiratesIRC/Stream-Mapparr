@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### OTA common-word callsign false positives — fix + core hardening (bug-098, landed on main June 29, 2026)
+
+The OTA channel `NBC - WA Seattle (KING)` was being assigned unrelated streams whose
+names merely contain the word "king": `24/7 KING OF THE HILL`, `THE KING OF QUEENS`,
+`WOLF KING` (and the same class for `WHO` → `DOCTOR WHO`, `WOLF` → `TEEN WOLF`). Root
+cause: a common English word that is also a real US callsign (KING/WHO/WOLF/WAVE/WOOD/
+WEEK/WILL) is rescued out of `_CALLSIGN_DENYLIST` once its station loads, and the OTA
+stream-assignment loops matched streams with a bare callsign **word-grep** rather than the
+confidence ladder.
+
+- **Stream-side corroboration (`plugin.py`).** New `_callsign_needs_corroboration` +
+  `_callsign_corroborated`: when an OTA channel's callsign is a common word, a candidate
+  stream must corroborate the station — a parenthesized `(KING)` / suffixed `KING-TV` form,
+  or the FCC `network_affiliation` (e.g. `NBC`), or `community_served_city` (e.g. `SEATTLE`).
+  Both OTA assignment paths (`_match_streams_to_channel`, `match_us_ota_only`) apply it.
+  Non-common-word callsigns (WFTV/WABC) keep the fast bare-word path.
+- **Channel-side gate (`plugin.py`).** `_resolve_ota_callsign` now requires a common-word
+  callsign to be a HIGH-confidence extraction (parenthesized/suffixed/end) before a channel
+  is treated as OTA — so a non-station channel like `24/7 KING OF THE HILL` no longer resolves
+  to KING-TV and grabs its streams; it falls through to fuzzy matching on its own name.
+- **Shared core hardening (`matching_core.py`).** `_compute_callsign_with_confidence` no longer
+  rescues a denylisted word at end-of-name (P3), and rescues it at the loose path (P4) ONLY in
+  OTA branding context — immediately followed by a channel number (new `_OTA_NUMBER_CONTEXT`).
+  Branded `KING 5` / `WAVE 3` / `WOOD TV8` / `WHO 13` survive; `King of the Hill` / `Doctor Who`
+  / `Wolf King` extract nothing. Edited the canonical `_shared/matching_core.py` and re-vendored
+  byte-identically; **golden baseline unchanged** (no regen). This makes the core robust by
+  default so a future re-vendor that drops a subclass override can't reintroduce the bug.
+
+Validated against 18,893 live streams + the live channel assignments; regression tests added
+to `tests/test_ota_callsign_fallback.py`. Merged to `main` as PR #39 (`1.26.1802306`).
+
 ### Shared matcher core migration (landed on main June 28, 2026)
 
 The copy-pasted, drifting `fuzzy_matcher.py` is retired. The pure matching primitives
