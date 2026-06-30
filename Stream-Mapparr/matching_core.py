@@ -702,9 +702,21 @@ class FuzzyMatcherCore:
         'KIND', 'KING', 'KINGS', 'KISS', 'KITE', 'KNEE', 'KNEW', 'KNOW', 'KNOWN',
     })
 
+    # OTA branding context that immediately follows a station callsign: a channel
+    # number (optionally prefixed by a broadcast suffix), e.g. "KING 5", "WAVE 3",
+    # "WOOD TV8", "WHO 13". Used to rescue a denylisted common-word callsign in a
+    # loose position WITHOUT also rescuing bare program words ("King of the Hill",
+    # "Doctor Who"), which never carry this trailing number. bug-098.
+    _OTA_NUMBER_CONTEXT = re.compile(r'^\s+(?:TV|DT|CD|LP|LD)?\s*\d{1,3}\b', re.IGNORECASE)
+
     def _is_callsign_allowed(self, callsign):
         """A candidate callsign is allowed if it is not denylisted, OR the plugin
-        supplied a known-real callsign set that contains it (DB rescue)."""
+        supplied a known-real callsign set that contains it (DB rescue).
+
+        NOTE: this full rescue is used only at the PARENTHESIZED priorities (1/1b),
+        where the parentheses are an unambiguous OTA signal. The end-of-name and
+        loose priorities deliberately do NOT use it for denylisted words -- see
+        bug-098 hardening in _compute_callsign_with_confidence."""
         return (callsign not in self._CALLSIGN_DENYLIST
                 or (self._known_callsigns is not None and callsign in self._known_callsigns))
 
@@ -746,18 +758,28 @@ class FuzzyMatcherCore:
         if paren_suffix_match:
             return paren_suffix_match.group(1).upper(), True
 
-        # Priority 3: Callsigns at the end
+        # Priority 3: Callsigns at the end. A denylisted common word at the end
+        # ("WOLF KING", "Doctor Who") is NOT rescued here -- end position alone is
+        # too weak a signal for a word that is also a real callsign. Non-denylisted
+        # callsigns (and suffixed forms like "KING-TV") still match. bug-098.
         end_match = re.search(r'\b([KW][A-Z]{2,4}(?:-(?:TV|CD|LP|DT|LD))?)\s*(?:\.[a-z]+)?\s*$', channel_name, re.IGNORECASE)
         if end_match:
             callsign = end_match.group(1).upper()
-            if self._is_callsign_allowed(callsign):
+            if callsign not in self._CALLSIGN_DENYLIST:
                 return callsign, True
 
-        # Priority 4: Any word matching callsign pattern (low confidence)
+        # Priority 4: Any word matching callsign pattern (low confidence). A
+        # denylisted common word is rescued here ONLY in OTA branding context --
+        # immediately followed by a channel number ("KING 5", "WAVE 3", "WOOD
+        # TV8", "WHO 13") -- never as a bare program word ("King of the Hill",
+        # "Doctor Who", "Will Ferrell"). bug-098.
         word_match = re.search(r'\b([KW][A-Z]{2,4}(?:-(?:TV|CD|LP|DT|LD))?)\b', channel_name, re.IGNORECASE)
         if word_match:
             callsign = word_match.group(1).upper()
-            if self._is_callsign_allowed(callsign):
+            if callsign not in self._CALLSIGN_DENYLIST:
+                return callsign, False
+            if (self._known_callsigns is not None and callsign in self._known_callsigns
+                    and self._OTA_NUMBER_CONTEXT.match(channel_name[word_match.end():])):
                 return callsign, False
 
         return None, False
