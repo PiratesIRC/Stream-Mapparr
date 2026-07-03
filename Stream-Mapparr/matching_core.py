@@ -323,6 +323,15 @@ class FuzzyMatcherCore:
 
         original_name = name
 
+        # Strip zero-width / invisible Unicode format characters (category Cf: ZERO WIDTH
+        # SPACE U+200B, joiners U+200C/D, word joiner U+2060, BOM U+FEFF, soft hyphen
+        # U+00AD, bidi marks). Some IPTV providers pad names with these around a
+        # decorative block glyph (e.g. "UK <ZWSP>|<ZWSP>BBC 1"); they are invisible
+        # padding that \s does not match and _DECORATOR_CATS does not cover, so they
+        # would otherwise survive the whole pipeline and poison the match. Removed, not
+        # spaced, since they are zero-width (a ZWSP inside "BB<ZWSP>C" -> "BBC", not "BB C").
+        name = ''.join(c for c in name if unicodedata.category(c) != 'Cf')
+
         name = _LEADING_BAR_TAG_RE.sub('', name)  # leading "┃CANAL+┃" bouquet tag
 
         # Map emoji-as-letters (⚽ = 'o' in "SP⚽RTS") and strip emoji decoration, before

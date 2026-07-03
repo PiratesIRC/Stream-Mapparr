@@ -1,6 +1,25 @@
 # Stream-Mapparr CHANGELOG
 
-## Unreleased
+## v1.26.1820605 (July 3, 2026)
+
+### Strip invisible zero-width characters before matching (bug-105 / issue #36)
+
+A user's IPTV provider injected a box-block glyph (`▎`, U+258E) padded with **invisible
+zero-width characters** into stream names (e.g. `UK ␣<ZWSP>▎<ZWSP>BBC 1 FHD`), and almost
+nothing from that provider matched. The visible block glyph was already dropped, but the
+surrounding zero-width chars were not: `normalize_name` never removed Unicode **format
+characters** (category `Cf` — ZERO WIDTH SPACE U+200B, ZWNJ/ZWJ, WORD JOINER U+2060, BOM
+U+FEFF, SOFT HYPHEN, bidi marks). They are not matched by `\s` and are not in
+`_DECORATOR_CATS`, so they survived the whole pipeline (output `"​ ​BBC 1"`) and
+poisoned the fuzzy match. Pasting the character into **Ignore Tags** could not fix it.
+
+- **Fix (`matching_core.py`).** Added a category-`Cf` strip at the very top of
+  `normalize_name`: `name = ''.join(c for c in name if unicodedata.category(c) != 'Cf')`.
+  Characters are **removed** (not replaced with a space) because they are zero-width — a
+  ZWSP inside `BB<ZWSP>C` must yield `BBC`, not `BB C`. Edited the canonical
+  `_shared/matching_core.py` and re-vendored byte-identically to all four plugins;
+  **golden baseline unchanged** (the corpus contains no `Cf` chars), parity gates green.
+- Non-ASCII letters (Cyrillic `Россия`, `beИN`) are category `Lu`/`Ll`, untouched.
 
 ### OTA common-word callsign false positives — fix + core hardening (bug-098, landed on main June 29, 2026)
 
@@ -32,6 +51,10 @@ confidence ladder.
 
 Validated against 18,893 live streams + the live channel assignments; regression tests added
 to `tests/test_ota_callsign_fallback.py`. Merged to `main` as PR #39 (`1.26.1802306`).
+
+---
+
+## v1.26.1791529 (June 29, 2026)
 
 ### Shared matcher core migration (landed on main June 28, 2026)
 

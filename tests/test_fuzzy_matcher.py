@@ -48,6 +48,21 @@ def test_unicode_user_ignore_tag_does_not_crash(matcher):
     assert "Sport" in out
 
 
+def test_zero_width_format_chars_stripped(matcher):
+    """bug-105: providers pad names with a box-block glyph surrounded by invisible
+    zero-width format chars (U+200B/ZWSP, joiners, BOM). The block glyph (cat So) was
+    already dropped, but ZWSP (cat Cf) is not matched by \\s and survived normalization,
+    poisoning the match (e.g. 'UK \\u200b\\u258e\\u200bBBC 1 FHD'). Both must vanish so
+    the name normalizes to the same form as the clean channel 'BBC 1'."""
+    m = matcher()
+    zwsp, block = chr(0x200B), chr(0x258E)  # ZERO WIDTH SPACE, LEFT ONE QUARTER BLOCK
+    dirty = f"UK {zwsp}{block}{zwsp}BBC 1 FHD"
+    out = m.normalize_name(dirty, remove_country_prefix=True)
+    assert zwsp not in out  # no lingering zero-width space
+    assert block not in out  # no lingering block glyph
+    assert out == m.normalize_name("BBC 1")
+
+
 def test_word_boundary_tag_does_not_strip_substring(matcher):
     """'East' as an ignore tag must not nuke the 'east' inside 'Feast'."""
     m = matcher()

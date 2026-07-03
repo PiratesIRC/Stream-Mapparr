@@ -163,6 +163,18 @@ subclass, not a private copy.
   `''`, which compared as a false 100% match against any other all-non-ASCII name.
 - **Leading box-bar bouquet-tag strip in `normalize_name`.** `_LEADING_BAR_TAG_RE` removes
   a leading `┃…┃` / `│…│` tag (`"┃CANAL+┃ NPO 1"` → `"NPO 1"`).
+- **Zero-width / invisible format-char strip in `normalize_name` (bug-105, issue #36).**
+  The first thing `normalize_name` now does is drop every Unicode category-`Cf` character
+  (`name = ''.join(c for c in name if unicodedata.category(c) != 'Cf')`): ZERO WIDTH SPACE
+  `U+200B`, ZWNJ/ZWJ, WORD JOINER `U+2060`, BOM `U+FEFF`, SOFT HYPHEN, bidi marks. These are
+  invisible padding some providers wrap around a decorative block glyph (`"UK ␣▎␣BBC 1 FHD"`).
+  The visible glyph (`▎`, category `So`) was already handled by the `_DECORATOR_CATS` pass,
+  but the surrounding `Cf` chars are matched by neither `\s` nor `_DECORATOR_CATS`, so they
+  survived the whole pipeline (`"​ ​BBC 1"`) and silently tanked the provider's match rate.
+  Removed (not spaced) because they are zero-width: a ZWSP inside `BB<ZWSP>C` must yield
+  `BBC`, not `BB C`. Non-ASCII letters (Cyrillic/CJK/Arabic, categories `Lu`/`Ll`/`Lo`) are
+  untouched. Lives in the shared core, so the golden baseline was unaffected (corpus has no
+  `Cf` chars) — no regen needed.
 - **Box-bar delimiters in `GEOGRAPHIC_PATTERNS`.** `┃` (U+2503) and `│` (U+2502) accepted
   as colon-equivalents after a 2-3 letter code, and as matched pairs (`┃XX┃` / `│XX│`,
   matched pair only). Stream-Mapparr has no `PROVIDER_PREFIX_PATTERNS` list, so only
