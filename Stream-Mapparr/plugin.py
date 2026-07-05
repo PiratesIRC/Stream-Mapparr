@@ -101,6 +101,7 @@ class PluginConfig:
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
     DEFAULT_OVERWRITE_STREAMS = True            # Replace existing streams vs append
+    DEFAULT_AUTO_MATCH_ON_M3U_REFRESH = False   # opt-in: run Match & Assign after each M3U refresh
     DEFAULT_VISIBLE_CHANNEL_LIMIT = 1           # Channels per group to enable
     DEFAULT_RESTRICT_MATCHING_TO_COUNTRY = False  # Only match streams from same detected country/group
 
@@ -1337,6 +1338,29 @@ class Plugin:
         except Exception as e:
             LOGGER.error(f"[Stream-Mapparr] Error scanning for channel databases: {e}")
         return databases
+
+    def _get_bool_setting(self, settings, key, default=False):
+        """Coerce a setting that may be a bool or a string ('true'/'yes'/'1', case-insensitive)."""
+        val = settings.get(key, default)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "yes", "1")
+        return bool(val)
+
+    def _should_auto_match_on_refresh(self, settings):
+        """Pure gate for the m3u_refresh auto-match: enabled AND a profile is selected.
+
+        Profile check is a STRING check only (no ORM) so this stays side-effect free
+        and unit-testable. A real-but-stale profile name still proceeds; the reused
+        add_streams pipeline validates it and returns an error status before mutating.
+        """
+        if not self._get_bool_setting(settings, "auto_match_on_m3u_refresh",
+                                      PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH):
+            return False
+        profile = settings.get("profile_name")
+        if not isinstance(profile, str):
+            return False
+        profile = profile.strip()
+        return bool(profile) and profile.lower() not in ("none", "_none")
 
     def _resolve_match_threshold(self, settings):
         """Resolve match threshold from new match_sensitivity select or legacy fuzzy_match_threshold."""
