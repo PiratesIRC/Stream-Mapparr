@@ -149,6 +149,9 @@ class PluginConfig:
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
     SCHEDULER_LOCK_FILE = "/data/stream_mapparr_scheduler.lock"               # flock guard for the claim
+    M3U_REFRESH_LOCK_FILE = "/data/stream_mapparr_m3u_refresh.lock"       # flock: serialize event-driven auto-match (whole run)
+    M3U_REFRESH_PENDING_FILE = "/data/stream_mapparr_m3u_refresh_pending" # dirty-flag: a later account arrived mid-run -> rerun once
+    M3U_REFRESH_LOCK_STALE_SECONDS = 1800   # break a leaked/forked-fd auto-match flock older than this
     PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
     LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
     PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
@@ -1361,6 +1364,24 @@ class Plugin:
             return False
         profile = profile.strip()
         return bool(profile) and profile.lower() not in ("none", "_none")
+
+    def _set_m3u_refresh_pending(self, logger):
+        """Mark that another account finished while an auto-match was in flight."""
+        try:
+            open(PluginConfig.M3U_REFRESH_PENDING_FILE, "a").close()
+        except OSError as e:
+            logger.warning(f"[Stream-Mapparr] could not set m3u-refresh pending marker: {e}")
+
+    def _clear_m3u_refresh_pending(self, logger):
+        try:
+            os.remove(PluginConfig.M3U_REFRESH_PENDING_FILE)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning(f"[Stream-Mapparr] could not clear m3u-refresh pending marker: {e}")
+
+    def _m3u_refresh_pending_set(self, logger=None):
+        return os.path.exists(PluginConfig.M3U_REFRESH_PENDING_FILE)
 
     def _resolve_match_threshold(self, settings):
         """Resolve match threshold from new match_sensitivity select or legacy fuzzy_match_threshold."""
