@@ -1,5 +1,17 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1861801 (July 5, 2026)
+
+### Added
+- **Auto-match after M3U refresh (opt-in).** New `Auto-match after M3U refresh`
+  setting. When enabled, Stream-Mapparr runs Match & Assign automatically after
+  each Dispatcharr M3U refresh (subscribes to the `m3u_refresh` connect event via a
+  hidden `on_m3u_refresh` action). Requires a Profile to be selected. Per-account
+  refresh events are coalesced: the match runs synchronously under a cross-worker
+  `fcntl.flock`, and a dirty-flag rerun captures accounts that finish during an
+  in-flight match (bounded to one extra run). Inert on Dispatcharr < 0.27, so the
+  minimum version is unchanged.
+
 ## v1.26.1820605 (July 3, 2026)
 
 ### Strip invisible zero-width characters before matching (bug-105 / issue #36)
