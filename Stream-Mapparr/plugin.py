@@ -87,7 +87,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1820605"
+    PLUGIN_VERSION = "1.26.1861801"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -101,6 +101,7 @@ class PluginConfig:
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
     DEFAULT_OVERWRITE_STREAMS = True            # Replace existing streams vs append
+    DEFAULT_AUTO_MATCH_ON_M3U_REFRESH = False   # opt-in: run Match & Assign after each M3U refresh
     DEFAULT_VISIBLE_CHANNEL_LIMIT = 1           # Channels per group to enable
     DEFAULT_RESTRICT_MATCHING_TO_COUNTRY = False  # Only match streams from same detected country/group
 
@@ -148,6 +149,9 @@ class PluginConfig:
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
     SCHEDULER_LOCK_FILE = "/data/stream_mapparr_scheduler.lock"               # flock guard for the claim
+    M3U_REFRESH_LOCK_FILE = "/data/stream_mapparr_m3u_refresh.lock"       # flock: serialize event-driven auto-match (whole run)
+    M3U_REFRESH_PENDING_FILE = "/data/stream_mapparr_m3u_refresh_pending" # dirty-flag: a later account arrived mid-run -> rerun once
+    M3U_REFRESH_LOCK_STALE_SECONDS = 1800   # break a leaked/forked-fd auto-match flock older than this
     PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
     LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
     PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
@@ -449,6 +453,13 @@ class Plugin:
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
             },
             {
+                "id": "auto_match_on_m3u_refresh",
+                "label": "⚡ Auto-match after M3U refresh",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH,
+                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh completes. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
+            },
+            {
                 "id": "match_sensitivity",
                 "label": "Match Sensitivity",
                 "type": "select",
@@ -716,6 +727,12 @@ class Plugin:
         return static_fields
 
     actions = [
+        {
+            "id": "on_m3u_refresh",
+            "label": "Auto-match after M3U refresh",
+            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+            "events": ["m3u_refresh"],
+        },
         {
             "id": "validate_settings",
             "label": "✅ Validate Settings",
@@ -1095,6 +1112,65 @@ class Plugin:
                 except OSError:
                     pass
 
+    def _acquire_m3u_refresh_flock(self, logger):
+        """Non-blocking cross-worker flock held for the whole event-driven auto-match.
+
+        Returns an open, flock-held file object on success, or None if a live
+        auto-match holds it. A lock whose mtime is older than
+        M3U_REFRESH_LOCK_STALE_SECONDS (e.g. an fd leaked into a forked Celery
+        worker) is broken once and retried on a fresh inode. On a host without
+        fcntl (Windows/pytest) it degrades to returning the open fd — a
+        single-process dev/test run has no cross-process race. Mirrors the sibling
+        Event-Channel-Managarr `_acquire_scan_lock` pattern.
+        """
+        path = PluginConfig.M3U_REFRESH_LOCK_FILE
+        for attempt in (1, 2):
+            try:
+                fd = open(path, "a")
+            except OSError as e:
+                logger.warning(f"[Stream-Mapparr] could not open m3u-refresh lock {path}: {e}")
+                return None
+            if fcntl is None:
+                return fd  # degraded single-process path
+            try:
+                fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (OSError, IOError):
+                fd.close()
+                age = None
+                stale = False
+                try:
+                    age = time.time() - os.path.getmtime(path)
+                    stale = age > PluginConfig.M3U_REFRESH_LOCK_STALE_SECONDS
+                except OSError:
+                    stale = False
+                if attempt == 1 and stale:
+                    logger.warning(f"[Stream-Mapparr] breaking stale m3u-refresh lock (age {age:.0f}s)")
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
+                    continue  # retry once on a fresh inode
+                return None
+            try:
+                os.utime(path, None)  # stamp this holder's start for staleness
+            except OSError:
+                pass
+            return fd
+        return None
+
+    def _release_m3u_refresh_flock(self, fd, logger):
+        if fd is None:
+            return
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            fd.close()
+        except OSError:
+            pass
+
     def _start_background_scheduler(self, settings):
         """Start background scheduler thread (serialized via _scheduler_lock so
         concurrent Plugin instantiation cannot leave two live scheduler loops)."""
@@ -1337,6 +1413,47 @@ class Plugin:
         except Exception as e:
             LOGGER.error(f"[Stream-Mapparr] Error scanning for channel databases: {e}")
         return databases
+
+    def _get_bool_setting(self, settings, key, default=False):
+        """Coerce a setting that may be a bool or a string ('true'/'yes'/'1', case-insensitive)."""
+        val = settings.get(key, default)
+        if isinstance(val, str):
+            return val.strip().lower() in ("true", "yes", "1")
+        return bool(val)
+
+    def _should_auto_match_on_refresh(self, settings):
+        """Pure gate for the m3u_refresh auto-match: enabled AND a profile is selected.
+
+        Profile check is a STRING check only (no ORM) so this stays side-effect free
+        and unit-testable. A real-but-stale profile name still proceeds; the reused
+        add_streams pipeline validates it and returns an error status before mutating.
+        """
+        if not self._get_bool_setting(settings, "auto_match_on_m3u_refresh",
+                                      PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH):
+            return False
+        profile = settings.get("profile_name")
+        if not isinstance(profile, str):
+            return False
+        profile = profile.strip()
+        return bool(profile) and profile.lower() not in ("none", "_none")
+
+    def _set_m3u_refresh_pending(self, logger):
+        """Mark that another account finished while an auto-match was in flight."""
+        try:
+            open(PluginConfig.M3U_REFRESH_PENDING_FILE, "a").close()
+        except OSError as e:
+            logger.warning(f"[Stream-Mapparr] could not set m3u-refresh pending marker: {e}")
+
+    def _clear_m3u_refresh_pending(self, logger):
+        try:
+            os.remove(PluginConfig.M3U_REFRESH_PENDING_FILE)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logger.warning(f"[Stream-Mapparr] could not clear m3u-refresh pending marker: {e}")
+
+    def _m3u_refresh_pending_set(self, logger=None):
+        return os.path.exists(PluginConfig.M3U_REFRESH_PENDING_FILE)
 
     def _resolve_match_threshold(self, settings):
         """Resolve match threshold from new match_sensitivity select or legacy fuzzy_match_threshold."""
@@ -3461,6 +3578,9 @@ class Plugin:
         try:
             logger = LOGGER
 
+            if action == "on_m3u_refresh":
+                return self.on_m3u_refresh_action(settings, logger, context)
+
             # If settings is empty but context has settings, use context settings
             if context and isinstance(context, dict) and not settings:
                 if 'settings' in context:
@@ -4477,6 +4597,62 @@ class Plugin:
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error previewing changes: {str(e)}")
             return {"status": "error", "message": f"Error previewing changes: {str(e)}"}
+
+    def on_m3u_refresh_action(self, settings_arg, logger, context):
+        """Dispatcharr m3u_refresh connect-event handler (opt-in auto Match & Assign).
+
+        Wired via the on_m3u_refresh action's "events": ["m3u_refresh"]. Dispatcharr
+        calls run() with the 2nd arg = {"event": "m3u_refresh", "payload": {...}} (NO
+        form fields), so real config is read from context["settings"]. Runs Match &
+        Assign SYNCHRONOUSLY (the event fires inside a Celery worker; a daemon thread
+        could be reaped mid-run) under a cross-worker flock. Concurrent per-account
+        events that lose the flock set a dirty flag; the holder reruns once so late
+        accounts are not dropped. Returns None when disabled/skipped to avoid
+        per-refresh toast noise.
+        """
+        real_settings = context.get("settings", {}) if isinstance(context, dict) else {}
+
+        if not self._should_auto_match_on_refresh(real_settings):
+            return None
+
+        payload = settings_arg.get("payload") if isinstance(settings_arg, dict) else {}
+        payload = payload or {}
+        account = payload.get("account_name") or payload.get("account") or "unknown"
+
+        # run() resets this in _execute_with_progress, which this direct path bypasses.
+        self._op_total_items = None
+
+        lock_fd = self._acquire_m3u_refresh_flock(logger)
+        if lock_fd is None:
+            self._set_m3u_refresh_pending(logger)
+            logger.info(f"[Stream-Mapparr] [m3u_refresh] auto-match busy; queued rerun (account '{account}')")
+            return None
+
+        result = None
+        try:
+            logger.info(f"[Stream-Mapparr] [m3u_refresh] auto-match triggered by account '{account}'")
+            while True:
+                self._clear_m3u_refresh_pending(logger)
+
+                is_locked, _info = self._check_operation_lock(logger)
+                if is_locked:
+                    logger.info("[Stream-Mapparr] [m3u_refresh] a manual/scheduled operation is running; skipping auto-match")
+                    break
+
+                if not self._acquire_operation_lock("add_streams_to_channels", logger):
+                    break
+                try:
+                    result = self.add_streams_to_channels_action(real_settings, logger, context=context)
+                finally:
+                    self._release_operation_lock(logger)
+
+                if not self._m3u_refresh_pending_set(logger):
+                    break
+                logger.info("[Stream-Mapparr] [m3u_refresh] a later account finished during the run; matching once more")
+        finally:
+            self._release_m3u_refresh_flock(lock_fd, logger)
+
+        return result
 
     def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
         """Add matching streams to channels and replace existing stream assignments."""

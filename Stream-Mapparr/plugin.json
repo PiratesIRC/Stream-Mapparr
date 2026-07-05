@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.1820605",
+  "version": "1.26.1861801",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -10,6 +10,12 @@
   "_fields_note": "Settings fields are defined dynamically by the Plugin.fields property in plugin.py (the single source of truth — it builds live dropdowns for channel profiles, groups, stream groups, M3U sources, and the channel database, and stays in sync with the code). Dispatcharr only falls back to a manifest 'fields' array when the plugin provides none, so it is intentionally left empty here to prevent drift (the previous static copy had gone stale).",
   "fields": [],
   "actions": [
+    {
+      "id": "on_m3u_refresh",
+      "label": "Auto-match after M3U refresh",
+      "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+      "events": ["m3u_refresh"]
+    },
     {
       "id": "validate_settings",
       "label": "\u2705 Validate Settings",
