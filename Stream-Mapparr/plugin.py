@@ -453,6 +453,13 @@ class Plugin:
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
             },
             {
+                "id": "auto_match_on_m3u_refresh",
+                "label": "⚡ Auto-match after M3U refresh",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH,
+                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh completes. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
+            },
+            {
                 "id": "match_sensitivity",
                 "label": "Match Sensitivity",
                 "type": "select",
@@ -720,6 +727,12 @@ class Plugin:
         return static_fields
 
     actions = [
+        {
+            "id": "on_m3u_refresh",
+            "label": "Auto-match after M3U refresh",
+            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+            "events": ["m3u_refresh"],
+        },
         {
             "id": "validate_settings",
             "label": "✅ Validate Settings",
@@ -3565,6 +3578,9 @@ class Plugin:
         try:
             logger = LOGGER
 
+            if action == "on_m3u_refresh":
+                return self.on_m3u_refresh_action(settings, logger, context)
+
             # If settings is empty but context has settings, use context settings
             if context and isinstance(context, dict) and not settings:
                 if 'settings' in context:
@@ -4581,6 +4597,62 @@ class Plugin:
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error previewing changes: {str(e)}")
             return {"status": "error", "message": f"Error previewing changes: {str(e)}"}
+
+    def on_m3u_refresh_action(self, settings_arg, logger, context):
+        """Dispatcharr m3u_refresh connect-event handler (opt-in auto Match & Assign).
+
+        Wired via the on_m3u_refresh action's "events": ["m3u_refresh"]. Dispatcharr
+        calls run() with the 2nd arg = {"event": "m3u_refresh", "payload": {...}} (NO
+        form fields), so real config is read from context["settings"]. Runs Match &
+        Assign SYNCHRONOUSLY (the event fires inside a Celery worker; a daemon thread
+        could be reaped mid-run) under a cross-worker flock. Concurrent per-account
+        events that lose the flock set a dirty flag; the holder reruns once so late
+        accounts are not dropped. Returns None when disabled/skipped to avoid
+        per-refresh toast noise.
+        """
+        real_settings = context.get("settings", {}) if isinstance(context, dict) else {}
+
+        if not self._should_auto_match_on_refresh(real_settings):
+            return None
+
+        payload = settings_arg.get("payload") if isinstance(settings_arg, dict) else {}
+        payload = payload or {}
+        account = payload.get("account_name") or payload.get("account") or "unknown"
+
+        # run() resets this in _execute_with_progress, which this direct path bypasses.
+        self._op_total_items = None
+
+        lock_fd = self._acquire_m3u_refresh_flock(logger)
+        if lock_fd is None:
+            self._set_m3u_refresh_pending(logger)
+            logger.info(f"[Stream-Mapparr] [m3u_refresh] auto-match busy; queued rerun (account '{account}')")
+            return None
+
+        result = None
+        try:
+            logger.info(f"[Stream-Mapparr] [m3u_refresh] auto-match triggered by account '{account}'")
+            while True:
+                self._clear_m3u_refresh_pending(logger)
+
+                is_locked, _info = self._check_operation_lock(logger)
+                if is_locked:
+                    logger.info("[Stream-Mapparr] [m3u_refresh] a manual/scheduled operation is running; skipping auto-match")
+                    break
+
+                if not self._acquire_operation_lock("add_streams_to_channels", logger):
+                    break
+                try:
+                    result = self.add_streams_to_channels_action(real_settings, logger, context=context)
+                finally:
+                    self._release_operation_lock(logger)
+
+                if not self._m3u_refresh_pending_set(logger):
+                    break
+                logger.info("[Stream-Mapparr] [m3u_refresh] a later account finished during the run; matching once more")
+        finally:
+            self._release_m3u_refresh_flock(lock_fd, logger)
+
+        return result
 
     def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
         """Add matching streams to channels and replace existing stream assignments."""

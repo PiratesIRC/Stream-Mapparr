@@ -72,3 +72,113 @@ def test_m3u_flock_loser_returns_none(plugin_module, tmp_m3u, monkeypatch):
                         types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=would_block))
     p = plugin_module.Plugin.__new__(plugin_module.Plugin)
     assert p._acquire_m3u_refresh_flock(log) is None   # fresh lock file -> not stale -> None
+
+
+from unittest.mock import MagicMock
+
+
+def _enabled_instance(plugin_module):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p._op_total_items = None
+    p.add_streams_to_channels_action = MagicMock(return_value={"status": "success", "message": "ok"})
+    return p
+
+
+def test_on_m3u_refresh_action_registered(plugin_module):
+    actions = {a["id"]: a for a in plugin_module.Plugin.actions}
+    assert "on_m3u_refresh" in actions
+    a = actions["on_m3u_refresh"]
+    assert a.get("label")                       # required or _normalize_actions drops it
+    assert a.get("events") == ["m3u_refresh"]
+    assert "button_label" not in a              # hidden from the UI
+
+
+def test_on_m3u_refresh_runs_when_enabled(plugin_module, tmp_m3u):
+    p = _enabled_instance(plugin_module)
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    params = {"event": "m3u_refresh", "payload": {"account_name": "Prov"}}
+    result = p.run("on_m3u_refresh", params, ctx)
+    assert p.add_streams_to_channels_action.call_count == 1
+    # config MUST come from context["settings"], not the fieldless event params
+    assert p.add_streams_to_channels_action.call_args.args[0] is ctx["settings"]
+    assert result == {"status": "success", "message": "ok"}
+
+
+def test_on_m3u_refresh_skips_when_disabled(plugin_module, tmp_m3u):
+    p = _enabled_instance(plugin_module)
+    ctx = {"settings": {"auto_match_on_m3u_refresh": False, "profile_name": "TV"}}
+    result = p.run("on_m3u_refresh", {"event": "m3u_refresh", "payload": {}}, ctx)
+    assert p.add_streams_to_channels_action.call_count == 0
+    assert result is None
+
+
+def test_on_m3u_refresh_skips_without_profile(plugin_module, tmp_m3u):
+    p = _enabled_instance(plugin_module)
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": ""}}
+    result = p.run("on_m3u_refresh", {"event": "m3u_refresh"}, ctx)
+    assert p.add_streams_to_channels_action.call_count == 0
+    assert result is None
+
+
+def test_on_m3u_refresh_loser_sets_pending(plugin_module, tmp_m3u, monkeypatch):
+    p = _enabled_instance(plugin_module)
+    monkeypatch.setattr(p, "_acquire_m3u_refresh_flock", lambda logger: None)
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    result = p.run("on_m3u_refresh", {"event": "m3u_refresh", "payload": {"account_name": "B"}}, ctx)
+    assert p.add_streams_to_channels_action.call_count == 0
+    assert p._m3u_refresh_pending_set(log) is True
+    assert result is None
+
+
+def test_on_m3u_refresh_reruns_once_then_stops(plugin_module, tmp_m3u):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p._op_total_items = None
+    calls = {"n": 0}
+
+    def spy(settings, logger, context=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            p._set_m3u_refresh_pending(logger)   # simulate a late account arriving mid-run
+        return {"status": "success"}
+
+    p.add_streams_to_channels_action = spy
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    p.run("on_m3u_refresh", {"event": "m3u_refresh", "payload": {"account_name": "A"}}, ctx)
+    assert calls["n"] == 2                        # bounded: one rerun, not a livelock
+    assert p._m3u_refresh_pending_set(log) is False
+
+
+def test_on_m3u_refresh_skips_when_operation_locked(plugin_module, tmp_m3u, monkeypatch):
+    p = _enabled_instance(plugin_module)
+    monkeypatch.setattr(p, "_check_operation_lock",
+                        lambda logger: (True, {"action": "manual", "age_minutes": 1.0}))
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    p.run("on_m3u_refresh", {"event": "m3u_refresh"}, ctx)
+    assert p.add_streams_to_channels_action.call_count == 0
+
+
+def test_on_m3u_refresh_handles_missing_payload(plugin_module, tmp_m3u):
+    p = _enabled_instance(plugin_module)
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    p.run("on_m3u_refresh", {"event": "m3u_refresh"}, ctx)             # no payload key
+    assert p.add_streams_to_channels_action.call_count == 1
+    p.add_streams_to_channels_action.reset_mock()
+    p.run("on_m3u_refresh", {"event": "m3u_refresh", "payload": {}}, ctx)  # payload w/o account_name
+    assert p.add_streams_to_channels_action.call_count == 1
+
+
+def test_on_m3u_refresh_releases_locks_on_exception(plugin_module, tmp_m3u):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p._op_total_items = None
+
+    def boom(settings, logger, context=None):
+        raise RuntimeError("match failed")
+
+    p.add_streams_to_channels_action = boom
+    ctx = {"settings": {"auto_match_on_m3u_refresh": True, "profile_name": "TV"}}
+    with pytest.raises(RuntimeError):
+        p.on_m3u_refresh_action({"event": "m3u_refresh", "payload": {}}, log, ctx)
+    assert p._check_operation_lock(log)[0] is False    # operation lock released
+    fd = p._acquire_m3u_refresh_flock(log)             # flock released -> re-acquirable
+    assert fd is not None
+    p._release_m3u_refresh_flock(fd, log)

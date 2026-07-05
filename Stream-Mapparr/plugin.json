@@ -11,6 +11,12 @@
   "fields": [],
   "actions": [
     {
+      "id": "on_m3u_refresh",
+      "label": "Auto-match after M3U refresh",
+      "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+      "events": ["m3u_refresh"]
+    },
+    {
       "id": "validate_settings",
       "label": "\u2705 Validate Settings",
       "description": "Check database connectivity, profiles, groups, and channel databases.",
