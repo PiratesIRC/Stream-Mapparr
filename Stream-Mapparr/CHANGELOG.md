@@ -8,9 +8,10 @@
   each Dispatcharr M3U refresh (subscribes to the `m3u_refresh` connect event via a
   hidden `on_m3u_refresh` action). Requires a Profile to be selected. Per-account
   refresh events are coalesced: the match runs synchronously under a cross-worker
-  `fcntl.flock`, and a dirty-flag rerun captures accounts that finish during an
-  in-flight match (bounded to one extra run). Inert on Dispatcharr < 0.27, so the
-  minimum version is unchanged.
+  `fcntl.flock`, and a dirty-flag marker triggers a rerun so accounts that finish
+  during an in-flight match are not dropped (the loop always terminates, since
+  refresh events are finite). Inert on Dispatcharr < 0.27, so the minimum version
+  is unchanged.
 
 ## v1.26.1820605 (July 3, 2026)
 

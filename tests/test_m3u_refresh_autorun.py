@@ -1,5 +1,7 @@
 """Tests for the m3u_refresh auto-match feature (opt-in event-driven Match & Assign)."""
 import logging
+import os
+import time
 import types
 import pytest
 
@@ -72,6 +74,43 @@ def test_m3u_flock_loser_returns_none(plugin_module, tmp_m3u, monkeypatch):
                         types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=would_block))
     p = plugin_module.Plugin.__new__(plugin_module.Plugin)
     assert p._acquire_m3u_refresh_flock(log) is None   # fresh lock file -> not stale -> None
+
+
+def test_m3u_flock_stale_break_retry(plugin_module, tmp_m3u, monkeypatch):
+    """A stale lock file is unlinked and re-acquired on a fresh inode on the second attempt."""
+    # Pre-create stale lock file with mtime older than M3U_REFRESH_LOCK_STALE_SECONDS
+    lock_path = plugin_module.PluginConfig.M3U_REFRESH_LOCK_FILE
+    with open(lock_path, 'w') as f:
+        f.write('')
+    old_time = time.time() - plugin_module.PluginConfig.M3U_REFRESH_LOCK_STALE_SECONDS - 60
+    os.utime(lock_path, (old_time, old_time))
+
+    # Mock fcntl: first call raises (simulating live lock holder), second call succeeds
+    call_count = {"n": 0}
+
+    def flock_side_effect(fileno, op):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise OSError("would block")
+        # Second call succeeds (no exception)
+
+    monkeypatch.setattr(plugin_module, "fcntl",
+                        types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=flock_side_effect))
+
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    fd = p._acquire_m3u_refresh_flock(log)
+
+    # Should succeed on retry and return a non-None fd
+    assert fd is not None, "stale lock should be broken and re-acquired on second attempt"
+
+    # Verify the lock file exists (fresh inode created after unlink+open)
+    assert os.path.exists(lock_path), "lock file should be recreated on fresh inode"
+
+    # flock was called twice: first raise, then success
+    assert call_count["n"] == 2, "flock should be called twice: once fails, once succeeds"
+
+    # Clean up
+    p._release_m3u_refresh_flock(fd, log)
 
 
 from unittest.mock import MagicMock
