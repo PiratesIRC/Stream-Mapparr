@@ -1,5 +1,6 @@
 """Tests for the m3u_refresh auto-match feature (opt-in event-driven Match & Assign)."""
 import logging
+import types
 import pytest
 
 log = logging.getLogger("t")
@@ -52,3 +53,22 @@ def test_m3u_refresh_pending_roundtrip(plugin_module, tmp_m3u):
     assert p._m3u_refresh_pending_set(log) is False
     p._clear_m3u_refresh_pending(log)   # idempotent — no crash when already absent
     assert p._m3u_refresh_pending_set(log) is False
+
+
+def test_m3u_flock_degrades_without_fcntl(plugin_module, tmp_m3u, monkeypatch):
+    """No fcntl (Windows/pytest) -> acquire returns a usable fd; release is a safe no-op."""
+    monkeypatch.setattr(plugin_module, "fcntl", None)
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    fd = p._acquire_m3u_refresh_flock(log)
+    assert fd is not None
+    p._release_m3u_refresh_flock(fd, log)   # must not raise
+
+
+def test_m3u_flock_loser_returns_none(plugin_module, tmp_m3u, monkeypatch):
+    """A live holder -> a second (non-stale) acquire fails LOCK_NB and returns None."""
+    def would_block(fileno, op):
+        raise OSError("would block")
+    monkeypatch.setattr(plugin_module, "fcntl",
+                        types.SimpleNamespace(LOCK_EX=2, LOCK_NB=4, LOCK_UN=8, flock=would_block))
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    assert p._acquire_m3u_refresh_flock(log) is None   # fresh lock file -> not stale -> None

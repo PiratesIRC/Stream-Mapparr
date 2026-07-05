@@ -1099,6 +1099,65 @@ class Plugin:
                 except OSError:
                     pass
 
+    def _acquire_m3u_refresh_flock(self, logger):
+        """Non-blocking cross-worker flock held for the whole event-driven auto-match.
+
+        Returns an open, flock-held file object on success, or None if a live
+        auto-match holds it. A lock whose mtime is older than
+        M3U_REFRESH_LOCK_STALE_SECONDS (e.g. an fd leaked into a forked Celery
+        worker) is broken once and retried on a fresh inode. On a host without
+        fcntl (Windows/pytest) it degrades to returning the open fd — a
+        single-process dev/test run has no cross-process race. Mirrors the sibling
+        Event-Channel-Managarr `_acquire_scan_lock` pattern.
+        """
+        path = PluginConfig.M3U_REFRESH_LOCK_FILE
+        for attempt in (1, 2):
+            try:
+                fd = open(path, "a")
+            except OSError as e:
+                logger.warning(f"[Stream-Mapparr] could not open m3u-refresh lock {path}: {e}")
+                return None
+            if fcntl is None:
+                return fd  # degraded single-process path
+            try:
+                fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (OSError, IOError):
+                fd.close()
+                age = None
+                stale = False
+                try:
+                    age = time.time() - os.path.getmtime(path)
+                    stale = age > PluginConfig.M3U_REFRESH_LOCK_STALE_SECONDS
+                except OSError:
+                    stale = False
+                if attempt == 1 and stale:
+                    logger.warning(f"[Stream-Mapparr] breaking stale m3u-refresh lock (age {age:.0f}s)")
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
+                    continue  # retry once on a fresh inode
+                return None
+            try:
+                os.utime(path, None)  # stamp this holder's start for staleness
+            except OSError:
+                pass
+            return fd
+        return None
+
+    def _release_m3u_refresh_flock(self, fd, logger):
+        if fd is None:
+            return
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            fd.close()
+        except OSError:
+            pass
+
     def _start_background_scheduler(self, settings):
         """Start background scheduler thread (serialized via _scheduler_lock so
         concurrent Plugin instantiation cannot leave two live scheduler loops)."""
