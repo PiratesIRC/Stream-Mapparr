@@ -323,6 +323,23 @@ and that `source_url` resolves. The `{version}` substitutes the bare-calver tag,
   `fcntl.flock`) makes the run fire once per slot. `fcntl` is `None` on Windows, so
   the tests exercise the plain check-and-stamp path; the real flock path is
   verified by running the claim in the Linux container.
+- **Auto-match on M3U refresh is event-driven, not a thread** (v1.26.1861801+). The
+  hidden `on_m3u_refresh` action declares `"events": ["m3u_refresh"]`, and Dispatcharr
+  (v0.27+) dispatches it once **per M3U account** with `params = {"event", "payload"}`
+  — the real config is in `context["settings"]`, NOT the 2nd `run()` arg (which holds
+  only the event dict on this path). The handler reads `context["settings"]`, gates on
+  `_should_auto_match_on_refresh` (opt-in bool + a selected profile, a pure string
+  check — no ORM), then runs `add_streams_to_channels_action` **synchronously** (the
+  event fires inside a Celery worker; a daemon thread could be reaped mid-run) while
+  holding a cross-worker `fcntl.flock` (`_acquire_m3u_refresh_flock`, same stale-break
+  + Windows-degrade pattern as bug-069). Concurrent per-account events that lose the
+  flock drop a dirty-flag marker (`stream_mapparr_m3u_refresh_pending`); the flock
+  holder reruns once more if the marker was set during a pass, so late accounts aren't
+  dropped (loop always terminates — events are finite). Registration gotcha: the action
+  must live in the **`plugin.py` `actions` list** (the manifest `actions` are ignored
+  for an enabled plugin) and MUST carry a `label` or Dispatcharr's `_normalize_actions`
+  silently drops it. `"events"` is inert on Dispatcharr < 0.27, so `min_dispatcharr_version`
+  stays `v0.20.0`.
 - **Zone routing is per-channel, gated by `_zone_routed_map`** (bug-068). It only
   fires when a zone-stripped base name has a different-zone sibling, so lone
   channels never change. Route every per-channel order through

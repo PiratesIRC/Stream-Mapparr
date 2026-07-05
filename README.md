@@ -69,6 +69,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 
 ### Automation
 - **Built-in scheduler**: Configure daily runs at one or more HHMM times. The timezone follows Dispatcharr's global setting. Scheduled runs are multi-worker safe, so the job runs once per slot even when Dispatcharr is running several worker processes.
+- **Auto-match after M3U refresh** (opt-in): Run Match & Assign automatically as soon as an M3U refresh completes, so new streams get matched without waiting for the next scheduled slot. Requires a Channel Profile to be selected. Concurrent per-account refreshes are coalesced under a cross-worker lock, and accounts that finish mid-match trigger a follow-up pass so nothing is missed. Inert on Dispatcharr < 0.27 (the scheduler remains the trigger there).
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
@@ -124,6 +125,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Webhook URL** | string | (blank) | HTTP(S) endpoint to POST JSON summary on completion (see below) |
 | **Fire Webhook On Completion** | boolean | False | Enable webhook delivery for Match & Assign / Match OTA / Sort Streams |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
+| **Auto-match after M3U refresh** | boolean | False | Run Match & Assign automatically after each M3U refresh completes (opt-in; requires a Channel Profile). Dispatcharr v0.27+ |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
 | **Enable Throughput-Based Sorting** | boolean | True | Prepend a measured-throughput tier to alternate-stream sorting. Falls back to resolution/FPS when no probe data is available. |
 | **Probe Duration (seconds)** | number | 8 | Length of each throughput probe — long enough to clear TCP slow-start, short enough to bound the run. |
@@ -156,6 +158,8 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 3. Click **Update Schedule**
 
 The scheduler runs in a background thread and re-arms automatically when the container restarts. When Dispatcharr runs several worker processes, a shared on-disk claim makes sure the scheduled job runs once per slot rather than once per worker.
+
+**Event-driven alternative (Dispatcharr v0.27+):** enable **Auto-match after M3U refresh** to run Match & Assign the moment an M3U refresh finishes, instead of (or in addition to) fixed times. It subscribes to Dispatcharr's `m3u_refresh` event; because that event fires once per M3U account, the runs are coalesced under a cross-worker lock and a follow-up pass captures any account that finishes mid-match, so a multi-account "Refresh All" produces one effective match rather than one per account.
 
 ## CSV Reports
 
