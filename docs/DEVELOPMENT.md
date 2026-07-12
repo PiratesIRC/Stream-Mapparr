@@ -246,6 +246,19 @@ Use the **`/release`** skill for the full checklist. Summary of the house style:
   for the old version before you finish.
 - **Validate the zip before attaching it:** `python scripts/validate_zip.py
   Stream-Mapparr.zip` must print OK (see the packaging note in §5 tooling — bug-087).
+- **`validate_zip.py` does NOT catch CRLF** — it only catches the bug-087 backslash
+  separators. Line endings are now fixed at the source (bug-118): `.gitattributes`
+  carries `* text=auto eol=lf` and the repo was renormalized, so a `git archive`
+  build comes out LF. If you ever suspect CRLF crept back, check the artifact's raw
+  bytes (`b"\r\n" in z.read(name)`), not `zipfile.namelist()`.
+  - The old bug-065 workaround (`git -c core.autocrlf=false -c core.eol=lf archive`)
+    was a **no-op** for the files that needed it: `git archive` ships blob bytes
+    verbatim for any path with no `text` attribute, so CRLF that was *committed*
+    could not be undone at archive time. Every release before `1.26.1931038` shipped
+    13 CRLF files. Do not rely on those flags alone.
+- **Audit the SHIPPED artifact, not just `main`** (bug-064): download the asset back
+  from the GitHub Release and check its version, contents, and that
+  `matching_core.py` is bundled and byte-identical to `_shared/`.
 
 ### Marketplace (Dispatcharr Plugin Hub)
 
@@ -293,6 +306,28 @@ and that `source_url` resolves. The `{version}` substitutes the bare-calver tag,
 
 ## 6. Conventions & gotchas (the short list)
 
+- **A "background thread" does NOT get work off Dispatcharr's request path
+  (bug-117).** `/app/docker/uwsgi.ini` sets `gevent = 400` with
+  `gevent-early-monkey-patch = true`, so `threading.Thread` is monkey-patched into
+  a **greenlet**. Greenlets only switch on I/O, so the matcher's CPU-bound loop
+  **never yields and freezes the entire uWSGI worker** — every one of its 400
+  concurrent request slots — for the whole run. This is true on the *background*
+  path too; backgrounding only frees the HTTP request, not the worker. Symptom when
+  it runs inline: the web UI dies and nginx returns `504 Gateway Time-out`
+  (`proxy_read_timeout = 300s`, **not** 60s) while live streams keep playing (they
+  are established greenlets on an unwedged worker and never touch Postgres).
+  - `_should_run_sync()` is the gate. It is deliberately biased hard toward the
+    background path: `SYNC_THRESHOLD_SECONDS = 5` with `ETA_SAFETY_FACTOR = 4.0`,
+    so only a ~1-group job runs inline, and an **unknown** ETA backgrounds.
+  - **Do not trust `_estimate_eta_seconds`.** `ESTIMATED_SECONDS_PER_ITEM = 0.8`
+    measured **~3.4x optimistic** in the field (13 groups/35s, 29 groups/78s ⇒
+    2.7s/group), and it sizes the job from the **previous** run's cached
+    `processed_data`, so a changed group/category selection is invisible to it.
+    Anything gating on it needs `ETA_SAFETY_FACTOR`.
+  - **The real fix is still open:** move matching to Celery and/or add periodic
+    `gevent.sleep(0)` yields inside the match loop.
+  - Diagnosing a wedged worker: `uwsgi.ini` enables `py-tracebacker`, so
+    `docker exec dispatcharr uwsgi --connect-and-read /tmp/tbsocket1` dumps its stack.
 - **`_parse_tags` is the canonical comma-list parser** (quote-aware). New
   comma-separated settings should delegate to it, not hand-roll `split(',')`.
 - **Dispatcharr rejects blank field option values** — a dynamic option with
@@ -398,6 +433,15 @@ docs/DEVELOPMENT.md        # you are here
 
 ### Backlog / not yet done
 
+- **Get matching off the uWSGI event loop (bug-117 follow-up, the real fix).** The
+  `1.26.1931038` change only stops long jobs running *inline in the request*; a
+  background run still freezes a whole gevent worker for its duration. Two options,
+  not mutually exclusive: dispatch the action to **Celery** (Dispatcharr already
+  runs `celery` and `dvr` queues), and/or add periodic **`gevent.sleep(0)`** yields
+  inside the per-group match loop so the worker can serve requests while matching.
+- **Unexplained: why did the reporter's workers never recover?** The run finishes, so
+  a wedged worker should free itself. Not reproduced. Next time it wedges, dump the
+  stack: `docker exec dispatcharr uwsgi --connect-and-read /tmp/tbsocket1`.
 - `plugin.py` at ~260 KB is past the size where edits are safe by eye. Once the
   test suite has grown, split the probe / scheduler / sort concerns into modules.
 - The ~50 historical `CHANGELOG_v*.md` / `QUICK_SUMMARY_*.md` / `BUG_REPORT_*.md`
