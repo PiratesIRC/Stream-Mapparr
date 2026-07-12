@@ -1,3 +1,17 @@
+# Normalize every text file to LF in the repository (bug-065). Release zips are
+# built with `git archive`, which ships blob bytes verbatim for paths with no
+# `text` attribute — so any file committed WITH CRLF stayed CRLF in the shipped
+# artifact no matter what `core.eol`/`core.autocrlf` were set to at archive time.
+# CRLF in a release is functionally benign on Dispatcharr's Linux host (Python
+# reads it fine, and it is NOT the bug-087 backslash-path issue that breaks
+# install), but it violates the LF convention and defeats byte-identical
+# vendoring. `text=auto` lets git detect and leave binaries alone.
+* text=auto eol=lf
+
+# Belt and braces: never touch these, whatever the auto-detection thinks.
+*.png binary
+*.zip binary
+
 # The git hook is executed by bash; CRLF would break it (\r: command not found).
 .githooks/pre-commit text eol=lf
 *.sh text eol=lf

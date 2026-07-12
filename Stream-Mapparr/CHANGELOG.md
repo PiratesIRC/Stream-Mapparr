@@ -1,5 +1,32 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1931038 (July 12, 2026)
+
+### Fixed
+- **Web UI hang / `504 Gateway Time-out` after running Match & Assign (bug-117).**
+  Long matching jobs could run **inline in the HTTP request**, which freezes an entire
+  Dispatcharr uWSGI worker: uWSGI runs gevent with `gevent-early-monkey-patch`, so the
+  matcher's CPU-bound loop never yields and blocks every request on that worker — not just
+  its own. Symptom: the web UI dies and login stops responding, while live streams keep
+  playing normally.
+
+  The sync-vs-background gate was mis-calibrated in two ways. Its 25-second threshold was
+  chosen for "the typical 30s gunicorn worker timeout", but Dispatcharr runs uWSGI behind
+  nginx (`proxy_read_timeout` 300s). And the runtime estimate is optimistic — the
+  0.8s-per-channel-group constant measured ~3.4x too low in the field (a 29-group job
+  estimated at 23s actually took 1m18s), partly because the estimate is sized from the
+  *previous* run's cached channel set, so changing the selected group/category is invisible
+  to it.
+
+  The decision is now `_should_run_sync()`, gated by `SYNC_THRESHOLD_SECONDS` (5s) and a new
+  `ETA_SAFETY_FACTOR` (4.0), so only a trivial single-group job runs inline; everything else
+  — including a job whose size cannot be determined — runs in the background and reports via
+  the usual toast/webhook. Regression tests: `tests/test_sync_dispatch.py`.
+
+  Note: background runs still occupy a worker for their duration. Moving matching off the
+  uWSGI event loop entirely (Celery dispatch and/or cooperative yields) is tracked as
+  follow-up work.
+
 ## v1.26.1861801 (July 5, 2026)
 
 ### Added
