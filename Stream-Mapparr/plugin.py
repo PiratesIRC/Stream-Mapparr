@@ -87,7 +87,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1861801"
+    PLUGIN_VERSION = "1.26.1931038"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -165,6 +165,20 @@ class PluginConfig:
     # with rapidfuzz + normalization cache ≈ 14s → ~0.8s/group). The estimate scales
     # with stream pool size; 0.8s is tuned for the common "all streams" case.
     ESTIMATED_SECONDS_PER_ITEM = 0.8
+
+    # === SYNC vs BACKGROUND DISPATCH (bug-117) ===
+    # Dispatcharr's uWSGI runs `gevent = 400` with `gevent-early-monkey-patch = true`,
+    # so threading.Thread is a greenlet and the matcher's CPU-bound loop never yields:
+    # running it in-request freezes the WHOLE worker, not just that request. A wrong
+    # call here costs a dead web UI and an nginx 504 (proxy_read_timeout = 300s), so
+    # the gate is deliberately biased toward the background path.
+    #
+    # ESTIMATED_SECONDS_PER_ITEM is tuned on one machine and measured ~3.4x optimistic
+    # in the field (13 groups/35s, 29 groups/78s ⇒ 2.7s/group), and _estimate_eta_seconds
+    # sizes the job from the PREVIOUS run's cached processed_data — so it also misses a
+    # group-selection change entirely. ETA_SAFETY_FACTOR brackets both errors.
+    SYNC_THRESHOLD_SECONDS = 5
+    ETA_SAFETY_FACTOR = 4.0
 
     # === IPTV CHECKER INTEGRATION SETTINGS ===
     DEFAULT_FILTER_DEAD_STREAMS = False  # Filter streams with 0x0 resolution (requires IPTV Checker)
@@ -3536,6 +3550,22 @@ class Plugin:
                 "message": f"Error: {str(e)}"
             }
 
+    def _should_run_sync(self, action, eta_seconds, lockable_actions):
+        """Decide whether `action` may run inline in the HTTP request.
+
+        Running inline blocks a whole uWSGI gevent worker for the duration (the
+        matcher is CPU-bound and greenlets only switch on I/O), so we say yes only
+        for jobs we are confident are trivial. `eta_seconds` is optimistic and can
+        be sized off a stale channel set, hence ETA_SAFETY_FACTOR (bug-117).
+
+        An unknown ETA (no cached processed_data yet) means we cannot size the job
+        at all — that backgrounds too.
+        """
+        if action not in lockable_actions or eta_seconds is None:
+            return False
+        padded_eta = eta_seconds * PluginConfig.ETA_SAFETY_FACTOR
+        return padded_eta < PluginConfig.SYNC_THRESHOLD_SECONDS
+
     def _estimate_eta_seconds(self, settings, logger):
         """Estimate runtime of a matching action in seconds.
 
@@ -3642,20 +3672,12 @@ class Plugin:
                             ),
                         }
 
-                # Estimate runtime and decide sync vs background. Small jobs run
-                # synchronously so the Mantine completion toast fires with the
-                # real result — for large jobs we still background to avoid
-                # HTTP timeouts and return a "started" placeholder.
-                # Below the typical 30s gunicorn worker timeout, with headroom
-                # for load_process_channels + ORM writes + CSV export which
-                # aren't accounted for in `_estimate_eta_seconds`.
-                SYNC_THRESHOLD_SECONDS = 25
+                # Estimate runtime and decide sync vs background. Only trivial jobs
+                # run synchronously (so the Mantine completion toast fires with the
+                # real result); anything else backgrounds and returns a "started"
+                # placeholder. See _should_run_sync for why the bar is this low.
                 eta_seconds = self._estimate_eta_seconds(settings, logger)
-                run_sync = (
-                    action in lockable_actions
-                    and eta_seconds is not None
-                    and eta_seconds < SYNC_THRESHOLD_SECONDS
-                )
+                run_sync = self._should_run_sync(action, eta_seconds, lockable_actions)
 
                 def _execute_with_progress():
                     # Reset per-op item count so progress-toast cadence doesn't
