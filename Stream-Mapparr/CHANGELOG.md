@@ -1,5 +1,41 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1960020 (July 15, 2026)
+
+### Fixed
+- **East/West zone routing now covers lone unmarked channels, and understands Pacific
+  (bug-132).** A channel like "Cinemax" (unmarked = national/East feed) with no East/West
+  sibling was left un-routed, so the quality sort could put a West-coast stream first —
+  viewers got the feed 3 hours behind. Zone ordering now also applies to any unmarked
+  channel (East/national streams lead, West last), while lone *marked* channels are still
+  left alone. A Pacific marker (`PACIFIC`, `(Pacific)`, `(PT)`) now counts as West, since a
+  US premium channel's West feed is its Pacific-time feed.
+- **Dispatcharr web UI 504 / crash when zapping through channels, with a schedule
+  configured (bug-127).** Symptom: switching channels made the Stats page show
+  "Unnamed Channel" then `Failed to retrieve channels by UUIDs: 504`, and the UI became
+  unusable until a container restart. Cause: since the scheduler began arming from
+  `__init__` (bug-065), and Dispatcharr re-instantiates the plugin on nearly every
+  request, each channels API call was stopping and relaunching the background scheduler
+  thread under a global lock — which, with a schedule set, serialized requests until
+  nginx timed out. Scheduler arming is now idempotent: re-arming with an unchanged
+  schedule does nothing, so ordinary channel activity no longer touches the scheduler.
+  Only affected users who had a schedule configured; changing the schedule in the UI
+  still takes effect immediately.
+- **Streams with a quality tag in the MIDDLE of the name never matched (bug-126).** A stream
+  like `UK ▎SKY NEWS FHD ◉ rec` failed to match the channel `Sky News`, while the `HD` and `SD`
+  variants of the very same channel matched fine. Removing a quality tag also removed the spaces
+  on both sides of it, gluing the surrounding words together: `SKY NEWS FHD rec` normalized to
+  `SKY NEWSrec` (and `CNN [HD] USA` to `CNNUSA`). Tags at the end of a name were unaffected,
+  which is why only the mid-name variants broke.
+- **Custom Ignore Tags could not remove the leftover token.** Because ignore tags are applied
+  after normalization and single-word tags match on word boundaries, `rec` could never match
+  inside the glued `NEWSrec` — so adding it to the tag filter appeared to do nothing. With the
+  glue fixed, a `rec` ignore tag now normalizes the stream to `SKY NEWS` and it matches at 100%.
+
+Shared-matcher-core change, re-vendored to all four plugins. Note that a provider badge such as
+`rec` is still a real leftover token: add it to **Custom Ignore Tags** to strip it (the `◉` glyph
+itself is already removed automatically, so use `rec`, not `◉ rec`).
+
 ## v1.26.1931038 (July 12, 2026)
 
 ### Fixed

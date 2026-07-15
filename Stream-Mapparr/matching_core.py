@@ -365,8 +365,18 @@ class FuzzyMatcherCore:
                 # "SPoRTS" to "3840P" and break the word-boundary anchor.
                 for pattern in RESOLUTION_PATTERNS:
                     name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+                # Replace with a SPACE, not '' (bug-126). Every QUALITY_PATTERN also
+                # consumes the whitespace flanking the tag, so deleting the match glues
+                # the tag's neighbours together whenever a token follows it:
+                # "SKY NEWS FHD rec" -> "SKY NEWSrec", "CNN [HD] USA" -> "CNNUSA". A
+                # glued token is also unreachable by a user ignore tag (\brec\b finds no
+                # boundary inside "NEWSrec"), so the custom-tag escape hatch silently did
+                # nothing. Tags at the start/end just leave an edge space, which the
+                # whitespace cleanup at the end of this method strips. The loop still
+                # terminates: a match always removes >=2 tag chars and adds at most one
+                # space, so each pass strictly shortens the name.
                 for pattern in QUALITY_PATTERNS:
-                    name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+                    name = re.sub(pattern, ' ', name, flags=re.IGNORECASE)
 
         # Normalize spacing around numbers
         name = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', name)

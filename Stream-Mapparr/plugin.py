@@ -34,6 +34,12 @@ from core.utils import send_websocket_update
 # Background scheduling globals
 _bg_thread = None
 _stop_event = threading.Event()
+# bug-127: fingerprint of the schedule the live _bg_thread was armed for, so a re-arm
+# with an UNCHANGED schedule is a no-op. __init__ arms the scheduler (bug-065) and
+# Dispatcharr re-instantiates the Plugin on nearly every request; without this, every
+# channels API call did a lock-guarded stop+join+relaunch of the scheduler thread and
+# serialized behind _scheduler_lock until nginx 504'd. None = never armed.
+_scheduler_signature = None
 # bug-065 (QA): serialize the stop-then-start sequence so concurrent Plugin()
 # construction cannot race and orphan a scheduler thread (which would run forever
 # with _stop_event cleared and fire scheduled scans twice). Re-entrant because
@@ -87,7 +93,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1931038"
+    PLUGIN_VERSION = "1.26.1960020"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1185,11 +1191,39 @@ class Plugin:
         except OSError:
             pass
 
+    @staticmethod
+    def _scheduler_signature_for(settings):
+        """Cheap, ORM-free fingerprint of the scheduler-relevant config (bug-127).
+        Keyed on the normalized scheduled_times string — the sole determinant of
+        whether the loop runs and when. Kept lock-free so the steady-state re-arm
+        check costs nothing."""
+        raw = (settings or {}).get("scheduled_times") or ""
+        return raw.strip()
+
     def _start_background_scheduler(self, settings):
-        """Start background scheduler thread (serialized via _scheduler_lock so
-        concurrent Plugin instantiation cannot leave two live scheduler loops)."""
+        """Ensure the background scheduler matches `settings`, idempotently.
+
+        bug-127: __init__ arms the scheduler (bug-065) and Dispatcharr re-instantiates
+        the Plugin on nearly every request, so this runs constantly. The old body
+        unconditionally took _scheduler_lock and did a stop (set-event + join) +
+        relaunch of the scheduler thread EVERY call; with a schedule configured there
+        was always a live thread to join, so each channels API call (e.g. the 'retrieve
+        channels by UUIDs' a channel zap fires) paid that cost and serialized behind the
+        lock until nginx 504'd. Now a re-arm with an unchanged schedule is a lock-free
+        no-op; we take the lock and (re)start only when the schedule actually changed or
+        the thread isn't in its desired state (self-heals a died/orphaned thread)."""
+        global _scheduler_signature
+        desired = self._scheduler_signature_for(settings)
+        want_live = bool(desired)
+        have_live = _bg_thread is not None and _bg_thread.is_alive()
+        if _scheduler_signature == desired and have_live == want_live:
+            return  # already in the desired state — steady-state fast path
         with _scheduler_lock:
+            have_live = _bg_thread is not None and _bg_thread.is_alive()
+            if _scheduler_signature == desired and have_live == want_live:
+                return
             self._start_background_scheduler_locked(settings)
+            _scheduler_signature = desired
 
     def _start_background_scheduler_locked(self, settings):
         """Real (re)start of the scheduler. MUST be called holding _scheduler_lock
@@ -1722,13 +1756,22 @@ class Plugin:
 
     def _zone_routed_map(self, channels, ignore_tags, ignore_quality, ignore_regional,
                          ignore_geographic, ignore_misc):
-        """Return {channel_id: zone} for channels that share a zone-stripped base
-        name with a sibling of a DIFFERENT feed zone (e.g. "Starz Encore" [DEFAULT]
-        and "STARZ Encore (W)" [WEST]). Lone channels with no zone sibling are
-        omitted, so zone routing NEVER changes the common single-feed case
-        (bug-068). Base name is the cleaned (regional-stripped) name, case-folded,
-        so the two channels collapse onto one base even though their grouping keys
-        differ by case.
+        """Return {channel_id: zone} for channels whose streams should be zone-ordered.
+
+        A channel qualifies when EITHER:
+          * it shares a zone-stripped base name with a sibling of a DIFFERENT feed
+            zone (e.g. "Starz Encore" [DEFAULT] and "STARZ Encore (W)" [WEST]) — the
+            original bug-068 case; OR
+          * it is itself unmarked/DEFAULT — so a lone unmarked channel (e.g. "Cinemax")
+            leads with its East/national feed instead of any West alternates it picked
+            up, honoring "not west/pacific => east" (bug-126 follow-up). This is a
+            stable no-op for the common single-feed case (all streams same zone).
+
+        A LONE channel that is itself MARKED (WEST/EAST) is deliberately left out, which
+        keeps the accepted brand-word false positives harmless (a lone "Key West" is
+        WEST but has no East sibling, so it is never reordered). Base name is the cleaned
+        (regional-stripped) name, case-folded, so E/W siblings collapse onto one base
+        even though their grouping keys differ by case.
         """
         if not self.fuzzy_matcher:
             return {}
@@ -1741,7 +1784,8 @@ class Plugin:
             zone = self.fuzzy_matcher.extract_zone(name)
             per_channel[ch['id']] = (base, zone)
             base_zones.setdefault(base, set()).add(zone)
-        return {cid: zone for cid, (base, zone) in per_channel.items() if len(base_zones[base]) >= 2}
+        return {cid: zone for cid, (base, zone) in per_channel.items()
+                if len(base_zones[base]) >= 2 or zone == 'DEFAULT'}
 
     def _channels_to_update_for_group(self, sorted_channels, visible_channel_limit, zone_routed):
         """Channels in a group that receive streams: the top `visible_channel_limit`,

@@ -44,6 +44,10 @@ LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 # is excluded by the word boundaries.
 _ZONE_WEST_RE = re.compile(r'\(\s*W(?:EST)?\s*\)|\bWEST\b', re.IGNORECASE)
 _ZONE_EAST_RE = re.compile(r'\(\s*E(?:AST)?\s*\)|\bEAST\b', re.IGNORECASE)
+# Pacific folds into WEST: a US premium channel's "West" feed IS its Pacific-time feed
+# (bug-126 follow-up). Bare PACIFIC + parenthesized (Pacific)/(PT) only — a bare '(P)'
+# is too ambiguous (premium/etc.) to read as a zone.
+_ZONE_PACIFIC_RE = re.compile(r'\(\s*PACIFIC\s*\)|\(\s*PT\s*\)|\bPACIFIC\b', re.IGNORECASE)
 
 
 class FuzzyMatcher(FuzzyMatcherCore):
@@ -382,12 +386,14 @@ class FuzzyMatcher(FuzzyMatcherCore):
         """Canonical feed zone for zone-aware routing: 'WEST', 'EAST', or 'DEFAULT'.
 
         Recognizes parenthesized (W)/(E)/(WEST)/(EAST) and the bare words
-        WEST/EAST. Bare single letters W/E (outside parentheses) are NOT zones —
-        too many false positives ("W", "E! Entertainment"). 'DEFAULT' means
-        unmarked (conventionally the East/primary feed in US lineups).
+        WEST/EAST. A Pacific marker (bare PACIFIC or (Pacific)/(PT)) folds into
+        WEST — the West feed of a US premium channel is its Pacific-time feed.
+        Bare single letters W/E (outside parentheses) are NOT zones — too many
+        false positives ("W", "E! Entertainment"). 'DEFAULT' means unmarked
+        (conventionally the East/primary feed in US lineups).
         """
         n = name or ''
-        if _ZONE_WEST_RE.search(n):
+        if _ZONE_WEST_RE.search(n) or _ZONE_PACIFIC_RE.search(n):
             return 'WEST'
         if _ZONE_EAST_RE.search(n):
             return 'EAST'

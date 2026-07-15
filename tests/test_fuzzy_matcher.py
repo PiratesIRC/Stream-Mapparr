@@ -63,6 +63,21 @@ def test_zero_width_format_chars_stripped(matcher):
     assert out == m.normalize_name("BBC 1")
 
 
+def test_mid_name_quality_tag_does_not_glue_neighbours(matcher):
+    """bug-126: a quality tag with a token BEHIND it consumed the whitespace on BOTH
+    sides, gluing its neighbours ('SKY NEWS FHD rec' -> 'SKY NEWSrec', 'CNN [HD] USA'
+    -> 'CNNUSA'). The glued token then sits inside a word, so it can never be removed
+    by a custom ignore tag either (\\brec\\b has no boundary in 'NEWSrec') — which is
+    how the reporter's tag filter silently did nothing. Tags at the END are unaffected,
+    which is why the HD/SD variants of the same channel always matched."""
+    m = matcher()
+    assert m.normalize_name("SKY NEWS FHD rec") == "SKY NEWS rec"
+    assert m.normalize_name("CNN [HD] USA") == "CNN USA"
+    # and with the tag gone, a custom ignore tag can finally reach the leftover token
+    out = m.normalize_name("SKY NEWS FHD rec", user_ignored_tags=["rec"])
+    assert out.strip() == "SKY NEWS"
+
+
 def test_word_boundary_tag_does_not_strip_substring(matcher):
     """'East' as an ignore tag must not nuke the 'east' inside 'Feast'."""
     m = matcher()
@@ -122,6 +137,19 @@ def test_extract_zone_west_bare_word(matcher):
 def test_extract_zone_east(matcher):
     assert matcher().extract_zone("STARZ ENCORE EAST HD") == "EAST"
     assert matcher().extract_zone("HBO (E)") == "EAST"
+
+
+def test_extract_zone_pacific_is_west(matcher):
+    """The 'West' feed of a US premium channel IS the Pacific-time feed (Starz Encore
+    literally broadcasts its coasts as 'Eastern and Pacific'), so a Pacific-marked
+    stream/channel routes as WEST. Bare PACIFIC + parenthesized (Pacific)/(PT) only —
+    NOT a bare '(P)', which is too ambiguous (premium/etc.)."""
+    m = matcher()
+    assert m.extract_zone("US: STARZ ENCORE PACIFIC HD") == "WEST"
+    assert m.extract_zone("Showtime (Pacific)") == "WEST"
+    assert m.extract_zone("HBO (PT)") == "WEST"
+    # a lone bare '(P)' must NOT be read as Pacific
+    assert m.extract_zone("Channel (P)") == "DEFAULT"
 
 
 def test_extract_zone_default_when_unmarked(matcher):

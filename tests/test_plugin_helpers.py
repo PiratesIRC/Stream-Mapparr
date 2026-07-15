@@ -201,6 +201,46 @@ def test_init_bootstraps_scheduler_via_load_settings(plugin_module, monkeypatch)
     assert calls == [True], "__init__ must call _load_settings() to arm the scheduler"
 
 
+def test_rearm_with_unchanged_schedule_keeps_same_thread(plugin_module):
+    """bug-127: __init__ arms the scheduler (bug-065) and Dispatcharr re-instantiates
+    the Plugin on nearly every request, so _start_background_scheduler runs constantly.
+    The old code unconditionally stopped (lock + set-event + join) and relaunched the
+    scheduler thread on EVERY call; with a schedule configured there was always a live
+    thread to join, so each channels API call (e.g. the 'retrieve channels by UUIDs' a
+    channel zap fires) paid that cost and serialized behind the global lock until nginx
+    504'd. Re-arming with an UNCHANGED schedule must be a no-op: same thread, no churn."""
+    Plugin = plugin_module.Plugin
+    p = Plugin()
+    settings = {"scheduled_times": "0330"}
+    try:
+        p._start_background_scheduler(settings)
+        t1 = plugin_module._bg_thread
+        assert t1 is not None and t1.is_alive(), "first arm must start a scheduler thread"
+        p._start_background_scheduler(settings)
+        p._start_background_scheduler(settings)
+        t2 = plugin_module._bg_thread
+        assert t2 is t1, "re-arm with unchanged schedule must not replace the thread"
+        assert t1.is_alive()
+    finally:
+        p._stop_background_scheduler()
+
+
+def test_rearm_with_changed_schedule_restarts_thread(plugin_module):
+    """The idempotent guard must still (re)start when the schedule actually changes,
+    so an in-UI schedule edit takes effect."""
+    Plugin = plugin_module.Plugin
+    p = Plugin()
+    try:
+        p._start_background_scheduler({"scheduled_times": "0330"})
+        t1 = plugin_module._bg_thread
+        p._start_background_scheduler({"scheduled_times": "0445"})
+        t2 = plugin_module._bg_thread
+        assert t2 is not t1, "a changed schedule must restart the scheduler thread"
+        assert t2.is_alive()
+    finally:
+        p._stop_background_scheduler()
+
+
 # --------------------------------------------------------------------------- #
 # Zone-aware routing — Starz East/West (bug-068)
 # --------------------------------------------------------------------------- #
@@ -216,16 +256,22 @@ def test_zone_affinity_rank_default_channel_is_east_like(plugin_module):
     assert f('DEFAULT', 'WEST') == 2
 
 
-def test_zone_routed_map_only_marks_mixed_zone_siblings(plugin_module, matcher):
+def test_zone_routed_map_marks_siblings_and_lone_default(plugin_module, matcher):
+    """A channel is zone-ordered when it has a different-zone sibling (bug-068) OR when
+    it is itself unmarked/DEFAULT (bug-126 follow-up: a lone unmarked channel like
+    'Cinemax' must prefer its East/national feed over any West alternates it picked up).
+    A lone MARKED channel is still left alone, which keeps the brand-word false positives
+    ('Key West' -> WEST) harmless."""
     p = plugin_module.Plugin.__new__(plugin_module.Plugin)
     p.fuzzy_matcher = matcher()
     channels = [
         {'id': 1, 'name': 'Starz Encore'},        # DEFAULT, has a West sibling
-        {'id': 2, 'name': 'STARZ Encore (W)'},     # WEST
-        {'id': 3, 'name': 'ESPN'},                 # lone, no zone sibling
+        {'id': 2, 'name': 'STARZ Encore (W)'},     # WEST (has an East/default sibling)
+        {'id': 3, 'name': 'Cinemax'},              # lone DEFAULT -> now routed (prefer East)
+        {'id': 4, 'name': 'Key West'},             # lone WEST brand-word -> NOT routed
     ]
     routed = p._zone_routed_map(channels, None, True, True, True, True)
-    assert routed == {1: 'DEFAULT', 2: 'WEST'}     # ESPN (3) NOT routed -> no regression
+    assert routed == {1: 'DEFAULT', 2: 'WEST', 3: 'DEFAULT'}   # Key West (4) NOT routed
 
 
 def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matcher):
