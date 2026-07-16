@@ -165,6 +165,76 @@ def _pattern_is_unsafe(pattern_text):
         return True  # unexpected tree shape -> fail closed
 
 
+def _mname(stream):
+    """The name MATCHING should see: regex-transformed when the choke point ran,
+    raw otherwise (structural degrade — Sort's self-built dicts etc. never pass
+    the choke point). An emptied match_name is intentionally returned as-is:
+    the len<2 guards downstream skip it. Ordering/gating/display consumers must
+    keep reading stream['name'] directly (spec §5 table)."""
+    mn = stream.get("match_name")
+    return stream["name"] if mn is None else mn
+
+
+def _apply_regex_rules_to_streams(streams, rules, logger=None):
+    """Stamp stream['match_name'] on every dict (spec §5), under the §4 gate-4
+    containment: input length cap, per-name output-growth cap (revert + stop),
+    cumulative wall-clock budget (disable rules for the rest of the pass),
+    cooperative time.sleep(0) yields (gevent). ONE aggregate warning per pass."""
+    cfg = PluginConfig
+    counters = {"changed": 0, "skipped_long": 0, "growth_reverted": 0,
+                "emptied": 0, "rule_errors": 0, "budget_tripped": False}
+    if not rules:
+        for s in streams:
+            s["match_name"] = s.get("name") or ""
+        return counters
+
+    deadline = time.monotonic() + cfg.REGEX_PASS_BUDGET_S
+    for i, s in enumerate(streams):
+        if i and i % cfg.REGEX_YIELD_EVERY == 0:
+            time.sleep(0)  # gevent: yield the worker between batches
+        name = s.get("name") or ""
+        if counters["budget_tripped"]:
+            s["match_name"] = name
+            continue
+        if time.monotonic() >= deadline:
+            counters["budget_tripped"] = True
+            s["match_name"] = name
+            continue
+        if len(name) > cfg.REGEX_NAME_MAX_LEN:
+            counters["skipped_long"] += 1
+            s["match_name"] = name
+            continue
+        limit = max(cfg.REGEX_GROWTH_FACTOR * len(name), cfg.REGEX_GROWTH_FLOOR)
+        result = name
+        for compiled, replacement in rules:
+            before = result
+            try:
+                result = compiled.sub(replacement, result)
+            except Exception:
+                counters["rule_errors"] += 1
+                result = before
+                continue
+            if len(result) > limit:
+                counters["growth_reverted"] += 1
+                result = before
+                break
+        s["match_name"] = result
+        if result != name:
+            counters["changed"] += 1
+            if not result.strip():
+                counters["emptied"] += 1
+
+    if logger and any(v for k, v in counters.items() if k != "changed"):
+        logger.warning(
+            "[Stream-Mapparr] regex pre-processing containment: "
+            f"{counters['skipped_long']} name(s) over {cfg.REGEX_NAME_MAX_LEN} chars skipped, "
+            f"{counters['growth_reverted']} growth-capped, {counters['emptied']} emptied "
+            f"(unmatchable), {counters['rule_errors']} rule error(s)"
+            + (", TIME BUDGET EXCEEDED - rules disabled for the rest of this run"
+               if counters["budget_tripped"] else ""))
+    return counters
+
+
 # ============================================================================
 # CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
 # ============================================================================
