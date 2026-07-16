@@ -155,6 +155,8 @@ def _pattern_is_unsafe(pattern_text):
             elif name == "ATOMIC_GROUP":  # 3.11+: (?>...) cannot backtrack out
                 if walk(av, False):
                     return True
+            # POSSESSIVE_REPEAT (3.11+, a*+) falls through deliberately: possessive
+            # repeats cannot backtrack, so nesting inside them is not a ReDoS vector.
         return False
 
     try:
@@ -1722,14 +1724,15 @@ class Plugin:
         every gate; report = per-rule {index, pattern, status, detail}.
         Degrade-don't-fail: never raises. Empty/absent setting -> ([], [])."""
         cfg = PluginConfig
-        raw = ((settings or {}).get("stream_name_regex_rules") or "").strip()
+        settings = settings if isinstance(settings, dict) else {}
+        raw = (settings.get("stream_name_regex_rules") or "").strip()
         if not raw:
             return [], []
         try:
             data = json.loads(raw)
             if not isinstance(data, list):
                 raise ValueError("top level must be a JSON array")
-        except (ValueError, TypeError) as e:
+        except Exception as e:
             LOGGER.warning(f"[Stream-Mapparr] stream_name_regex_rules: invalid JSON - "
                            f"feature disabled: {e}")
             return [], [{"index": 0, "pattern": raw[:80], "status": "invalid_json_shape",

@@ -95,3 +95,18 @@ def test_unsafe_pattern_status_flows_through_resolver(plugin_module):
         {"stream_name_regex_rules": json.dumps([["(a+)+$", ""], ["safe", "x"]])})
     assert _statuses(report) == ["unsafe_pattern", "ok"]
     assert len(rules) == 1
+
+
+def test_non_dict_settings_returns_empty(plugin_module):
+    # Non-dict settings (e.g., list, string, number) should gracefully return ([], [])
+    p = _plugin(plugin_module)
+    rules, report = p._resolve_stream_regex_rules(["not", "a", "dict"])
+    assert rules == [] and report == []
+
+
+def test_static_gate_fails_closed_on_malformed_tree(plugin_module, monkeypatch):
+    # If walk() encounters an unexpected tree shape, fail closed -> unsafe.
+    monkeypatch.setattr(plugin_module, "_sre_parse_pattern",
+                        lambda text: (([("MAX_REPEAT", None)], 4294967295)))
+    # walk will raise TypeError trying to unpack: lo, hi, body = None
+    assert plugin_module._pattern_is_unsafe(r"abc")
