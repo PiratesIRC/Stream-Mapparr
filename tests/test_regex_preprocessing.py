@@ -203,3 +203,30 @@ def test_mname_accessor_degrades_to_raw(plugin_module):
     assert _mname({"name": "X", "match_name": "Y"}) == "Y"
     assert _mname({"name": "X"}) == "X"          # dict that missed the choke point
     assert _mname({"name": "X", "match_name": ""}) == ""  # emptied stays emptied
+
+
+# --------------------------------------------------------------------------- #
+# Task 3 — settings field + validate integration
+# --------------------------------------------------------------------------- #
+
+def test_field_declared(plugin_module):
+    p = plugin_module.Plugin()
+    ids = [f["id"] for f in p.fields]
+    assert "stream_name_regex_rules" in ids
+    field = next(f for f in p.fields if f["id"] == "stream_name_regex_rules")
+    assert field["type"] == "string" and field["default"] == ""
+    # user-surprise guard from the spec: help text must state the split
+    assert "quality" in field["help_text"].lower()
+    assert "never modified" in field["help_text"].lower()
+
+
+def test_validate_reports_rules_section(plugin_module, monkeypatch):
+    p = _plugin(plugin_module)
+    lines = p._validate_regex_rules_setting(
+        {"stream_name_regex_rules": json.dumps([["ok", ""], ["(a+)+$", ""]])})
+    assert len(lines) == 1 and lines[0].startswith("❌")
+    assert "1 ok" in lines[0] and "1 rejected" in lines[0]
+    assert p._validate_regex_rules_setting({"stream_name_regex_rules": ""}) == []
+    good = p._validate_regex_rules_setting(
+        {"stream_name_regex_rules": json.dumps([["ok", ""]])})
+    assert len(good) == 1 and good[0].startswith("✅")

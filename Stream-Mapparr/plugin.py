@@ -291,6 +291,7 @@ class PluginConfig:
     DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
     DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
     DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
+    DEFAULT_STREAM_NAME_REGEX_RULES = ""        # Empty = feature disabled
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
@@ -708,6 +709,20 @@ class Plugin:
                 "default": PluginConfig.DEFAULT_CUSTOM_ALIASES,
                 "placeholder": '{"My Channel": ["Provider Stream Name", "Alt Name"]}',
                 "help_text": "JSON object mapping a channel name to extra stream-name aliases (a bare string is accepted as a single alias). Streams whose name exactly matches an alias are force-matched to that channel. Leave blank to use built-in aliases only.",
+            },
+            {
+                "id": "stream_name_regex_rules",
+                "label": "🧹 Stream Name Regex Rules (JSON)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_STREAM_NAME_REGEX_RULES,
+                "placeholder": '[["\\\\s*▎\\\\s*", " "], ["\\\\bVIP\\\\b", ""]]',
+                "help_text": "JSON list of [find, replace] regex pairs applied in order "
+                             "to stream names before matching. Python regex syntax; use "
+                             "(?i) for case-insensitive. Affects MATCHING only: stream "
+                             "names in Dispatcharr are never modified, and quality "
+                             "sorting, zone routing, country restriction and duplicate "
+                             "detection still read the original name. Use the Test Regex "
+                             "Rules action to preview the effect.",
             },
             {
                 "id": "prioritize_quality",
@@ -1843,6 +1858,19 @@ class Plugin:
             report.append({"index": i, "pattern": pattern[:80], "status": "ok", "detail": ""})
             rules.append((compiled, replacement))
         return rules, report
+
+    def _validate_regex_rules_setting(self, settings):
+        """Check-list lines for _validate_plugin_settings. Empty setting -> no lines
+        (no noise for non-users). Full per-rule detail goes to the log via the
+        resolver; the UI toast carries only these summary lines (spec §7)."""
+        raw = ((settings or {}).get("stream_name_regex_rules") or "").strip()
+        if not raw:
+            return []
+        rules, report = self._resolve_stream_regex_rules(settings)
+        rejected = [r for r in report if r["status"] != "ok"]
+        if rejected:
+            return [f"❌ Regex rules: {len(rules)} ok, {len(rejected)} rejected (see logs)"]
+        return [f"✅ Regex rules: {len(rules)} ok"]
 
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
@@ -4190,7 +4218,7 @@ class Plugin:
             # 5. Validate at least one channel database is checked
             logger.debug("[Stream-Mapparr] Validating channel databases...")
             databases = self._get_channel_databases()
-            
+
             if not databases:
                 validation_results.append("❌ Channel Databases: No files found")
                 has_errors = True
@@ -4206,6 +4234,13 @@ class Plugin:
                     has_errors = True
                 else:
                     validation_results.append(f"✅ Channel Databases ({len(enabled_databases)})")
+
+            # 6. Validate stream name regex rules (if configured)
+            logger.debug("[Stream-Mapparr] Validating stream name regex rules...")
+            rules_lines = self._validate_regex_rules_setting(settings)
+            validation_results.extend(rules_lines)
+            if any(line.startswith("❌") for line in rules_lines):
+                has_errors = True
 
             return has_errors, validation_results
 
