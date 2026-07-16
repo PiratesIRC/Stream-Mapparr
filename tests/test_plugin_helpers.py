@@ -214,11 +214,11 @@ def test_rearm_with_unchanged_schedule_keeps_same_thread(plugin_module):
     settings = {"scheduled_times": "0330"}
     try:
         p._start_background_scheduler(settings)
-        t1 = plugin_module._bg_thread
+        t1 = plugin_module._scheduler_state().bg_thread
         assert t1 is not None and t1.is_alive(), "first arm must start a scheduler thread"
         p._start_background_scheduler(settings)
         p._start_background_scheduler(settings)
-        t2 = plugin_module._bg_thread
+        t2 = plugin_module._scheduler_state().bg_thread
         assert t2 is t1, "re-arm with unchanged schedule must not replace the thread"
         assert t1.is_alive()
     finally:
@@ -232,9 +232,9 @@ def test_rearm_with_changed_schedule_restarts_thread(plugin_module):
     p = Plugin()
     try:
         p._start_background_scheduler({"scheduled_times": "0330"})
-        t1 = plugin_module._bg_thread
+        t1 = plugin_module._scheduler_state().bg_thread
         p._start_background_scheduler({"scheduled_times": "0445"})
-        t2 = plugin_module._bg_thread
+        t2 = plugin_module._scheduler_state().bg_thread
         assert t2 is not t1, "a changed schedule must restart the scheduler thread"
         assert t2.is_alive()
     finally:

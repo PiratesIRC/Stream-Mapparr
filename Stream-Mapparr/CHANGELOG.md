@@ -1,5 +1,36 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1971200 (July 16, 2026)
+
+### Fixed
+- **Dispatcharr still crashed (504 / UI hang) when zapping channels with a schedule
+  configured — now fixed at the deeper layer (bug-136, follow-up to bug-127).** The
+  bug-127 fix made scheduler re-arming a no-op, but its bookkeeping lived in module-level
+  variables, which only survive plugin *re-instantiation*. On some installations
+  Dispatcharr's plugin loader additionally **re-imports the plugin module** on nearly
+  every streaming event (a reload loop in Dispatcharr itself: reacting to a stale
+  `.reload_token` re-touches it, so with more than one worker the force-reload never
+  converges — one plugin install/update can start it). Each re-import wiped the
+  bookkeeping, so every channel zap silently started a NEW background scheduler thread
+  and orphaned the old one — accumulating threads until the web workers starved and
+  nginx returned 504, while streams kept playing. Scheduler state now lives outside the
+  plugin module where the loader's reload cannot wipe it: re-arming after a module
+  re-import finds the live thread and does nothing, stopping works across re-imports,
+  and a genuine plugin update or schedule/settings change still restarts the thread.
+  If you had a schedule configured and saw the UI die during channel surfing on
+  1.26.1960020, this release is for you. (An upstream bug report about the reload loop
+  itself is included in `docs/`.)
+- **A typo in Scheduled Times (e.g. `0330 0445` — space instead of comma) no longer puts
+  every request on the slow path.** An unparseable schedule now settles as "scheduler
+  off" instead of being retried on every request.
+- **Settings changes now reach an already-running schedule.** Changing e.g. the Channel
+  Profile without touching the times used to leave the scheduled run firing with the old
+  settings until restart; any settings change now restarts the scheduler thread with the
+  fresh configuration.
+- **Clearing the schedule while a scheduled run is in flight no longer taxes later
+  requests.** The stop now releases the thread immediately (it exits on its own at its
+  next check) and logs a distinct warning instead of a misleading "stopped".
+
 ## v1.26.1960020 (July 15, 2026)
 
 ### Fixed
