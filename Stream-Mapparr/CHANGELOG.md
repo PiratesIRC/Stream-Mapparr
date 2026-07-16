@@ -1,6 +1,6 @@
 # Stream-Mapparr CHANGELOG
 
-## Unreleased
+## v1.26.1972151 (July 16, 2026)
 
 ### Added
 - **Regex pre-processing for stream names (issue #36).** Providers embed junk in stream
