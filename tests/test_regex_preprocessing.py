@@ -279,3 +279,76 @@ def test_choke_point_contract_streams_all_carry_match_name(plugin_module):
     streams = [{"name": f"S{i}"} for i in range(3)]
     plugin_module._apply_regex_rules_to_streams(streams, [])
     assert all("match_name" in s for s in streams)
+
+
+# --------------------------------------------------------------------------- #
+# Task 5 — test_regex_rules action
+# --------------------------------------------------------------------------- #
+
+def test_escape_invisibles(plugin_module):
+    esc = plugin_module._escape_invisibles
+    assert esc("BBC​ 1") == "BBC\\u200b 1"      # zero-width space escaped
+    assert esc("UK ▎BBC") == "UK \\u258e" + "BBC" or esc("UK ▎BBC") == "UK \\u258eBBC"
+    assert esc("plain name") == "plain name"          # printable text untouched
+
+
+def test_action_registered_with_label(plugin_module):
+    p = plugin_module.Plugin()
+    entry = next(a for a in p.actions if a.get("id") == "test_regex_rules")
+    assert entry.get("label")  # label-less actions are silently dropped by Dispatcharr
+
+
+def _fake_streams(plugin_module, monkeypatch, names):
+    monkeypatch.setattr(plugin_module.Plugin, "_get_all_streams",
+                        lambda self, logger: [{"name": n, "id": i}
+                                              for i, n in enumerate(names)])
+
+
+def test_action_reports_counts_and_samples(plugin_module, monkeypatch):
+    import logging
+    _fake_streams(plugin_module, monkeypatch,
+                  ["UK ▎BBC 1", "UK ▎ITV", "CNN"] + [f"S{i}" for i in range(30)])
+    p = _plugin(plugin_module)
+    settings = {"stream_name_regex_rules": json.dumps([["\\s*▎\\s*", " "]])}
+    out = p.test_regex_rules_action(settings, logging.getLogger("t"))
+    assert out["status"] == "success"
+    assert "2 of 33" in out["message"]
+    assert "\\u258e" in out["message"].lower()        # escaped rendering in samples
+    assert "→" in out["message"]
+    assert "normalization" in out["message"].lower()  # the after-this note
+    assert "all" in out["message"].lower()            # unscoped disclaimer
+
+
+def test_action_zero_streams_distinct_message(plugin_module, monkeypatch):
+    import logging
+    _fake_streams(plugin_module, monkeypatch, [])
+    p = _plugin(plugin_module)
+    out = p.test_regex_rules_action(
+        {"stream_name_regex_rules": json.dumps([["a", "b"]])}, logging.getLogger("t"))
+    assert out["status"] == "error" and "no streams" in out["message"].lower()
+
+
+def test_action_all_rules_rejected(plugin_module, monkeypatch):
+    import logging
+    _fake_streams(plugin_module, monkeypatch, ["X"])
+    p = _plugin(plugin_module)
+    out = p.test_regex_rules_action(
+        {"stream_name_regex_rules": json.dumps([["(a+)+$", ""]])}, logging.getLogger("t"))
+    assert out["status"] == "error" and "unsafe_pattern" in out["message"]
+
+
+def test_action_empty_setting(plugin_module, monkeypatch):
+    import logging
+    _fake_streams(plugin_module, monkeypatch, ["X"])
+    p = _plugin(plugin_module)
+    out = p.test_regex_rules_action({"stream_name_regex_rules": ""}, logging.getLogger("t"))
+    assert out["status"] == "error" and "no rules" in out["message"].lower()
+
+
+def test_action_renders_emptied_names(plugin_module, monkeypatch):
+    import logging
+    _fake_streams(plugin_module, monkeypatch, ["UK BBC"])
+    p = _plugin(plugin_module)
+    out = p.test_regex_rules_action(
+        {"stream_name_regex_rules": json.dumps([["^UK.*", ""]])}, logging.getLogger("t"))
+    assert "unmatchable" in out["message"]

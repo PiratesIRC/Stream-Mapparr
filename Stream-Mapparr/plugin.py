@@ -13,6 +13,7 @@ import urllib.error
 import time
 import sys
 import types
+import unicodedata
 import pytz
 try:
     import fcntl  # POSIX-only; provides the cross-worker scheduler flock (bug-069)
@@ -163,6 +164,20 @@ def _pattern_is_unsafe(pattern_text):
         return walk(parsed, False)
     except Exception:
         return True  # unexpected tree shape -> fail closed
+
+
+def _escape_invisibles(text):
+    """Render non-printing characters visibly for Test Regex Rules samples
+    (spec §6: the flagship use case is INVISIBLE junk — two identical-looking
+    strings teach the user nothing). Escapes all Unicode category C* chars and
+    the Box Drawing / Block Elements ranges (U+2500-U+259F)."""
+    out = []
+    for ch in text:
+        if unicodedata.category(ch)[0] == "C" or 0x2500 <= ord(ch) <= 0x259F:
+            out.append("\\u%04x" % ord(ch) if ord(ch) <= 0xFFFF else "\\U%08x" % ord(ch))
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def _mname(stream):
@@ -1045,6 +1060,12 @@ class Plugin:
             "button_variant": "outline",
             "button_color": "blue",
             "button_label": "📋 View Last Results",
+        },
+        {
+            "id": "test_regex_rules",
+            "label": "🧪 Test Regex Rules",
+            "description": "Preview what Stream Name Regex Rules would change (matching only; does not modify anything)",
+            "confirm": {"required": False},
         },
         {
             "id": "clear_csv_exports",
@@ -3788,6 +3809,59 @@ class Plugin:
                     "No results yet.\n\nRun Match & Assign, Sort, or Probe Throughput, then check back here."}
         return {"status": "success", "message": self._format_last_results(last)}
 
+    def test_regex_rules_action(self, settings, logger):
+        """Immediate action: preview what stream_name_regex_rules would do, against
+        ALL streams (unscoped). Read-only; spec §6."""
+        try:
+            rules, report = self._resolve_stream_regex_rules(settings)
+            rejected = [r for r in report if r["status"] != "ok"]
+            rule_lines = [f"rule {r['index'] + 1}: {r['status']}"
+                          + (f" — {r['detail']}" if r["detail"] else "")
+                          for r in report]
+            if not rules:
+                if not report:
+                    return {"status": "error",
+                            "message": "No rules configured — set Stream Name Regex Rules first."}
+                return {"status": "error",
+                        "message": "No valid rules.\n" + "\n".join(rule_lines)}
+
+            streams = self._get_all_streams(logger)
+            if not streams:
+                return {"status": "error",
+                        "message": "No streams loaded from Dispatcharr — nothing to test against."}
+
+            counters = _apply_regex_rules_to_streams(streams, rules, logger)
+            changed = [s for s in streams if s["match_name"] != s["name"]]
+            samples = []
+            for s in changed[:PluginConfig.REGEX_TEST_SAMPLES]:
+                before = _escape_invisibles(s["name"][:80])
+                after = s["match_name"][:80]
+                after = ("(empty — stream becomes unmatchable)"
+                         if not after.strip() else _escape_invisibles(after))
+                samples.append(f"{before} → {after}")
+
+            msg_parts = [
+                f"{len(rules)} rule(s) ok" + (f", {len(rejected)} rejected" if rejected else ""),
+                *[line for line in rule_lines if "ok" not in line.split(":")[1]],
+                f"{len(changed):,} of {len(streams):,} stream names would change "
+                "(tested against ALL streams — ignores M3U/group scoping).",
+            ]
+            if counters["emptied"]:
+                msg_parts.append(f"⚠ {counters['emptied']} name(s) become empty (unmatchable).")
+            if counters["skipped_long"] or counters["growth_reverted"] or counters["budget_tripped"]:
+                msg_parts.append(f"⚠ containment: {counters['skipped_long']} skipped (too long), "
+                                 f"{counters['growth_reverted']} growth-capped"
+                                 + (", time budget exceeded" if counters["budget_tripped"] else ""))
+            if samples:
+                msg_parts.append("Samples (non-printing chars escaped):")
+                msg_parts.extend(samples)
+            msg_parts.append("Note: normalization and ignore tags apply AFTER these rules — "
+                             "remaining quality tags etc. are cleaned downstream.")
+            return {"status": "success", "message": "\n".join(msg_parts)}
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] test_regex_rules failed: {e}")
+            return {"status": "error", "message": f"Test failed: {e}"}
+
     def _check_operation_lock(self, logger):
         """
         Check if an operation is currently running.
@@ -4005,6 +4079,7 @@ class Plugin:
                 "clear_operation_lock": self.clear_operation_lock_action,
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,
+                "test_regex_rules": self.test_regex_rules_action,
             }
 
             if action in background_actions:
