@@ -1065,7 +1065,9 @@ class Plugin:
             "id": "test_regex_rules",
             "label": "🧪 Test Regex Rules",
             "description": "Preview what Stream Name Regex Rules would change (matching only; does not modify anything)",
-            "confirm": {"required": False},
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "🧪 Test Rules",
         },
         {
             "id": "clear_csv_exports",
@@ -3831,7 +3833,7 @@ class Plugin:
                         "message": "No streams loaded from Dispatcharr — nothing to test against."}
 
             counters = _apply_regex_rules_to_streams(streams, rules, logger)
-            changed = [s for s in streams if s["match_name"] != s["name"]]
+            changed = [s for s in streams if s["match_name"] != (s.get("name") or "")]
             samples = []
             for s in changed[:PluginConfig.REGEX_TEST_SAMPLES]:
                 before = _escape_invisibles(s["name"][:80])
@@ -3840,9 +3842,12 @@ class Plugin:
                          if not after.strip() else _escape_invisibles(after))
                 samples.append(f"{before} → {after}")
 
+            rejected_lines = [f"rule {r['index'] + 1}: {r['status']}"
+                              + (f" — {r['detail']}" if r["detail"] else "")
+                              for r in rejected]
             msg_parts = [
                 f"{len(rules)} rule(s) ok" + (f", {len(rejected)} rejected" if rejected else ""),
-                *[line for line in rule_lines if "ok" not in line.split(":")[1]],
+                *rejected_lines,
                 f"{len(changed):,} of {len(streams):,} stream names would change "
                 "(tested against ALL streams — ignores M3U/group scoping).",
             ]
