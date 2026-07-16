@@ -11,6 +11,8 @@ import re
 import urllib.request
 import urllib.error
 import time
+import sys
+import types
 import pytz
 try:
     import fcntl  # POSIX-only; provides the cross-worker scheduler flock (bug-069)
@@ -31,20 +33,58 @@ from . import fuzzy_matcher
 from apps.channels.models import Channel, ChannelGroup, ChannelProfile, ChannelProfileMembership, ChannelStream, Stream
 from core.utils import send_websocket_update
 
-# Background scheduling globals
-_bg_thread = None
-_stop_event = threading.Event()
-# bug-127: fingerprint of the schedule the live _bg_thread was armed for, so a re-arm
-# with an UNCHANGED schedule is a no-op. __init__ arms the scheduler (bug-065) and
-# Dispatcharr re-instantiates the Plugin on nearly every request; without this, every
-# channels API call did a lock-guarded stop+join+relaunch of the scheduler thread and
-# serialized behind _scheduler_lock until nginx 504'd. None = never armed.
-_scheduler_signature = None
-# bug-065 (QA): serialize the stop-then-start sequence so concurrent Plugin()
-# construction cannot race and orphan a scheduler thread (which would run forever
-# with _stop_event cleared and fire scheduled scans twice). Re-entrant because
-# _start_background_scheduler holds it while calling _stop_background_scheduler.
-_scheduler_lock = threading.RLock()
+# Background scheduling state — parked OUTSIDE this module so it survives module
+# RE-IMPORT (bug-136). Module-level globals only survive Plugin re-instantiation;
+# Dispatcharr's loader can force-reload plugins (purge from sys.modules + re-exec)
+# on the request path — its connect-event dispatch runs discover_plugins() on every
+# client_connect/disconnect/channel_start/stop, and the reload-token protocol can
+# ping-pong force reloads between worker processes indefinitely. With globals, every
+# re-import wiped the bug-127 idempotence state, started a NEW scheduler thread per
+# event dispatch and orphaned the old one (its stop Event died with the discarded
+# module namespace) — leaking ~one thread per channel zap until the gevent worker
+# starved and nginx 504'd.
+#
+# The state lives in a synthetic sys.modules entry whose name dodges all three of
+# the loader's purge patterns (predicates copied from Dispatcharr's
+# apps/plugins/loader.py as of 2026-07 — re-check them on Dispatcharr upgrades):
+#   - _unload_package / _unload_alias purge `<name>` and `<name>.<sub>` for the
+#     package/alias name (alias for this folder = "stream_mapparr"); our name's
+#     leading underscore means it shares NO prefix with either, so even a sloppier
+#     future bare-startswith predicate cannot match it.
+#   - _unload_path_modules purges modules whose __file__ is under the plugin dir;
+#     a bare types.ModuleType has no __file__ (do not add one).
+_SCHEDULER_STATE_MODULE = "_stream_mapparr_scheduler_state"
+
+
+def _scheduler_state():
+    """Process-wide scheduler state that survives plugin module re-imports.
+
+    Attributes:
+      bg_thread   — the live scheduler thread, or None
+      stop_event  — threading.Event owned by the LIVE thread (one per thread, so a
+                    stop can never un-stop a wedged predecessor via clear())
+      signature   — _scheduler_signature_for() tuple the live arm was performed
+                    with; the version component means a hot-reloaded code update
+                    still supersedes a thread running old code (bug-136)
+      armed_live  — whether that arm actually STARTED a thread (False for an
+                    empty or unparseable scheduled_times), so the fast path
+                    compares against the achievable outcome and an invalid
+                    schedule doesn't send every request down the locked path
+      lock        — RLock serializing stop-then-start (bug-065 QA: concurrent
+                    Plugin() construction must not orphan a thread)
+    """
+    state = sys.modules.get(_SCHEDULER_STATE_MODULE)
+    if state is None:
+        candidate = types.ModuleType(_SCHEDULER_STATE_MODULE)
+        candidate.__doc__ = "Stream-Mapparr scheduler state (bug-136); not an importable module."
+        candidate.bg_thread = None
+        candidate.stop_event = None
+        candidate.signature = None
+        candidate.armed_live = False
+        candidate.lock = threading.RLock()
+        # setdefault is atomic under the GIL: concurrent first calls converge on one
+        state = sys.modules.setdefault(_SCHEDULER_STATE_MODULE, candidate)
+    return state
 
 # Setup logging - Dispatcharr provides a pre-configured logger via context
 LOGGER = logging.getLogger("plugins.stream_mapparr")
@@ -93,7 +133,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1960020"
+    PLUGIN_VERSION = "1.26.1971200"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1194,43 +1234,69 @@ class Plugin:
     @staticmethod
     def _scheduler_signature_for(settings):
         """Cheap, ORM-free fingerprint of the scheduler-relevant config (bug-127).
-        Keyed on the normalized scheduled_times string — the sole determinant of
-        whether the loop runs and when. Kept lock-free so the steady-state re-arm
-        check costs nothing."""
-        raw = (settings or {}).get("scheduled_times") or ""
-        return raw.strip()
+
+        (plugin_version, scheduled_times, settings_fingerprint):
+        - scheduled_times decides whether/when the loop runs;
+        - the VERSION means a module re-import carrying NEW plugin code (a
+          hot-reloaded update) still supersedes a live thread running the old
+          code (bug-136);
+        - the full-settings fingerprint means a content change that does NOT
+          touch the times (e.g. profile_name — which scopes what the scheduled
+          Match & Assign REPLACES) still restarts the thread, because
+          scheduler_loop closes over its arm-time settings dict and fires the
+          actions with it (QA finding M2).
+        Kept lock-free and ORM-free: it runs per request on the __init__ path."""
+        settings = settings or {}
+        raw = settings.get("scheduled_times") or ""
+        try:
+            fingerprint = json.dumps(settings, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            fingerprint = repr(settings)
+        return (PluginConfig.PLUGIN_VERSION, raw.strip(), fingerprint)
 
     def _start_background_scheduler(self, settings):
         """Ensure the background scheduler matches `settings`, idempotently.
 
         bug-127: __init__ arms the scheduler (bug-065) and Dispatcharr re-instantiates
         the Plugin on nearly every request, so this runs constantly. The old body
-        unconditionally took _scheduler_lock and did a stop (set-event + join) +
-        relaunch of the scheduler thread EVERY call; with a schedule configured there
-        was always a live thread to join, so each channels API call (e.g. the 'retrieve
-        channels by UUIDs' a channel zap fires) paid that cost and serialized behind the
-        lock until nginx 504'd. Now a re-arm with an unchanged schedule is a lock-free
-        no-op; we take the lock and (re)start only when the schedule actually changed or
-        the thread isn't in its desired state (self-heals a died/orphaned thread)."""
-        global _scheduler_signature
+        unconditionally took the lock and did a stop (set-event + join) + relaunch of
+        the scheduler thread EVERY call; with a schedule configured there was always a
+        live thread to join, so each channels API call (e.g. the 'retrieve channels by
+        UUIDs' a channel zap fires) paid that cost and serialized behind the lock until
+        nginx 504'd. A re-arm with an unchanged schedule is a lock-free no-op; we take
+        the lock and (re)start only when the schedule actually changed or the thread
+        isn't in its desired state (self-heals a died/orphaned thread).
+
+        bug-136: all state lives in _scheduler_state() (parked in sys.modules), NOT in
+        module globals, so the no-op fast path also holds across the module re-imports
+        Dispatcharr's loader performs on the request path — a re-import must not leak
+        the previous scheduler thread and relaunch."""
+        state = _scheduler_state()
         desired = self._scheduler_signature_for(settings)
-        want_live = bool(desired)
-        have_live = _bg_thread is not None and _bg_thread.is_alive()
-        if _scheduler_signature == desired and have_live == want_live:
-            return  # already in the desired state — steady-state fast path
-        with _scheduler_lock:
-            have_live = _bg_thread is not None and _bg_thread.is_alive()
-            if _scheduler_signature == desired and have_live == want_live:
+        # Compare against what the last arm actually ACHIEVED (armed_live), not what
+        # the settings ask for: an unparseable scheduled_times legitimately arms to
+        # "no thread", and treating that as unfinished business would send every
+        # request down the locked path forever (QA finding M1). A live thread dying
+        # unexpectedly still self-heals: have_live False != armed_live True.
+        # Snapshot the thread ref: this read is lock-free and bg_thread is nullable
+        # (stop sets it back to None), so a double attribute read could race a
+        # concurrent stop into None.is_alive() under preemptive threads (QA N1).
+        thread = state.bg_thread
+        have_live = thread is not None and thread.is_alive()
+        if state.signature == desired and have_live == state.armed_live:
+            return  # already in the settled state — steady-state fast path
+        with state.lock:
+            have_live = state.bg_thread is not None and state.bg_thread.is_alive()
+            if state.signature == desired and have_live == state.armed_live:
                 return
-            self._start_background_scheduler_locked(settings)
-            _scheduler_signature = desired
+            self._start_background_scheduler_locked(settings, state)
+            state.signature = desired
+            state.armed_live = state.bg_thread is not None and state.bg_thread.is_alive()
 
-    def _start_background_scheduler_locked(self, settings):
-        """Real (re)start of the scheduler. MUST be called holding _scheduler_lock
+    def _start_background_scheduler_locked(self, settings, state):
+        """Real (re)start of the scheduler. MUST be called holding state.lock
         (the public _start_background_scheduler wrapper guarantees this)."""
-        global _bg_thread
-
-        # Stop existing scheduler if running
+        # Stop existing scheduler if running (state.lock is re-entrant)
         self._stop_background_scheduler()
         
         # Parse scheduled times
@@ -1245,7 +1311,12 @@ class Plugin:
             LOGGER.info("[Stream-Mapparr] No valid scheduled times, scheduler not started")
             return
         
-        # Start new scheduler thread
+        # Start new scheduler thread. Each thread gets its OWN stop Event, captured
+        # by the closure (bug-136): the loop must never resolve the event through
+        # module globals (a re-import would strand it), and per-thread events mean a
+        # stop can never accidentally revive a wedged predecessor via clear().
+        stop_event = threading.Event()
+
         def scheduler_loop():
             import pytz
 
@@ -1264,7 +1335,7 @@ class Plugin:
             LOGGER.info(f"[Stream-Mapparr] Scheduler timezone: {tz_str}")
             LOGGER.info(f"[Stream-Mapparr] Scheduler initialized - will run at next scheduled time (not immediately)")
             
-            while not _stop_event.is_set():
+            while not stop_event.is_set():
                 try:
                     now = datetime.now(local_tz)
                     current_date = now.date()
@@ -1349,26 +1420,47 @@ class Plugin:
                             break
                     
                     # Sleep for configured interval
-                    _stop_event.wait(PluginConfig.SCHEDULER_CHECK_INTERVAL)
+                    stop_event.wait(PluginConfig.SCHEDULER_CHECK_INTERVAL)
 
                 except Exception as e:
                     LOGGER.error(f"[Stream-Mapparr] Error in scheduler loop: {e}")
-                    _stop_event.wait(PluginConfig.SCHEDULER_ERROR_WAIT)
-        
-        _bg_thread = threading.Thread(target=scheduler_loop, name="stream-mapparr-scheduler", daemon=True)
-        _bg_thread.start()
+                    stop_event.wait(PluginConfig.SCHEDULER_ERROR_WAIT)
+
+        state.stop_event = stop_event
+        state.bg_thread = threading.Thread(target=scheduler_loop, name="stream-mapparr-scheduler", daemon=True)
+        state.bg_thread.start()
         LOGGER.info(f"[Stream-Mapparr] Background scheduler started for times: {[t.strftime('%H:%M') for t in scheduled_times]}")
 
     def _stop_background_scheduler(self):
-        """Stop background scheduler thread"""
-        global _bg_thread
-        with _scheduler_lock:
-            if _bg_thread and _bg_thread.is_alive():
+        """Stop the background scheduler thread (whichever module generation started
+        it — the thread and its stop Event live in _scheduler_state(), bug-136).
+
+        The event is per-thread and stays set forever: no clear(), so a thread that
+        outlives the join timeout still exits at its next wait tick instead of being
+        silently revived. A timed-out join RELEASES state.bg_thread anyway (QA
+        finding M3): the drained thread exits on its own, and keeping the reference
+        would make every later request pay a lock-held join until it did. The arm
+        signature is cleared so a subsequent arm with the very same settings (e.g.
+        plugin re-enable after on_unload) genuinely restarts."""
+        state = _scheduler_state()
+        with state.lock:
+            thread = state.bg_thread
+            if thread and thread.is_alive():
                 LOGGER.info("Stopping background scheduler")
-                _stop_event.set()
-                _bg_thread.join(timeout=PluginConfig.SCHEDULER_STOP_TIMEOUT)
-                _stop_event.clear()
-                LOGGER.info("Background scheduler stopped")
+                if state.stop_event is not None:
+                    state.stop_event.set()
+                thread.join(timeout=PluginConfig.SCHEDULER_STOP_TIMEOUT)
+                if thread.is_alive():
+                    LOGGER.warning(
+                        "[Stream-Mapparr] Background scheduler did not stop within "
+                        f"{PluginConfig.SCHEDULER_STOP_TIMEOUT}s (a scheduled run may be "
+                        "in flight); its stop event is set and it will exit at its next check"
+                    )
+                else:
+                    LOGGER.info("Background scheduler stopped")
+            state.bg_thread = None
+            state.signature = None
+            state.armed_live = False
 
     def _check_version_update(self):
         """Check if a new version is available on GitHub."""
