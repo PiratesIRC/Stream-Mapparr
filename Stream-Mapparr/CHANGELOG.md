@@ -1,5 +1,33 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+### Added
+- **Regex pre-processing for stream names (issue #36).** Providers embed junk in stream
+  names that defeats fuzzy matching — decorative glyphs, invisible padding, bouquet
+  prefixes, badges — and each fix so far (box-bar strip, zero-width strip, mid-name tag
+  spacing, Custom Ignore Tags) covers one known shape. **Stream Name Regex Rules** is a
+  general escape hatch: a JSON list of `[find, replace]` regex pairs, applied in order to
+  stream names before normalization and Custom Aliases, so a new provider quirk no longer
+  needs a plugin release. It affects matching only — stream names in Dispatcharr are never
+  modified, and quality sorting, zone routing, country restriction, and duplicate detection
+  all continue to read the original name (a rule that strips a country prefix for matching
+  purposes can't also blind country detection or collapse two genuinely distinct failover
+  streams together). Group labels (Selected Groups / country restriction) are out of scope —
+  rules only ever touch stream names.
+  A new **🧪 Test Regex Rules** action previews the effect against every currently-loaded
+  stream without changing anything: per-rule status, an N-of-M changed count, and up to 20
+  before → after samples with invisible characters escaped so they're actually visible.
+  **Validate Settings** also reports a one-line summary (`N ok, M rejected`), with full
+  per-rule detail in the logs.
+  Guardrails: patterns with a nested unbounded quantifier or alternation shape known to
+  backtrack exponentially (e.g. `(a+)+`) are rejected before use; at runtime, names over 500
+  characters skip pre-processing, a rule chain that grows a name past 4x its original length
+  is reverted and stopped, and a regex pass is capped at 5 seconds cumulative — a bad rule
+  degrades gracefully (and is reported) instead of freezing a worker.
+  Thanks to the issue #36 reporter for the flagship example (an invisible zero-width space
+  wrapped around a decorative block glyph, `UK ▎BBC 1 FHD`).
+
 ## v1.26.1971200 (July 16, 2026)
 
 ### Fixed

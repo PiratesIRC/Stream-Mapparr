@@ -13,6 +13,7 @@ import urllib.error
 import time
 import sys
 import types
+import unicodedata
 import pytz
 try:
     import fcntl  # POSIX-only; provides the cross-worker scheduler flock (bug-069)
@@ -108,6 +109,147 @@ def coerce_timezone(value):
     return candidate
 
 
+def _sre_parse_pattern(pattern_text):
+    """Parse a regex into the stdlib's internal tree. Private API — 3.11+ moved
+    sre_parse to re._parser. Isolated here so tests can monkeypatch it."""
+    try:
+        from re import _parser as sre_parse  # Python 3.11+
+    except ImportError:  # pragma: no cover - Python <= 3.10
+        import sre_parse
+    return sre_parse.parse(pattern_text), sre_parse.MAXREPEAT
+
+
+def _pattern_is_unsafe(pattern_text):
+    """True when the pattern can backtrack exponentially — an UNBOUNDED repeat
+    whose body contains another unbounded repeat or an alternation ((x+)+,
+    (x*)*, (a|ab)+ shapes) — or when safety cannot be verified (fails CLOSED).
+    Bounded nesting like (\\d{1,3}\\.){3} stays allowed. Polynomial patterns are
+    accepted; runtime containment (input caps + cumulative budget) bounds them.
+    Spec §4 gate 3 (issue #36)."""
+    try:
+        parsed, maxrepeat = _sre_parse_pattern(pattern_text)
+    except Exception:
+        return True  # cannot verify -> reject
+
+    def walk(sub, inside_unbounded):
+        for op, av in sub:
+            name = str(op)
+            if name in ("MAX_REPEAT", "MIN_REPEAT"):
+                lo, hi, body = av
+                unbounded = hi == maxrepeat
+                if unbounded and inside_unbounded:
+                    return True
+                if walk(body, inside_unbounded or unbounded):
+                    return True
+            elif name == "BRANCH":
+                if inside_unbounded:
+                    return True
+                for branch in av[1]:
+                    if walk(branch, inside_unbounded):
+                        return True
+            elif name == "SUBPATTERN":
+                if walk(av[-1], inside_unbounded):
+                    return True
+            elif name in ("ASSERT", "ASSERT_NOT"):
+                if walk(av[1], inside_unbounded):
+                    return True
+            elif name == "ATOMIC_GROUP":  # 3.11+: (?>...) cannot backtrack out
+                if walk(av, False):
+                    return True
+            # POSSESSIVE_REPEAT (3.11+, a*+) falls through deliberately: possessive
+            # repeats cannot backtrack, so nesting inside them is not a ReDoS vector.
+        return False
+
+    try:
+        return walk(parsed, False)
+    except Exception:
+        return True  # unexpected tree shape -> fail closed
+
+
+def _escape_invisibles(text):
+    """Render non-printing characters visibly for Test Regex Rules samples
+    (spec §6: the flagship use case is INVISIBLE junk — two identical-looking
+    strings teach the user nothing). Escapes all Unicode category C* chars and
+    the Box Drawing / Block Elements ranges (U+2500-U+259F)."""
+    out = []
+    for ch in text:
+        if unicodedata.category(ch)[0] == "C" or 0x2500 <= ord(ch) <= 0x259F:
+            out.append(f"\\u{ord(ch):04x}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _mname(stream):
+    """The name MATCHING should see: regex-transformed when the choke point ran,
+    raw otherwise (structural degrade — Sort's self-built dicts etc. never pass
+    the choke point). An emptied match_name is intentionally returned as-is:
+    the len<2 guards downstream skip it. Ordering/gating/display consumers must
+    keep reading stream['name'] directly (spec §5 table)."""
+    mn = stream.get("match_name")
+    return stream["name"] if mn is None else mn
+
+
+def _apply_regex_rules_to_streams(streams, rules, logger=None):
+    """Stamp stream['match_name'] on every dict (spec §5), under the §4 gate-4
+    containment: input length cap, per-name output-growth cap (revert + stop),
+    cumulative wall-clock budget (disable rules for the rest of the pass),
+    cooperative time.sleep(0) yields (gevent). ONE aggregate warning per pass."""
+    cfg = PluginConfig
+    counters = {"changed": 0, "skipped_long": 0, "growth_reverted": 0,
+                "emptied": 0, "rule_errors": 0, "budget_tripped": False}
+    if not rules:
+        for s in streams:
+            s["match_name"] = s.get("name") or ""
+        return counters
+
+    deadline = time.monotonic() + cfg.REGEX_PASS_BUDGET_S
+    for i, s in enumerate(streams):
+        if i and i % cfg.REGEX_YIELD_EVERY == 0:
+            time.sleep(0)  # gevent: yield the worker between batches
+        name = s.get("name") or ""
+        if counters["budget_tripped"]:
+            s["match_name"] = name
+            continue
+        if time.monotonic() >= deadline:
+            counters["budget_tripped"] = True
+            s["match_name"] = name
+            continue
+        if len(name) > cfg.REGEX_NAME_MAX_LEN:
+            counters["skipped_long"] += 1
+            s["match_name"] = name
+            continue
+        limit = max(cfg.REGEX_GROWTH_FACTOR * len(name), cfg.REGEX_GROWTH_FLOOR)
+        result = name
+        for compiled, replacement in rules:
+            before = result
+            try:
+                result = compiled.sub(replacement, result)
+            except Exception:
+                counters["rule_errors"] += 1
+                result = before
+                continue
+            if len(result) > limit:
+                counters["growth_reverted"] += 1
+                result = before
+                break
+        s["match_name"] = result
+        if result != name:
+            counters["changed"] += 1
+            if not result.strip():
+                counters["emptied"] += 1
+
+    if logger and any(v for k, v in counters.items() if k != "changed"):
+        logger.warning(
+            "[Stream-Mapparr] regex pre-processing containment: "
+            f"{counters['skipped_long']} name(s) over {cfg.REGEX_NAME_MAX_LEN} chars skipped, "
+            f"{counters['growth_reverted']} growth-capped, {counters['emptied']} emptied "
+            f"(unmatchable), {counters['rule_errors']} rule error(s)"
+            + (", TIME BUDGET EXCEEDED - rules disabled for the rest of this run"
+               if counters["budget_tripped"] else ""))
+    return counters
+
+
 # ============================================================================
 # CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
 # ============================================================================
@@ -133,7 +275,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1971200"
+    PLUGIN_VERSION = "1.26.1972151"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -164,6 +306,7 @@ class PluginConfig:
     DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
     DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
     DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
+    DEFAULT_STREAM_NAME_REGEX_RULES = ""        # Empty = feature disabled
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
@@ -276,6 +419,16 @@ class PluginConfig:
         "(F)", "(D)",
         "Slow", "[Slow]", "(Slow)"
     ]
+
+    # === REGEX STREAM-NAME PRE-PROCESSING (issue #36) ===
+    REGEX_RULES_MAX = 50
+    REGEX_PATTERN_MAX_LEN = 500        # chars, pattern and replacement each
+    REGEX_NAME_MAX_LEN = 500           # names longer than this skip pre-processing
+    REGEX_GROWTH_FACTOR = 4            # per-name output cap: max(4x original, floor)
+    REGEX_GROWTH_FLOOR = 1000
+    REGEX_PASS_BUDGET_S = 5.0          # cumulative wall-clock per application pass
+    REGEX_YIELD_EVERY = 500            # names between time.sleep(0) yields
+    REGEX_TEST_SAMPLES = 20
 
 # ============================================================================
 # END CONFIGURATION
@@ -571,6 +724,20 @@ class Plugin:
                 "default": PluginConfig.DEFAULT_CUSTOM_ALIASES,
                 "placeholder": '{"My Channel": ["Provider Stream Name", "Alt Name"]}',
                 "help_text": "JSON object mapping a channel name to extra stream-name aliases (a bare string is accepted as a single alias). Streams whose name exactly matches an alias are force-matched to that channel. Leave blank to use built-in aliases only.",
+            },
+            {
+                "id": "stream_name_regex_rules",
+                "label": "🧹 Stream Name Regex Rules (JSON)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_STREAM_NAME_REGEX_RULES,
+                "placeholder": '[["\\\\s*▎\\\\s*", " "], ["\\\\bVIP\\\\b", ""]]',
+                "help_text": "JSON list of [find, replace] regex pairs applied in order "
+                             "to stream names before matching. Python regex syntax; use "
+                             "(?i) for case-insensitive. Affects MATCHING only: stream "
+                             "names in Dispatcharr are never modified, and quality "
+                             "sorting, zone routing, country restriction and duplicate "
+                             "detection still read the original name. Use the Test Regex "
+                             "Rules action to preview the effect.",
             },
             {
                 "id": "prioritize_quality",
@@ -893,6 +1060,14 @@ class Plugin:
             "button_variant": "outline",
             "button_color": "blue",
             "button_label": "📋 View Last Results",
+        },
+        {
+            "id": "test_regex_rules",
+            "label": "🧪 Test Regex Rules",
+            "description": "Preview what Stream Name Regex Rules would change (matching only; does not modify anything)",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "🧪 Test Rules",
         },
         {
             "id": "clear_csv_exports",
@@ -1651,6 +1826,75 @@ class Plugin:
                 enabled.add(db_info['id'])
         return enabled if enabled else None
 
+    def _resolve_stream_regex_rules(self, settings):
+        """Parse + gate the stream_name_regex_rules setting (spec §3/§4).
+        Returns (rules, report): rules = [(compiled, replacement)] that passed
+        every gate; report = per-rule {index, pattern, status, detail}.
+        Degrade-don't-fail: never raises. Empty/absent setting -> ([], [])."""
+        cfg = PluginConfig
+        settings = settings if isinstance(settings, dict) else {}
+        raw = (settings.get("stream_name_regex_rules") or "").strip()
+        if not raw:
+            return [], []
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, list):
+                raise ValueError("top level must be a JSON array")
+        except Exception as e:
+            LOGGER.warning(f"[Stream-Mapparr] stream_name_regex_rules: invalid JSON - "
+                           f"feature disabled: {e}")
+            return [], [{"index": 0, "pattern": raw[:80], "status": "invalid_json_shape",
+                         "detail": str(e)}]
+
+        rules, report = [], []
+        for i, entry in enumerate(data):
+            def _reject(status, detail, pattern="", i=i):
+                report.append({"index": i, "pattern": str(pattern)[:80],
+                               "status": status, "detail": detail})
+                LOGGER.warning(f"[Stream-Mapparr] regex rule {i + 1} skipped "
+                               f"({status}): {detail}")
+            if not (isinstance(entry, list) and len(entry) == 2
+                    and all(isinstance(x, str) for x in entry)):
+                _reject("invalid_json_shape", "each rule must be [\"pattern\", \"replacement\"]")
+                continue
+            pattern, replacement = entry
+            if len(rules) + 1 > cfg.REGEX_RULES_MAX:
+                _reject("too_long", f"over the {cfg.REGEX_RULES_MAX}-rule cap", pattern)
+                continue
+            if len(pattern) > cfg.REGEX_PATTERN_MAX_LEN or len(replacement) > cfg.REGEX_PATTERN_MAX_LEN:
+                _reject("too_long", f"pattern/replacement over {cfg.REGEX_PATTERN_MAX_LEN} chars", pattern)
+                continue
+            if not pattern:
+                _reject("empty_pattern", "empty find pattern matches everywhere - rejected")
+                continue
+            try:
+                compiled = re.compile(pattern)
+            except re.error as e:
+                _reject("compile_error", str(e), pattern)
+                continue
+            if _pattern_is_unsafe(pattern):
+                _reject("unsafe_pattern",
+                        "nested unbounded quantifier or alternation inside +/* can "
+                        "backtrack exponentially; rewrite without nesting +/* "
+                        "(Python 3.11+: atomic groups (?>...) / possessive a*+)", pattern)
+                continue
+            report.append({"index": i, "pattern": pattern[:80], "status": "ok", "detail": ""})
+            rules.append((compiled, replacement))
+        return rules, report
+
+    def _validate_regex_rules_setting(self, settings):
+        """Check-list lines for _validate_plugin_settings. Empty setting -> no lines
+        (no noise for non-users). Full per-rule detail goes to the log via the
+        resolver; the UI toast carries only these summary lines (spec §7)."""
+        raw = ((settings or {}).get("stream_name_regex_rules") or "").strip()
+        if not raw:
+            return []
+        rules, report = self._resolve_stream_regex_rules(settings)
+        rejected = [r for r in report if r["status"] != "ok"]
+        if rejected:
+            return [f"❌ Regex rules: {len(rules)} ok, {len(rejected)} rejected (see logs)"]
+        return [f"✅ Regex rules: {len(rules)} ok"]
+
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
         if self.fuzzy_matcher is None:
@@ -1724,14 +1968,14 @@ class Plugin:
         alias_map = getattr(self, "_alias_map", None)
         if not self.fuzzy_matcher or not alias_map:
             return []
-        stream_names = [s["name"] for s in working_streams]
+        stream_names = [_mname(s) for s in working_streams]
         hit_names = set(self.fuzzy_matcher.alias_lookup(
             channel_name, stream_names, alias_map, ignore_tags,
             ignore_quality=ignore_quality, ignore_regional=ignore_regional,
             ignore_geographic=ignore_geographic, ignore_misc=ignore_misc))
         if not hit_names:
             return []
-        return [s for s in working_streams if s["name"] in hit_names]
+        return [s for s in working_streams if _mname(s) in hit_names]
 
     def _ensure_matcher_and_aliases(self, settings):
         """Make the fuzzy matcher and alias map available regardless of entry path.
@@ -2929,8 +3173,8 @@ class Plugin:
             needs_corroboration = self._callsign_needs_corroboration(callsign)
 
             for stream in working_streams:
-                if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
-                    if needs_corroboration and not self._callsign_corroborated(stream['name'], callsign):
+                if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
+                    if needs_corroboration and not self._callsign_corroborated(_mname(stream), callsign):
                         logger.debug(
                             f"[Stream-Mapparr] Dropping uncorroborated common-word "
                             f"callsign match: {stream['name']!r} for {callsign}")
@@ -2941,14 +3185,14 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
-                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 ) for s in sorted_streams]
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Callsign match", database_used
 
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
-            stream_names = [stream['name'] for stream in working_streams]
+            stream_names = [_mname(stream) for stream in working_streams]
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                 channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
                 ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -2979,7 +3223,7 @@ class Plugin:
                     if id(stream) in alias_ids:
                         continue  # already force-included via alias
                     cleaned_stream = self._clean_channel_name(
-                        stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                        _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     )
 
@@ -3082,7 +3326,7 @@ class Plugin:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     sorted_streams = self._deduplicate_streams(sorted_streams)
                     cleaned_stream_names = [self._clean_channel_name(
-                        s['name'], ignore_tags, ignore_quality, ignore_regional,
+                        _mname(s), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     ) for s in sorted_streams]
                     reason = ("Alias match" if (alias_streams and not matched_stream_name)
@@ -3102,7 +3346,7 @@ class Plugin:
             json_channel_name = channel_info['channel_name']
             for stream in working_streams:
                 cleaned_stream_name = self._clean_channel_name(
-                    stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 )
                 if not cleaned_stream_name or len(cleaned_stream_name) < 2: continue
@@ -3115,7 +3359,7 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
-                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 ) for s in sorted_streams]
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Exact match (channels.json)", database_used
@@ -3123,7 +3367,7 @@ class Plugin:
         # Fallback to basic substring matching
         for stream in working_streams:
             cleaned_stream_name = self._clean_channel_name(
-                stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
             )
             if not cleaned_stream_name or len(cleaned_stream_name) < 2: continue
@@ -3136,7 +3380,7 @@ class Plugin:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
             sorted_streams = self._deduplicate_streams(sorted_streams)
             cleaned_stream_names = [self._clean_channel_name(
-                s['name'], ignore_tags, ignore_quality, ignore_regional,
+                _mname(s), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
             ) for s in sorted_streams]
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Basic substring match", database_used
@@ -3186,7 +3430,7 @@ class Plugin:
             matching_streams = []
 
             for stream in candidate_streams:
-                if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
+                if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
                     matching_streams.append(stream)
             
             if matching_streams:
@@ -3214,7 +3458,7 @@ class Plugin:
             self.fuzzy_matcher.match_threshold = threshold
             
             try:
-                stream_names = [stream['name'] for stream in candidate_streams]
+                stream_names = [_mname(stream) for stream in candidate_streams]
                 matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                     channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -3236,7 +3480,7 @@ class Plugin:
                         if id(stream) in alias_ids:
                             continue  # already force-included via alias
                         cleaned_stream = self._clean_channel_name(
-                            stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                            _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                             ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                         )
 
@@ -3567,6 +3811,62 @@ class Plugin:
                     "No results yet.\n\nRun Match & Assign, Sort, or Probe Throughput, then check back here."}
         return {"status": "success", "message": self._format_last_results(last)}
 
+    def test_regex_rules_action(self, settings, logger):
+        """Immediate action: preview what stream_name_regex_rules would do, against
+        ALL streams (unscoped). Read-only; spec §6."""
+        try:
+            rules, report = self._resolve_stream_regex_rules(settings)
+            rejected = [r for r in report if r["status"] != "ok"]
+            rule_lines = [f"rule {r['index'] + 1}: {r['status']}"
+                          + (f" — {r['detail']}" if r["detail"] else "")
+                          for r in report]
+            if not rules:
+                if not report:
+                    return {"status": "error",
+                            "message": "No rules configured — set Stream Name Regex Rules first."}
+                return {"status": "error",
+                        "message": "No valid rules.\n" + "\n".join(rule_lines)}
+
+            streams = self._get_all_streams(logger)
+            if not streams:
+                return {"status": "error",
+                        "message": "No streams loaded from Dispatcharr — nothing to test against."}
+
+            counters = _apply_regex_rules_to_streams(streams, rules, logger)
+            changed = [s for s in streams if s["match_name"] != (s.get("name") or "")]
+            samples = []
+            for s in changed[:PluginConfig.REGEX_TEST_SAMPLES]:
+                before = _escape_invisibles((s.get("name") or "")[:80])
+                after = s["match_name"][:80]
+                after = ("(empty — stream becomes unmatchable)"
+                         if not after.strip() else _escape_invisibles(after))
+                samples.append(f"{before} → {after}")
+
+            rejected_lines = [f"rule {r['index'] + 1}: {r['status']}"
+                              + (f" — {r['detail']}" if r["detail"] else "")
+                              for r in rejected]
+            msg_parts = [
+                f"{len(rules)} rule(s) ok" + (f", {len(rejected)} rejected" if rejected else ""),
+                *rejected_lines,
+                f"{len(changed):,} of {len(streams):,} stream names would change "
+                "(tested against ALL streams — ignores M3U/group scoping).",
+            ]
+            if counters["emptied"]:
+                msg_parts.append(f"⚠ {counters['emptied']} name(s) become empty (unmatchable).")
+            if counters["skipped_long"] or counters["growth_reverted"] or counters["budget_tripped"]:
+                msg_parts.append(f"⚠ containment: {counters['skipped_long']} skipped (too long), "
+                                 f"{counters['growth_reverted']} growth-capped"
+                                 + (", time budget exceeded" if counters["budget_tripped"] else ""))
+            if samples:
+                msg_parts.append("Samples (non-printing chars escaped):")
+                msg_parts.extend(samples)
+            msg_parts.append("Note: normalization and ignore tags apply AFTER these rules — "
+                             "remaining quality tags etc. are cleaned downstream.")
+            return {"status": "success", "message": "\n".join(msg_parts)}
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] test_regex_rules failed: {e}")
+            return {"status": "error", "message": f"Test failed: {e}"}
+
     def _check_operation_lock(self, logger):
         """
         Check if an operation is currently running.
@@ -3784,6 +4084,7 @@ class Plugin:
                 "clear_operation_lock": self.clear_operation_lock_action,
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,
+                "test_regex_rules": self.test_regex_rules_action,
             }
 
             if action in background_actions:
@@ -3997,7 +4298,7 @@ class Plugin:
             # 5. Validate at least one channel database is checked
             logger.debug("[Stream-Mapparr] Validating channel databases...")
             databases = self._get_channel_databases()
-            
+
             if not databases:
                 validation_results.append("❌ Channel Databases: No files found")
                 has_errors = True
@@ -4013,6 +4314,13 @@ class Plugin:
                     has_errors = True
                 else:
                     validation_results.append(f"✅ Channel Databases ({len(enabled_databases)})")
+
+            # 6. Validate stream name regex rules (if configured)
+            logger.debug("[Stream-Mapparr] Validating stream name regex rules...")
+            rules_lines = self._validate_regex_rules_setting(settings)
+            validation_results.extend(rules_lines)
+            if any(line.startswith("❌") for line in rules_lines):
+                has_errors = True
 
             return has_errors, validation_results
 
@@ -4385,7 +4693,7 @@ class Plugin:
                         # Analyze token mismatches
                         if threshold < current_threshold:
                             for stream in data['streams'][:2]:  # Check first 2 streams
-                                mismatch_info = self._analyze_token_mismatch(channel_name, stream['name'])
+                                mismatch_info = self._analyze_token_mismatch(channel_name, _mname(stream))
                                 if mismatch_info and len(token_mismatch_examples) < 3:
                                     token_mismatch_examples.append({
                                         'channel': channel_name,
@@ -4563,6 +4871,9 @@ class Plugin:
 
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(streams, regex_rules, logger)
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
             ignore_tags = processed_data.get('ignore_tags', [])
 
@@ -4577,7 +4888,7 @@ class Plugin:
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
-                stream_names = list(set(s['name'] for s in streams))
+                stream_names = list(set(_mname(s) for s in streams))
                 self.fuzzy_matcher.precompute_normalizations(
                     stream_names, ignore_tags,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -4749,6 +5060,8 @@ class Plugin:
             logger.info(f"[Stream-Mapparr] Preview shows {total_channels_to_update} channels will be updated")
 
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
+            if regex_rejected > 0:
+                message += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
             self._send_progress_update("preview_changes", 'success', 100, message, context)
             return {"status": "success", "message": message}
 
@@ -4839,6 +5152,9 @@ class Plugin:
 
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(streams, regex_rules, logger)
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)
             overwrite_streams = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
@@ -4855,7 +5171,7 @@ class Plugin:
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
-                stream_names = list(set(s['name'] for s in streams))
+                stream_names = list(set(_mname(s) for s in streams))
                 self.fuzzy_matcher.precompute_normalizations(
                     stream_names, ignore_tags,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -5079,6 +5395,8 @@ class Plugin:
                 success_msg += f" Skipped {channels_skipped} deleted channel(s)."
             if csv_created:
                 success_msg += f" Report: {os.path.basename(csv_created)}"
+            if regex_rejected > 0:
+                success_msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
 
             logger.info(f"[Stream-Mapparr] {success_msg}")
             details = {
@@ -5087,6 +5405,7 @@ class Plugin:
                 'streams_assigned': total_streams_added,
                 'channels_skipped': channels_skipped,
                 'csv': os.path.basename(csv_created) if csv_created else None,
+                'regex_rules_rejected': regex_rejected,
             }
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context, details)
             self._fire_webhook(settings, logger, 'add_streams_to_channels', success_msg, 'success', details)
@@ -5200,6 +5519,9 @@ class Plugin:
             # Load all streams via ORM
             logger.info("[Stream-Mapparr] Loading all streams via ORM...")
             all_streams = self._get_all_streams(logger)
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(all_streams, regex_rules, logger)
 
             if not all_streams:
                 error_msg = "No streams found in Dispatcharr"
@@ -5264,7 +5586,7 @@ class Plugin:
                 needs_corroboration = self._callsign_needs_corroboration(base_callsign)
 
                 for stream in working_streams:
-                    stream_name = stream.get('name', '')
+                    stream_name = _mname(stream)
 
                     # Search for uppercase callsign occurrences only
                     if re.search(callsign_pattern, stream_name):
@@ -5360,13 +5682,16 @@ class Plugin:
                 logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING PREVIEW COMPLETED")
                 logger.info(f"[Stream-Mapparr] Matched {len(matched_channels)} channels")
                 logger.info(f"[Stream-Mapparr] CSV preview: {csv_filepath}")
-                
+
+                dry_run_msg = (
+                    f"Dry run complete. Matched {len(matched_channels)} OTA channel(s). "
+                    f"Disable Dry Run Mode to assign. Report: {csv_filename}"
+                )
+                if regex_rejected > 0:
+                    dry_run_msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
                 return {
                     "status": "success",
-                    "message": (
-                        f"Dry run complete. Matched {len(matched_channels)} OTA channel(s). "
-                        f"Disable Dry Run Mode to assign. Report: {csv_filename}"
-                    ),
+                    "message": dry_run_msg,
                 }
             
             # Assign streams to channels (LIVE MODE using Django ORM)
@@ -5417,12 +5742,15 @@ class Plugin:
             if error_count > 0:
                 msg += f" {error_count} error(s)."
             msg += f" Report: {csv_filename}"
+            if regex_rejected > 0:
+                msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
             details = {
                 'dry_run': False,
                 'channels_matched': len(matched_channels),
                 'channels_assigned': success_count,
                 'errors': error_count,
                 'csv': csv_filename,
+                'regex_rules_rejected': regex_rejected,
             }
             self._send_progress_update('match_us_ota_only', 'success', 100, msg, context, details)
             self._fire_webhook(settings, logger, 'match_us_ota_only', msg, 'success', details)

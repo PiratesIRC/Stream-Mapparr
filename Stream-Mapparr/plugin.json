@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.1971200",
+  "version": "1.26.1972151",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -98,6 +98,14 @@
       "confirm": {
         "message": "This will enable or disable channels based on the current settings. Continue?"
       }
+    },
+    {
+      "id": "test_regex_rules",
+      "label": "\ud83e\udde0 Test Regex Rules",
+      "description": "Preview what Stream Name Regex Rules would do, against all streams (read-only).",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\ud83e\udde0 Test Rules"
     },
     {
       "id": "view_check_progress",
