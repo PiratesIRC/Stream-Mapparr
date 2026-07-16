@@ -1945,14 +1945,14 @@ class Plugin:
         alias_map = getattr(self, "_alias_map", None)
         if not self.fuzzy_matcher or not alias_map:
             return []
-        stream_names = [s["name"] for s in working_streams]
+        stream_names = [_mname(s) for s in working_streams]
         hit_names = set(self.fuzzy_matcher.alias_lookup(
             channel_name, stream_names, alias_map, ignore_tags,
             ignore_quality=ignore_quality, ignore_regional=ignore_regional,
             ignore_geographic=ignore_geographic, ignore_misc=ignore_misc))
         if not hit_names:
             return []
-        return [s for s in working_streams if s["name"] in hit_names]
+        return [s for s in working_streams if _mname(s) in hit_names]
 
     def _ensure_matcher_and_aliases(self, settings):
         """Make the fuzzy matcher and alias map available regardless of entry path.
@@ -3150,8 +3150,8 @@ class Plugin:
             needs_corroboration = self._callsign_needs_corroboration(callsign)
 
             for stream in working_streams:
-                if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
-                    if needs_corroboration and not self._callsign_corroborated(stream['name'], callsign):
+                if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
+                    if needs_corroboration and not self._callsign_corroborated(_mname(stream), callsign):
                         logger.debug(
                             f"[Stream-Mapparr] Dropping uncorroborated common-word "
                             f"callsign match: {stream['name']!r} for {callsign}")
@@ -3162,14 +3162,14 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
-                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 ) for s in sorted_streams]
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Callsign match", database_used
 
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
-            stream_names = [stream['name'] for stream in working_streams]
+            stream_names = [_mname(stream) for stream in working_streams]
             matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                 channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
                 ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -3200,7 +3200,7 @@ class Plugin:
                     if id(stream) in alias_ids:
                         continue  # already force-included via alias
                     cleaned_stream = self._clean_channel_name(
-                        stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                        _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     )
 
@@ -3303,7 +3303,7 @@ class Plugin:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
                     sorted_streams = self._deduplicate_streams(sorted_streams)
                     cleaned_stream_names = [self._clean_channel_name(
-                        s['name'], ignore_tags, ignore_quality, ignore_regional,
+                        _mname(s), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                     ) for s in sorted_streams]
                     reason = ("Alias match" if (alias_streams and not matched_stream_name)
@@ -3323,7 +3323,7 @@ class Plugin:
             json_channel_name = channel_info['channel_name']
             for stream in working_streams:
                 cleaned_stream_name = self._clean_channel_name(
-                    stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 )
                 if not cleaned_stream_name or len(cleaned_stream_name) < 2: continue
@@ -3336,7 +3336,7 @@ class Plugin:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
                 sorted_streams = self._deduplicate_streams(sorted_streams)
                 cleaned_stream_names = [self._clean_channel_name(
-                    s['name'], ignore_tags, ignore_quality, ignore_regional,
+                    _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 ) for s in sorted_streams]
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Exact match (channels.json)", database_used
@@ -3344,7 +3344,7 @@ class Plugin:
         # Fallback to basic substring matching
         for stream in working_streams:
             cleaned_stream_name = self._clean_channel_name(
-                stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
             )
             if not cleaned_stream_name or len(cleaned_stream_name) < 2: continue
@@ -3357,7 +3357,7 @@ class Plugin:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
             sorted_streams = self._deduplicate_streams(sorted_streams)
             cleaned_stream_names = [self._clean_channel_name(
-                s['name'], ignore_tags, ignore_quality, ignore_regional,
+                _mname(s), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
             ) for s in sorted_streams]
             return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Basic substring match", database_used
@@ -3407,7 +3407,7 @@ class Plugin:
             matching_streams = []
 
             for stream in candidate_streams:
-                if re.search(callsign_pattern, stream['name'], re.IGNORECASE):
+                if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
                     matching_streams.append(stream)
             
             if matching_streams:
@@ -3435,7 +3435,7 @@ class Plugin:
             self.fuzzy_matcher.match_threshold = threshold
             
             try:
-                stream_names = [stream['name'] for stream in candidate_streams]
+                stream_names = [_mname(stream) for stream in candidate_streams]
                 matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                     channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -3457,7 +3457,7 @@ class Plugin:
                         if id(stream) in alias_ids:
                             continue  # already force-included via alias
                         cleaned_stream = self._clean_channel_name(
-                            stream['name'], ignore_tags, ignore_quality, ignore_regional,
+                            _mname(stream), ignore_tags, ignore_quality, ignore_regional,
                             ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                         )
 
@@ -4613,7 +4613,7 @@ class Plugin:
                         # Analyze token mismatches
                         if threshold < current_threshold:
                             for stream in data['streams'][:2]:  # Check first 2 streams
-                                mismatch_info = self._analyze_token_mismatch(channel_name, stream['name'])
+                                mismatch_info = self._analyze_token_mismatch(channel_name, _mname(stream))
                                 if mismatch_info and len(token_mismatch_examples) < 3:
                                     token_mismatch_examples.append({
                                         'channel': channel_name,
@@ -4791,6 +4791,9 @@ class Plugin:
 
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(streams, regex_rules, logger)
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
             ignore_tags = processed_data.get('ignore_tags', [])
 
@@ -4805,7 +4808,7 @@ class Plugin:
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
-                stream_names = list(set(s['name'] for s in streams))
+                stream_names = list(set(_mname(s) for s in streams))
                 self.fuzzy_matcher.precompute_normalizations(
                     stream_names, ignore_tags,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -4977,6 +4980,8 @@ class Plugin:
             logger.info(f"[Stream-Mapparr] Preview shows {total_channels_to_update} channels will be updated")
 
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
+            if regex_rejected > 0:
+                message += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
             self._send_progress_update("preview_changes", 'success', 100, message, context)
             return {"status": "success", "message": message}
 
@@ -5067,6 +5072,9 @@ class Plugin:
 
             channels = processed_data.get('channels', [])
             streams = processed_data.get('streams', [])
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(streams, regex_rules, logger)
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)
             overwrite_streams = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
@@ -5083,7 +5091,7 @@ class Plugin:
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
-                stream_names = list(set(s['name'] for s in streams))
+                stream_names = list(set(_mname(s) for s in streams))
                 self.fuzzy_matcher.precompute_normalizations(
                     stream_names, ignore_tags,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -5307,6 +5315,8 @@ class Plugin:
                 success_msg += f" Skipped {channels_skipped} deleted channel(s)."
             if csv_created:
                 success_msg += f" Report: {os.path.basename(csv_created)}"
+            if regex_rejected > 0:
+                success_msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
 
             logger.info(f"[Stream-Mapparr] {success_msg}")
             details = {
@@ -5428,6 +5438,9 @@ class Plugin:
             # Load all streams via ORM
             logger.info("[Stream-Mapparr] Loading all streams via ORM...")
             all_streams = self._get_all_streams(logger)
+            regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
+            regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
+            _apply_regex_rules_to_streams(all_streams, regex_rules, logger)
 
             if not all_streams:
                 error_msg = "No streams found in Dispatcharr"
@@ -5492,7 +5505,7 @@ class Plugin:
                 needs_corroboration = self._callsign_needs_corroboration(base_callsign)
 
                 for stream in working_streams:
-                    stream_name = stream.get('name', '')
+                    stream_name = _mname(stream)
 
                     # Search for uppercase callsign occurrences only
                     if re.search(callsign_pattern, stream_name):
@@ -5588,13 +5601,16 @@ class Plugin:
                 logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING PREVIEW COMPLETED")
                 logger.info(f"[Stream-Mapparr] Matched {len(matched_channels)} channels")
                 logger.info(f"[Stream-Mapparr] CSV preview: {csv_filepath}")
-                
+
+                dry_run_msg = (
+                    f"Dry run complete. Matched {len(matched_channels)} OTA channel(s). "
+                    f"Disable Dry Run Mode to assign. Report: {csv_filename}"
+                )
+                if regex_rejected > 0:
+                    dry_run_msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
                 return {
                     "status": "success",
-                    "message": (
-                        f"Dry run complete. Matched {len(matched_channels)} OTA channel(s). "
-                        f"Disable Dry Run Mode to assign. Report: {csv_filename}"
-                    ),
+                    "message": dry_run_msg,
                 }
             
             # Assign streams to channels (LIVE MODE using Django ORM)
@@ -5645,6 +5661,8 @@ class Plugin:
             if error_count > 0:
                 msg += f" {error_count} error(s)."
             msg += f" Report: {csv_filename}"
+            if regex_rejected > 0:
+                msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
             details = {
                 'dry_run': False,
                 'channels_matched': len(matched_channels),

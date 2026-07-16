@@ -230,3 +230,52 @@ def test_validate_reports_rules_section(plugin_module, monkeypatch):
     good = p._validate_regex_rules_setting(
         {"stream_name_regex_rules": json.dumps([["ok", ""]])})
     assert len(good) == 1 and good[0].startswith("✅")
+
+
+# --------------------------------------------------------------------------- #
+# Task 4 — consumer split + end-to-end
+# --------------------------------------------------------------------------- #
+
+def test_dedup_keys_on_raw_name(plugin_module):
+    """Two distinct streams whose match_names collide must BOTH survive dedup."""
+    p = _plugin(plugin_module)
+    streams = [
+        {"name": "BBC 1 FHD", "match_name": "BBC 1", "m3u_account": 1, "id": 1},
+        {"name": "BBC 1",     "match_name": "BBC 1", "m3u_account": 1, "id": 2},
+    ]
+    assert len(p._deduplicate_streams(streams)) == 2
+
+
+def test_alias_roundtrip_uses_match_name_on_both_ends(plugin_module, monkeypatch):
+    p = _plugin(plugin_module)
+    p._alias_map = {"dummy": ["dummy"]}
+    captured = {}
+
+    class FakeMatcher:
+        def alias_lookup(self, channel_name, stream_names, *a, **k):
+            captured["names"] = list(stream_names)
+            return [stream_names[0]]  # hit the first TRANSFORMED name
+
+    p.fuzzy_matcher = FakeMatcher()
+    streams = [{"name": "UK ▎BBC 1", "match_name": "BBC 1"},
+               {"name": "CNN", "match_name": "CNN"}]
+    hits = p._collect_alias_streams("BBC 1", streams, [], True, True, True, True)
+    assert captured["names"] == ["BBC 1", "CNN"]   # lookup saw transformed names
+    assert hits == [streams[0]]                    # recovery found the stream again
+
+
+def test_end_to_end_junk_stripping_enables_match(plugin_module, fuzzy_module, tmp_path):
+    """A name that fails un-regexed matches once the rule strips the junk.
+    Uses a junk token that survives normalization (letters glued to the brand)."""
+    matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=85)
+    raw = "XJUNKX BBC 1"          # 'XJUNKX' is a real token; tanks the token-sort score
+    name_after = _re.sub(r"XJUNKX\s*", "", raw)
+    m1, s1, _ = matcher.fuzzy_match("BBC 1", [raw], [])
+    m2, s2, _ = matcher.fuzzy_match("BBC 1", [name_after], [])
+    assert s2 > s1 and m2  # the transformed name matches where the raw one scores lower
+
+
+def test_choke_point_contract_streams_all_carry_match_name(plugin_module):
+    streams = [{"name": f"S{i}"} for i in range(3)]
+    plugin_module._apply_regex_rules_to_streams(streams, [])
+    assert all("match_name" in s for s in streams)
