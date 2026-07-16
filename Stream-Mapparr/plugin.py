@@ -108,6 +108,61 @@ def coerce_timezone(value):
     return candidate
 
 
+def _sre_parse_pattern(pattern_text):
+    """Parse a regex into the stdlib's internal tree. Private API — 3.11+ moved
+    sre_parse to re._parser. Isolated here so tests can monkeypatch it."""
+    try:
+        from re import _parser as sre_parse  # Python 3.11+
+    except ImportError:  # pragma: no cover - Python <= 3.10
+        import sre_parse
+    return sre_parse.parse(pattern_text), sre_parse.MAXREPEAT
+
+
+def _pattern_is_unsafe(pattern_text):
+    """True when the pattern can backtrack exponentially — an UNBOUNDED repeat
+    whose body contains another unbounded repeat or an alternation ((x+)+,
+    (x*)*, (a|ab)+ shapes) — or when safety cannot be verified (fails CLOSED).
+    Bounded nesting like (\\d{1,3}\\.){3} stays allowed. Polynomial patterns are
+    accepted; runtime containment (input caps + cumulative budget) bounds them.
+    Spec §4 gate 3 (issue #36)."""
+    try:
+        parsed, maxrepeat = _sre_parse_pattern(pattern_text)
+    except Exception:
+        return True  # cannot verify -> reject
+
+    def walk(sub, inside_unbounded):
+        for op, av in sub:
+            name = str(op)
+            if name in ("MAX_REPEAT", "MIN_REPEAT"):
+                lo, hi, body = av
+                unbounded = hi == maxrepeat
+                if unbounded and inside_unbounded:
+                    return True
+                if walk(body, inside_unbounded or unbounded):
+                    return True
+            elif name == "BRANCH":
+                if inside_unbounded:
+                    return True
+                for branch in av[1]:
+                    if walk(branch, inside_unbounded):
+                        return True
+            elif name == "SUBPATTERN":
+                if walk(av[-1], inside_unbounded):
+                    return True
+            elif name in ("ASSERT", "ASSERT_NOT"):
+                if walk(av[1], inside_unbounded):
+                    return True
+            elif name == "ATOMIC_GROUP":  # 3.11+: (?>...) cannot backtrack out
+                if walk(av, False):
+                    return True
+        return False
+
+    try:
+        return walk(parsed, False)
+    except Exception:
+        return True  # unexpected tree shape -> fail closed
+
+
 # ============================================================================
 # CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
 # ============================================================================
@@ -276,6 +331,16 @@ class PluginConfig:
         "(F)", "(D)",
         "Slow", "[Slow]", "(Slow)"
     ]
+
+    # === REGEX STREAM-NAME PRE-PROCESSING (issue #36) ===
+    REGEX_RULES_MAX = 50
+    REGEX_PATTERN_MAX_LEN = 500        # chars, pattern and replacement each
+    REGEX_NAME_MAX_LEN = 500           # names longer than this skip pre-processing
+    REGEX_GROWTH_FACTOR = 4            # per-name output cap: max(4x original, floor)
+    REGEX_GROWTH_FLOOR = 1000
+    REGEX_PASS_BUDGET_S = 5.0          # cumulative wall-clock per application pass
+    REGEX_YIELD_EVERY = 500            # names between time.sleep(0) yields
+    REGEX_TEST_SAMPLES = 20
 
 # ============================================================================
 # END CONFIGURATION
@@ -1650,6 +1715,61 @@ class Plugin:
             if val:
                 enabled.add(db_info['id'])
         return enabled if enabled else None
+
+    def _resolve_stream_regex_rules(self, settings):
+        """Parse + gate the stream_name_regex_rules setting (spec §3/§4).
+        Returns (rules, report): rules = [(compiled, replacement)] that passed
+        every gate; report = per-rule {index, pattern, status, detail}.
+        Degrade-don't-fail: never raises. Empty/absent setting -> ([], [])."""
+        cfg = PluginConfig
+        raw = ((settings or {}).get("stream_name_regex_rules") or "").strip()
+        if not raw:
+            return [], []
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, list):
+                raise ValueError("top level must be a JSON array")
+        except (ValueError, TypeError) as e:
+            LOGGER.warning(f"[Stream-Mapparr] stream_name_regex_rules: invalid JSON - "
+                           f"feature disabled: {e}")
+            return [], [{"index": 0, "pattern": raw[:80], "status": "invalid_json_shape",
+                         "detail": str(e)}]
+
+        rules, report = [], []
+        for i, entry in enumerate(data):
+            def _reject(status, detail, pattern=""):
+                report.append({"index": i, "pattern": str(pattern)[:80],
+                               "status": status, "detail": detail})
+                LOGGER.warning(f"[Stream-Mapparr] regex rule {i + 1} skipped "
+                               f"({status}): {detail}")
+            if not (isinstance(entry, list) and len(entry) == 2
+                    and all(isinstance(x, str) for x in entry)):
+                _reject("invalid_json_shape", "each rule must be [\"pattern\", \"replacement\"]")
+                continue
+            pattern, replacement = entry
+            if len(rules) + 1 > cfg.REGEX_RULES_MAX:
+                _reject("too_long", f"over the {cfg.REGEX_RULES_MAX}-rule cap", pattern)
+                continue
+            if len(pattern) > cfg.REGEX_PATTERN_MAX_LEN or len(replacement) > cfg.REGEX_PATTERN_MAX_LEN:
+                _reject("too_long", f"pattern/replacement over {cfg.REGEX_PATTERN_MAX_LEN} chars", pattern)
+                continue
+            if not pattern:
+                _reject("empty_pattern", "empty find pattern matches everywhere - rejected")
+                continue
+            try:
+                compiled = re.compile(pattern)
+            except re.error as e:
+                _reject("compile_error", str(e), pattern)
+                continue
+            if _pattern_is_unsafe(pattern):
+                _reject("unsafe_pattern",
+                        "nested unbounded quantifier or alternation inside +/* can "
+                        "backtrack exponentially; rewrite without nesting +/* "
+                        "(Python 3.11+: atomic groups (?>...) / possessive a*+)", pattern)
+                continue
+            report.append({"index": i, "pattern": pattern[:80], "status": "ok", "detail": ""})
+            rules.append((compiled, replacement))
+        return rules, report
 
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
