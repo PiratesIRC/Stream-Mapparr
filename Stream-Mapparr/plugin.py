@@ -3836,7 +3836,7 @@ class Plugin:
             changed = [s for s in streams if s["match_name"] != (s.get("name") or "")]
             samples = []
             for s in changed[:PluginConfig.REGEX_TEST_SAMPLES]:
-                before = _escape_invisibles(s["name"][:80])
+                before = _escape_invisibles((s.get("name") or "")[:80])
                 after = s["match_name"][:80]
                 after = ("(empty — stream becomes unmatchable)"
                          if not after.strip() else _escape_invisibles(after))
@@ -5405,6 +5405,7 @@ class Plugin:
                 'streams_assigned': total_streams_added,
                 'channels_skipped': channels_skipped,
                 'csv': os.path.basename(csv_created) if csv_created else None,
+                'regex_rules_rejected': regex_rejected,
             }
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context, details)
             self._fire_webhook(settings, logger, 'add_streams_to_channels', success_msg, 'success', details)
@@ -5749,6 +5750,7 @@ class Plugin:
                 'channels_assigned': success_count,
                 'errors': error_count,
                 'csv': csv_filename,
+                'regex_rules_rejected': regex_rejected,
             }
             self._send_progress_update('match_us_ota_only', 'success', 100, msg, context, details)
             self._fire_webhook(settings, logger, 'match_us_ota_only', msg, 'success', details)

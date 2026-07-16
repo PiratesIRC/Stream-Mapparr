@@ -120,7 +120,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Stream Groups** | string | (all) | Specific stream groups to use, comma-separated |
 | **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
 | **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table |
-| **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\s*▎\s*", " "], ["\bVIP\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
+| **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\\s*▎\\s*", " "], ["\\bVIP\\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
 | **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |

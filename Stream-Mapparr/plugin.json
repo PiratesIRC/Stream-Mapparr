@@ -100,6 +100,14 @@
       }
     },
     {
+      "id": "test_regex_rules",
+      "label": "\ud83e\udde0 Test Regex Rules",
+      "description": "Preview what Stream Name Regex Rules would do, against all streams (read-only).",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "\ud83e\udde0 Test Rules"
+    },
+    {
       "id": "view_check_progress",
       "label": "\ud83d\udcca View Check Progress",
       "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
