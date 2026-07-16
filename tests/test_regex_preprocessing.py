@@ -178,7 +178,6 @@ def test_emptied_name_counted(plugin_module):
 
 def test_rule_error_falls_back_to_pre_failure_value(plugin_module, monkeypatch):
     rules = _rules(plugin_module, [["B", "C"], ["X", "Y"]])
-    boom = _re.compile("X")
     def raising_sub(repl, s):
         raise RuntimeError("boom")
     # replace rule 2 with a raiser to exercise the defensive path

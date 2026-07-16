@@ -51,6 +51,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 ### Matching
 - **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
 - **Channel-name aliases**: A built-in US alias table plus a user-editable **Custom Aliases** JSON setting force-include known aliases into a channel's matches, independent of the fuzzy threshold
+- **Regex pre-processing** (opt-in, issue #36): User-supplied `[find, replace]` regex rules run on stream names before normalization and aliases — a general escape hatch for provider junk (decorative glyphs, invisible padding, bouquet prefixes) that doesn't fit an existing built-in fix. Matching only; see [Regex pre-processing](#regex-pre-processing) below
 - **Stylized-name normalization**: Matches streams whose names use stylized-Unicode markers (superscript/small-caps such as `ᴿᴬᵂ`/`ꜰʜᴅ`), emoji-as-letters (`beIN SP⚽RTS` → SPORTS), or numeric resolution tags (`3840P`/`1080p`) — these are stripped or normalized before matching, collision-safe and non-Latin-safe
 - **Box-bar tag/delimiter stripping**: Provider and country tags built from box-bar characters `┃` (U+2503) and `│` (U+2502) are stripped before matching — a leading bouquet tag (`┃CANAL+┃ NPO 1` → `NPO 1`), a box bar used as a colon after a country code (`NL┃ NPO 1` → `NPO 1`), and matched pairs (`┃US┃` / `│US│`). A stray single bar is left alone
 - **Invisible zero-width character stripping**: Some providers pad stream names with invisible Unicode format characters (zero-width space `U+200B`, zero-width joiners, word joiner `U+2060`, BOM `U+FEFF`, soft hyphen, bidi marks) — often wrapped around a decorative block glyph like `▎` (`UK ␣▎␣BBC 1 FHD`). These are matched by neither a normal space nor the visible-symbol strip, so they used to survive and silently wreck matching for the whole provider; they are now removed up front, so `UK ▎BBC 1 FHD` matches `BBC 1`
@@ -119,6 +120,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Stream Groups** | string | (all) | Specific stream groups to use, comma-separated |
 | **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
 | **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table |
+| **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\s*▎\s*", " "], ["\bVIP\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
 | **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
@@ -145,6 +147,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | Action | Description |
 |:---|:---|
 | **Validate Settings** | Check configuration, profiles, groups, databases |
+| **Test Regex Rules** | Preview what Stream Name Regex Rules would change, against every stream currently loaded (ignores Selected Groups / M3U scoping) — per-rule status, an N-of-M changed count, and up to 20 before → after samples with invisible characters escaped so they're actually visible |
 | **Load/Process Channels** | Load channel and stream data from database |
 | **Preview Changes** | Dry-run with CSV export |
 | **Match & Assign Streams** | Fuzzy match and assign streams to channels |
@@ -155,6 +158,50 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **View Check Progress** | Show the current operation's progress (%) and ETA |
 | **View Last Results** | Show a summary of the last completed operation |
 | **Clear CSV Exports** | Delete all plugin CSV files |
+
+## Regex pre-processing
+
+Some providers pad or decorate stream names in ways that defeat fuzzy matching — decorative
+glyphs, invisible padding, bouquet prefixes, badges. **Stream Name Regex Rules** is a general
+escape hatch: user-supplied regex find/replace rules run on stream names before anything else
+touches them, so novel provider junk doesn't need a plugin release to fix.
+
+**Example (issue #36):** a provider padded stream names with an invisible zero-width space
+wrapped around a decorative block glyph — `UK ▎BBC 1 FHD`, where `▎` (U+258E) is flanked by
+invisible characters a normal eyeball never sees. A rule like `[["\\s*▎\\s*", " "]]` collapses
+that back to `UK BBC 1 FHD`, which then normalizes and matches `BBC 1` normally.
+
+Pipeline order:
+
+```
+raw stream name → [regex rules] → normalization / ignore tags → aliases → fuzzy match
+```
+
+Rules run **before** normalization/ignore-tag stripping and **before** Custom Aliases, matching
+the order requested in the issue. Rules apply in the order given in the JSON list — later rules
+see earlier rules' output.
+
+Two scope notes:
+
+- **Quality sorting, zone routing, country restriction and duplicate detection read the
+  original name — rules affect matching only.** Stream names in Dispatcharr are never
+  modified, and identity/ordering logic (duplicate detection's stream key, country-restriction's
+  country detection, zone routing, quality sort) all key on the untouched name, so a rule that,
+  say, strips a country prefix for matching purposes can't also blind country detection or
+  collapse two genuinely distinct failover streams into one.
+- **Group labels are out of scope.** Selected Groups and country restriction read *group* names
+  literally — rules only ever touch stream *names*, never group labels or channel names.
+
+Feedback loop: **Validate Settings** reports a one-line summary (`N ok, M rejected`) with full
+per-rule detail in the logs; the **🧪 Test Regex Rules** action (see Actions above) shows real
+before → after samples — with invisible characters escaped so they're actually visible — against
+every currently-loaded stream, without changing anything.
+
+Guardrails: a rule is statically rejected up front if it contains a nested unbounded quantifier
+or alternation shape known to backtrack exponentially (e.g. `(a+)+`). At runtime, names over 500
+characters skip regex pre-processing, a rule chain that grows a name past 4x its original length
+is reverted and stopped, and an entire regex pass is capped at 5 seconds cumulative — so a bad
+rule degrades gracefully (and is reported) instead of freezing a worker.
 
 ## Scheduling
 

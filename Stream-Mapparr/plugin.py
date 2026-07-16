@@ -174,7 +174,7 @@ def _escape_invisibles(text):
     out = []
     for ch in text:
         if unicodedata.category(ch)[0] == "C" or 0x2500 <= ord(ch) <= 0x259F:
-            out.append("\\u%04x" % ord(ch) if ord(ch) <= 0xFFFF else "\\U%08x" % ord(ch))
+            out.append(f"\\u{ord(ch):04x}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08x}")
         else:
             out.append(ch)
     return "".join(out)
@@ -275,7 +275,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1971200"
+    PLUGIN_VERSION = "1.26.1972151"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1848,7 +1848,7 @@ class Plugin:
 
         rules, report = [], []
         for i, entry in enumerate(data):
-            def _reject(status, detail, pattern=""):
+            def _reject(status, detail, pattern="", i=i):
                 report.append({"index": i, "pattern": str(pattern)[:80],
                                "status": status, "detail": detail})
                 LOGGER.warning(f"[Stream-Mapparr] regex rule {i + 1} skipped "
