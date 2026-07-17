@@ -1,6 +1,6 @@
 # Dispatcharr bug report — perpetual cross-worker plugin force-reload ("reload-token ping-pong")
 
-**Status:** draft, not yet filed upstream.
+**Status:** FILED upstream 2026-07-17 as [Dispatcharr/Dispatcharr#1452](https://github.com/Dispatcharr/Dispatcharr/issues/1452) (OPEN, Triage). Filed via the web bug-report FORM — the template-enforcer bot auto-closes+locks any issue created via gh/API (#1450/#1451 died that way); see buglog bug-138.
 **Severity:** High — degrades the web UI to nginx 504 over time on affected installs; any plugin
 that starts a background resource from `__init__` leaks one instance per HTTP streaming event.
 
