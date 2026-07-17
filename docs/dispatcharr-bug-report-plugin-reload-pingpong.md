@@ -1,9 +1,25 @@
 # Dispatcharr bug report — perpetual cross-worker plugin force-reload ("reload-token ping-pong")
 
 **Status:** draft, not yet filed upstream.
-**Dispatcharr version observed:** 0.27.2 (also reproduced on a second, independent installation).
 **Severity:** High — degrades the web UI to nginx 504 over time on affected installs; any plugin
 that starts a background resource from `__init__` leaks one instance per HTTP streaming event.
+
+## Environment (issue-template fields)
+
+- **Dispatcharr Version:** 0.27.2 (verified on install 2 via `/app/version.py`; image
+  `ghcr.io/dispatcharr/dispatcharr:latest`). Install 1 (independent user report) runs a
+  0.27.x build — its logs show the connect-event dispatch introduced in 0.27.
+- **Docker Version:** install 2: Docker 29.6.1 (Docker Desktop, Windows/WSL2, default NAT
+  networking). Install 1: Linux host, Docker version not collected. The bug is
+  independent of the container runtime — it lives in the loader's reload-token protocol.
+- **Docker Compose:** standard single-container AIO deployment on both installs (`/data`
+  named volume, web port published). Nothing compose-specific is required beyond the
+  DEFAULT multi-worker uWSGI configuration that ships in the image (`gevent = 400`,
+  multiple workers) — ≥2 processes dispatching connect events is the only precondition.
+- **Client Information:** any client that starts/stops proxied TS streams triggers the
+  event dispatch; observed with TiviMate on Nvidia Shield (both installs) during ordinary
+  channel zapping. Clients are only the event *source* — the defect is entirely
+  server-side, and one zap per few seconds is enough to sustain the loop.
 
 ## Summary
 
@@ -67,7 +83,7 @@ Three pieces interact (`apps/plugins/loader.py`, `apps/connect/utils.py`):
 
 ## Evidence
 
-**Install 1 (user report, 0.27.2, 4 uWSGI workers).** During ordinary channel zapping, the log
+**Install 1 (user report, 0.27.x, 4 uWSGI workers).** During ordinary channel zapping, the log
 shows the full cycle once per zap, on every worker PID (211–214):
 
 ```
@@ -111,7 +127,7 @@ shows the full cycle once per zap, on every worker PID (211–214):
 
 ## Plugin-side mitigation (what we shipped meanwhile)
 
-Stream-Mapparr ≥ 1.26.196xxxx parks its scheduler state (thread handle, stop event, arm
+Stream-Mapparr ≥ 1.26.1971200 (released 2026-07-16) parks its scheduler state (thread handle, stop event, arm
 signature, lock) in a synthetic `sys.modules` entry whose name matches none of the loader's
 purge patterns and which carries no `__file__`, so a re-import finds the live thread and
 re-arming stays a no-op. That removes the thread leak for this one plugin but cannot remove the
