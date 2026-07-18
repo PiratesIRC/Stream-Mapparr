@@ -275,7 +275,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.1972151"
+    PLUGIN_VERSION = "1.26.1992013"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -308,6 +308,7 @@ class PluginConfig:
     DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
     DEFAULT_STREAM_NAME_REGEX_RULES = ""        # Empty = feature disabled
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
+    DEFAULT_ALLOW_SAME_NAME_STREAMS = False     # Opt-in: keep distinct same-named streams from one source (bug-140)
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
     DEFAULT_RATE_LIMITING = "none"              # Options: none, low, medium, high
@@ -745,6 +746,13 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_PRIORITIZE_QUALITY,
                 "help_text": "When enabled, alternate streams will be sorted by quality first and then by M3U source priority. When disabled, M3U source priority is applied before quality.",
+            },
+            {
+                "id": "allow_same_name_streams",
+                "label": "🧬 Keep Same-Named Streams From One Source",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS,
+                "help_text": "When disabled (default), streams sharing a name within the same M3U source are treated as duplicates and only the first is assigned. Enable this if your provider publishes several genuinely different feeds under one identical name (for example four 'DAZN F1' streams) - they will then all be assigned as failover alternates. Streams sharing a name across DIFFERENT sources are always kept either way, and true duplicates (same name, source and URL) are always collapsed.",
             },
             {
                 "id": "restrict_matching_to_country",
@@ -1804,6 +1812,28 @@ class Plugin:
         if isinstance(im, str): im = im.lower() in ('true', 'yes', '1')
         return bool(iq), bool(ir), bool(ig), bool(im)
 
+    def _resolve_prioritize_quality(self, settings):
+        """Resolve the 'prioritize_quality' toggle from the LIVE settings dict.
+
+        bug-139: this used to be resolved only inside load_process_channels_action,
+        so sort_streams_action (which never calls it) always fell through the
+        `getattr(self, '_prioritize_quality', False)` default in the comparator and
+        ordered by source first. Resolve from the `settings` argument Dispatcharr
+        passes to run() — NOT from self.saved_settings, which is hydrated from the
+        stream_mapparr_settings.json snapshot and is documented to drift from the DB.
+        """
+        value = settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)
+        if isinstance(value, str):
+            value = value.lower() in ('true', 'yes', '1')
+        return bool(value)
+
+    def _resolve_allow_same_name_streams(self, settings):
+        """Resolve the opt-in 'allow_same_name_streams' toggle (bug-140)."""
+        value = settings.get('allow_same_name_streams', PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS)
+        if isinstance(value, str):
+            value = value.lower() in ('true', 'yes', '1')
+        return bool(value)
+
     def _resolve_enabled_databases(self, settings):
         """Resolve which channel databases are enabled from new channel_database select or legacy db_enabled_XX booleans.
         Returns set of enabled country codes (e.g., {'US', 'UK'}) or None for all."""
@@ -2015,8 +2045,9 @@ class Plugin:
 
     def _get_all_streams(self, logger):
         """Fetch all streams via Django ORM, returning dicts compatible with existing processing logic."""
+        # 'url' is fetched for the allow_same_name_streams dedup key (bug-140).
         return list(Stream.objects.all().values(
-            'id', 'name', 'm3u_account', 'channel_group', 'channel_group__name'
+            'id', 'name', 'm3u_account', 'url', 'channel_group', 'channel_group__name'
         ))
 
     def _get_all_m3u_accounts(self, logger):
@@ -2800,7 +2831,7 @@ class Plugin:
                 logger.error(f"[Stream-Mapparr] Error checking IPTV Checker status: {e} - proceeding anyway")
                 return True
 
-    def _deduplicate_streams(self, streams):
+    def _deduplicate_streams(self, streams, allow_same_name_streams=False):
         """Remove duplicate streams based on (stream name, M3U account).
 
         Keeps the first occurrence of each unique (name, M3U account) pair.
@@ -2811,8 +2842,22 @@ class Plugin:
         Stream.m3u_account. Only true duplicates within the same provider
         collapse.
 
+        bug-140: some providers publish several genuinely DIFFERENT feeds under
+        one identical name in one account (a reporter's four "DAZN F1" FORMULA 1
+        streams), and the (name, account) key discarded all but the first. With
+        `allow_same_name_streams` the URL joins the key, so those survive as
+        failover alternates while a true duplicate (same name, account AND url)
+        still collapses. Opt-in, because widening the key increases how many
+        streams get assigned per channel for everyone otherwise.
+
+        Streams whose dict carries no 'url' (not every caller builds them from
+        _get_all_streams) fall back to the legacy key rather than being treated
+        as all-distinct on missing data.
+
         Args:
             streams: List of stream dictionaries
+            allow_same_name_streams: Include the URL in the key so distinct
+                same-named streams from one source are all kept.
 
         Returns:
             List of deduplicated stream dictionaries
@@ -2826,6 +2871,10 @@ class Plugin:
             # sources both survive. Streams without an account share the key
             # (name, None), which is fine for non-M3U streams.
             dedup_key = (stream_name, stream.get('m3u_account'))
+            if allow_same_name_streams:
+                # Missing/blank url degrades to the legacy key (None), so a dict
+                # without a url cannot masquerade as a distinct feed.
+                dedup_key = dedup_key + (stream.get('url') or None,)
             if stream_name and dedup_key not in seen_keys:
                 seen_keys.add(dedup_key)
                 deduplicated.append(stream)
@@ -3115,7 +3164,8 @@ class Plugin:
     def _match_streams_to_channel(self, channel, all_streams, logger, ignore_tags=None,
                                   ignore_quality=True, ignore_regional=True, ignore_geographic=True,
                                   ignore_misc=True, channels_data=None, filter_dead=False,
-                                  restrict_matching_to_country=False):
+                                  restrict_matching_to_country=False,
+                                  allow_same_name_streams=False):
         """Find matching streams for a channel using fuzzy matching when available."""
         if ignore_tags is None:
             ignore_tags = []
@@ -3183,7 +3233,7 @@ class Plugin:
 
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                 cleaned_stream_names = [self._clean_channel_name(
                     _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3324,7 +3374,7 @@ class Plugin:
 
                 if matching_streams:
                     sorted_streams = self._sort_streams_by_quality(matching_streams)
-                    sorted_streams = self._deduplicate_streams(sorted_streams)
+                    sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                     cleaned_stream_names = [self._clean_channel_name(
                         _mname(s), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3357,7 +3407,7 @@ class Plugin:
 
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                 cleaned_stream_names = [self._clean_channel_name(
                     _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3378,7 +3428,7 @@ class Plugin:
 
         if matching_streams:
             sorted_streams = self._sort_streams_by_quality(matching_streams)
-            sorted_streams = self._deduplicate_streams(sorted_streams)
+            sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
             cleaned_stream_names = [self._clean_channel_name(
                 _mname(s), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3389,7 +3439,8 @@ class Plugin:
 
     def _get_matches_at_thresholds(self, channel, all_streams, logger, ignore_tags, ignore_quality,
                                    ignore_regional, ignore_geographic, ignore_misc, channels_data,
-                                   current_threshold, restrict_matching_to_country=False):
+                                   current_threshold, restrict_matching_to_country=False,
+                                   allow_same_name_streams=False):
         """Get streams that match at different threshold levels.
 
         Returns a dict with threshold levels as keys and matched streams as values.
@@ -3435,7 +3486,7 @@ class Plugin:
             
             if matching_streams:
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                 results[f"callsign_{current_threshold}"] = {
                     'streams': sorted_streams,
                     'match_type': 'Callsign match'
@@ -3494,7 +3545,7 @@ class Plugin:
 
                     if matching_streams:
                         sorted_streams = self._sort_streams_by_quality(matching_streams)
-                        sorted_streams = self._deduplicate_streams(sorted_streams)
+                        sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                         results[threshold] = {
                             'streams': sorted_streams,
                             'match_type': match_type if matched_stream_name else "alias",
@@ -4381,10 +4432,7 @@ class Plugin:
             visible_channel_limit = int(visible_channel_limit_str) if visible_channel_limit_str else PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT
 
             # New option: prioritize quality before M3U source priority when sorting alternates
-            prioritize_quality = settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)
-            if isinstance(prioritize_quality, str):
-                prioritize_quality = prioritize_quality.lower() in ('true', 'yes', '1')
-            self._prioritize_quality = bool(prioritize_quality)
+            self._prioritize_quality = self._resolve_prioritize_quality(settings)
 
             ignore_quality, ignore_regional, ignore_geographic, ignore_misc = self._resolve_ignore_flags(settings)
 
@@ -4534,6 +4582,7 @@ class Plugin:
                 "ignore_misc": ignore_misc,
                 "filter_dead_streams": settings.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS),
                 "restrict_matching_to_country": settings.get('restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY),
+                "allow_same_name_streams": self._resolve_allow_same_name_streams(settings),
                 "channels": channels_to_process,
                 "streams": all_streams_data
             }
@@ -4885,6 +4934,9 @@ class Plugin:
             restrict_matching_to_country = processed_data.get(
                 'restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY
             )
+            allow_same_name_streams = bool(processed_data.get(
+                'allow_same_name_streams', PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS
+            ))
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
@@ -4944,7 +4996,8 @@ class Plugin:
                 # Get matches at current threshold for the primary channel
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
-                    ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country
+                    ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
+                    allow_same_name_streams
                 )
 
                 # Track group stats
@@ -4965,7 +5018,8 @@ class Plugin:
                     threshold_matches = self._get_matches_at_thresholds(
                         channel, streams, logger, ignore_tags, ignore_quality,
                         ignore_regional, ignore_geographic, ignore_misc, channels_data,
-                        current_threshold, restrict_matching_to_country
+                        current_threshold, restrict_matching_to_country,
+                        allow_same_name_streams
                     )
                     
                     # Store threshold analysis for recommendations
@@ -5168,6 +5222,9 @@ class Plugin:
             restrict_matching_to_country = processed_data.get(
                 'restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY
             )
+            allow_same_name_streams = bool(processed_data.get(
+                'allow_same_name_streams', PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS
+            ))
 
             # Pre-normalize stream names for matching performance
             if self.fuzzy_matcher and streams:
@@ -5229,7 +5286,8 @@ class Plugin:
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
-                    ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country
+                    ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
+                    allow_same_name_streams
                 )
 
                 # Track group stats
@@ -5427,6 +5485,7 @@ class Plugin:
         5. Assigns matched streams (or previews if dry run enabled)
         """
         try:
+            allow_same_name_streams = self._resolve_allow_same_name_streams(settings)
             # Check dry run mode
             dry_run = settings.get('dry_run_mode', False)
             if isinstance(dry_run, str):
@@ -5601,7 +5660,7 @@ class Plugin:
                 
                 # Sort streams by quality
                 sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams)
+                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
                 
                 # Add to matched channels list
                 matched_channels.append({
@@ -5772,7 +5831,16 @@ class Plugin:
             
             mode_label = "DRY RUN (Preview)" if dry_run else "LIVE MODE"
             logger.info(f"[Stream-Mapparr] === SORT STREAMS ACTION STARTED ({mode_label}) ===")
-            
+
+            # bug-139: Sort never calls load_process_channels_action, so it must resolve
+            # this itself — otherwise _sort_streams_by_quality falls through its getattr
+            # default and orders by M3U source before quality regardless of the setting.
+            self._prioritize_quality = self._resolve_prioritize_quality(settings)
+            logger.info(
+                f"[Stream-Mapparr] Prioritize quality: {self._prioritize_quality} "
+                f"({'quality tier before M3U source' if self._prioritize_quality else 'M3U source before quality tier'})"
+            )
+
             # Get settings
             profile_name = settings.get('profile_name', '').strip()
             if profile_name == "_none":

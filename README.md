@@ -129,6 +129,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Rate Limiting** | select | None | None / Low / Medium / High |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
 | **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group |
+| **Keep Same-Named Streams From One Source** | boolean | False | By default, streams sharing a name within one M3U source are treated as duplicates and only the first is assigned. Enable if your provider publishes several genuinely different feeds under one identical name (e.g. four streams all called `DAZN F1`) so they are all kept as failover alternates. Streams sharing a name across *different* sources are always kept; true duplicates (same name, source and URL) are always collapsed |
 | **Webhook URL** | string | (blank) | HTTP(S) endpoint to POST JSON summary on completion (see below) |
 | **Fire Webhook On Completion** | boolean | False | Enable webhook delivery for Match & Assign / Match OTA / Sort Streams |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |

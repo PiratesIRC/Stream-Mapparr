@@ -1,5 +1,31 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.1992013 (July 18, 2026)
+
+### Fixed
+- **Sort Streams ignored "Prioritize Quality" (bug-139).** With the setting ticked, the
+  Sort Streams action still ordered alternates by M3U source first and quality only within
+  each source — a channel with nine streams came out grouped three-by-three by provider.
+  The toggle was read from settings in exactly one place, `load_process_channels_action`,
+  which cached it on the plugin instance; Sort never calls that action, so the comparator's
+  `getattr(..., False)` default silently won every time. Match & Assign and Preview were
+  unaffected because both load channels first. Sort now resolves the setting itself, from
+  the live settings, and logs which ordering it applied so this is visible in the logs
+  rather than only in the resulting stream order.
+  Thanks to the reporter for the screenshot that made the three-by-three grouping obvious.
+
+### Added
+- **Keep Same-Named Streams From One Source (bug-140, opt-in, default off).** Some providers
+  publish several genuinely different feeds under one identical name in a single M3U account
+  (a reporter had four distinct `DAZN F1` streams, all named exactly that). Duplicate
+  detection keys on name plus source, so three of the four were discarded and the channel
+  got a single stream — while the same provider's `Dazn Mundial 1..4` matched all four,
+  purely because those were numbered. Enabling this setting adds the stream URL to the
+  duplicate key, so distinct feeds sharing a name are all assigned as failover alternates.
+  True duplicates (same name, same source and same URL) still collapse, and identically
+  named streams from *different* sources are still kept either way. Off by default, so
+  existing setups are unchanged until the setting is ticked.
+
 ## v1.26.1972151 (July 16, 2026)
 
 ### Added

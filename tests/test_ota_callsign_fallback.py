@@ -70,7 +70,7 @@ def test_match_ota_by_paren_callsign_without_db_entry(plugin_module, fuzzy_modul
     p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=95)
     # Isolate downstream quality sort / dedup so we test only the match logic.
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 1, "name": "ABC - TX Dallas (WFAA)"}
     streams = [
@@ -92,7 +92,7 @@ def test_premium_channel_without_callsign_still_uses_fuzzy(plugin_module, fuzzy_
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=80)
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 2, "name": "ESPN"}
     streams = [{"id": 20, "name": "ESPN", "m3u_account": 1}]
@@ -209,7 +209,7 @@ def test_common_word_callsign_rejects_unrelated_streams(plugin_module, real_matc
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = real_matcher
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 1, "name": "NBC - WA Seattle (KING)"}
     streams = [
@@ -234,7 +234,7 @@ def test_common_word_callsign_keeps_affiliate_with_other_network(plugin_module, 
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = real_matcher
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 2, "name": "FOX - PA Scranton (WOLF)"}
     streams = [
@@ -270,7 +270,7 @@ def test_event_channel_with_common_word_name_not_grabbed_by_affiliate(plugin_mod
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = real_matcher
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 1, "name": "US: 24/7 KING OF THE HILL"}
     streams = [
@@ -292,7 +292,7 @@ def test_normal_callsign_unaffected_by_corroboration_guard(plugin_module, real_m
     p = _bare_plugin(plugin_module)
     p.fuzzy_matcher = real_matcher
     p._sort_streams_by_quality = lambda s: s
-    p._deduplicate_streams = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
 
     channel = {"id": 3, "name": "ABC - TX Dallas (WFAA)"}
     streams = [
