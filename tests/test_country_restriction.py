@@ -1571,3 +1571,189 @@ def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, 
     assert constructed_order == [2, 1], (
         f"expected the group-confirmed same-country stream (2) first even though "
         f"the channel is not zone-routed, got {constructed_order}")
+
+
+# ============================================================================
+# bug-161 review D1: the OTA exemption must key off the signal that ACTUALLY
+# decides OTA at runtime, not `_is_ota_channel(channel_info)` alone.
+#
+# `_is_ota_channel` is true only when the channel-DATABASE entry itself
+# carries a `callsign` field. Verified against all twelve shipped
+# `*_channels.json` files: zero entries carry a `callsign` key, zero entries
+# have a `type` containing "broadcast". Production OTA matching therefore
+# runs entirely through the bug-063 fallback (`_resolve_ota_callsign`, a
+# parenthesized callsign in the Dispatcharr channel name itself), which is
+# exactly what the tests below drive: `channels_data=[]` (the real shape --
+# no channel-database entry at all) and a channel name carrying a
+# parenthesized callsign, e.g. "CW - Chicago (WGN)".
+# ============================================================================
+
+from pathlib import Path  # noqa: E402
+
+PLUGIN_DIR = Path(__file__).resolve().parent.parent / "Stream-Mapparr"
+
+
+def _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path):
+    """A Plugin instance wired with a FuzzyMatcher pointed at an EMPTY
+    plugin_dir (no networks.json), so `_resolve_ota_callsign` cannot resolve
+    an FCC-validated station and must fall through to the bug-063
+    paren-callsign extraction -- the exact path production takes for every
+    OTA channel, since none of the shipped databases carry a callsign entry
+    either."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.fuzzy_matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=85)
+    return inst
+
+
+def test_real_shape_ota_channel_keeps_state_code_collision_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """The exact reviewer repro: 'CW - Chicago (WGN)' vs a stream carrying
+    group 'IL: CHICAGO' (Israel under country.py's prefix detection), with
+    channels_data=[] -- no channel-database entry at all, the real
+    production shape. Before the D1 fix this returned [] because
+    _is_ota_channel(None) is always False, so `not
+    self._is_ota_channel(channel_info)` evaluated to True and the country
+    filter ran (and dropped everything) BEFORE the callsign matcher ever saw
+    the streams.
+
+    Mutation this catches: reverting the exemption guard in
+    _match_streams_to_channel from `not self._channel_ota_callsign(channel,
+    channel_info)` back to `not self._is_ota_channel(channel_info)`."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    # Channel group "US: LOCALS" gives the CHANNEL a resolvable country (US) --
+    # without this the country filter fails open regardless of the OTA guard
+    # (bug-159 fail-open design), which would make this test pass even under
+    # the pre-fix, broken exemption. This is the reviewer's exact repro shape.
+    channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "US: LOCALS"}
+    streams = [
+        # The callsign-match regex searches the stream NAME, so "WGN" must be
+        # in the name; the collision under test is carried by the GROUP.
+        {"id": 1, "name": "WGN Chicago", "channel_group__name": "IL: CHICAGO",
+         "m3u_account": 1, "url": "u1"},
+    ]
+    matched, _, _, reason, _ = inst._match_streams_to_channel(
+        channel, streams, LOGGER, channels_data=[], restrict_matching_to_country=True)
+    assert reason == "Callsign match"
+    assert [s["id"] for s in matched] == [1]
+
+
+def test_real_shape_ota_stream_name_collision_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """Same repro, collision carried in the STREAM NAME instead of its group:
+    'IL: CHICAGO WGN'. Independently exercises the name-based country.py path
+    (country_from_name) rather than the group-based one."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "US: LOCALS"}
+    streams = [
+        {"id": 1, "name": "IL: CHICAGO WGN", "channel_group__name": None,
+         "m3u_account": 1, "url": "u1"},
+    ]
+    matched, _, _, reason, _ = inst._match_streams_to_channel(
+        channel, streams, LOGGER, channels_data=[], restrict_matching_to_country=True)
+    assert reason == "Callsign match"
+    assert [s["id"] for s in matched] == [1]
+
+
+def test_real_shape_ota_arkansas_argentina_collision_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """Second reviewer repro: 'CBS - AR Little Rock (KTHV)' vs stream group
+    'AR: LITTLE ROCK' (Argentina), channels_data=[]. Channel group "US: LOCALS"
+    gives the CHANNEL a resolvable country -- see the note on the IL test."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    channel = {"id": 1, "name": "CBS - AR Little Rock (KTHV)", "channel_group__name": "US: LOCALS"}
+    streams = [
+        {"id": 1, "name": "KTHV Little Rock", "channel_group__name": "AR: LITTLE ROCK",
+         "m3u_account": 1, "url": "u1"},
+    ]
+    matched, _, _, reason, _ = inst._match_streams_to_channel(
+        channel, streams, LOGGER, channels_data=[], restrict_matching_to_country=True)
+    assert reason == "Callsign match"
+    assert [s["id"] for s in matched] == [1]
+
+
+def test_real_shape_get_matches_at_thresholds_ota_exemption_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """_get_matches_at_thresholds must reach the same OTA verdict as
+    _match_streams_to_channel for the country-filter exemption, even though
+    (documented, pre-existing, not fixed here) its own callsign-MATCHING
+    branch still only fires for a database callsign entry and so never
+    actually callsign-matches this channel. The exemption must still hold:
+    with channels_data=[], the IL-collision stream must survive into
+    candidate_streams and (since it fails the OTA callsign-match branch here)
+    fall through to fuzzy threshold matching rather than being silently
+    dropped by the country filter first."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "US: LOCALS"}
+    streams = [
+        {"id": 1, "name": "CW Chicago", "channel_group__name": "IL: CHICAGO",
+         "m3u_account": 1, "url": "u1"},
+    ]
+    # Spy on candidate_streams by stubbing fuzzy_match to record what it saw.
+    seen = []
+    real_fuzzy_match = inst.fuzzy_matcher.fuzzy_match
+
+    def spying_fuzzy_match(channel_name, stream_names, *a, **k):
+        seen.append(list(stream_names))
+        return real_fuzzy_match(channel_name, stream_names, *a, **k)
+
+    inst.fuzzy_matcher.fuzzy_match = spying_fuzzy_match
+    inst._get_matches_at_thresholds(
+        channel, streams, LOGGER, [], True, True, True, True, [], 85,
+        restrict_matching_to_country=True)
+    assert seen, "fuzzy_match was never called"
+    assert "CW Chicago" in seen[0], (
+        "the IL-collision stream was dropped before ever reaching fuzzy matching "
+        f"(saw {seen[0]!r})")
+
+
+def test_real_shape_same_country_ids_for_ota_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """_same_country_ids_for must also recognize the bug-063-fallback OTA
+    channel and decline to compute a country partition for it. Channel group
+    "US: LOCALS" gives the channel a resolvable country (US) -- without it
+    _same_country_ids_for returns None anyway (channel_country_code
+    unresolvable, bug-159 fail-open), which would make this assertion pass
+    even under the pre-fix, broken OTA guard; with "US: LOCALS" the mutation
+    below returns an empty SET (the IL stream classified FOREIGN against US),
+    not None, so the two are genuinely distinguishable."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "US: LOCALS"}
+    stream = {"id": 1, "name": "IL: CHICAGO WGN", "channel_group__name": None,
+              "m3u_account": 1, "url": "u1"}
+    ids = inst._same_country_ids_for(channel, [stream], [], LOGGER, True)
+    assert ids is None
+
+
+def test_real_shape_group_key_ota_not_qualified_via_paren_fallback(
+    plugin_module, fuzzy_module, tmp_path
+):
+    """_group_key_for_channel must also decline to country-qualify a
+    bug-063-fallback OTA channel's group key (which, per the documented
+    pre-existing gap in _build_channel_groups, is the CLEANED NAME here,
+    not an OTA_<callsign> key -- see the note on _build_channel_groups)."""
+    inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
+    channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "IL: CHICAGO"}
+    key = inst._group_key_for_channel("cw chicago", channel, None, True)
+    assert key == "cw chicago"
+
+
+def test_real_us_channels_json_has_no_broadcast_callsign_entries(plugin_module):
+    """Documents the exact production data shape this whole review round is
+    about: loads the REAL shipped US_channels.json and asserts zero entries
+    carry a callsign key or a type containing "broadcast". If this ever
+    stops being true (the database gains real OTA entries), _is_ota_channel
+    would start being a live signal again and this test would need revisiting
+    -- it is a canary, not just documentation."""
+    import json
+    with open(PLUGIN_DIR / "US_channels.json", encoding="utf-8") as f:
+        data = json.load(f)
+    channels = data["channels"]
+    assert channels, "US_channels.json loaded no channels -- test fixture broken"
+    assert not any("callsign" in c for c in channels)
+    assert not any("broadcast" in str(c.get("type", "")).lower() for c in channels)

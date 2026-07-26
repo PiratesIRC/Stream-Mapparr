@@ -2264,12 +2264,16 @@ class Plugin:
         bug-161: returns None for an OTA channel (exempt from the filter, see
         _match_streams_to_channel), so a same-name-collision stream is never
         promoted to order 0 by a country code that is not even being enforced.
+        Uses `_channel_ota_callsign`, NOT `_is_ota_channel(channel_info)` alone
+        (review D1) -- that predicate is False for every channel in the
+        shipped databases, which made the original guard dead code; the real
+        runtime OTA signal is the bug-063 paren-callsign fallback.
         """
         if not restrict_matching_to_country:
             return None
         channel_info, channel_info_matches = self._get_channel_info_and_matches(
             channel, channels_data, logger, True, channel_info_cache)
-        if self._is_ota_channel(channel_info):
+        if self._channel_ota_callsign(channel, channel_info):
             return None
         channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
         if not channel_country_code:
@@ -3147,6 +3151,33 @@ class Plugin:
                     return callsign
         return self._extract_paren_callsign(channel_name)
 
+    def _channel_ota_callsign(self, channel, channel_info):
+        """The callsign that will actually gate OTA matching for `channel` at
+        runtime, or None for a non-OTA channel (bug-161 review D1).
+
+        `_is_ota_channel(channel_info)` is true ONLY when the channel-DATABASE
+        entry itself carries a `callsign` field. None of the twelve shipped
+        `*_channels.json` files carry one (verified: zero `callsign` keys, zero
+        `type` values containing "broadcast" across all twelve) -- production
+        OTA matching runs entirely through the bug-063 fallback
+        (`_resolve_ota_callsign`, a parenthesized callsign in the Dispatcharr
+        channel name itself, e.g. "CW - Chicago (WGN)"). A country-filter
+        exemption keyed on `_is_ota_channel` alone is therefore dead code
+        against real data: `channel_info` is None on the fallback path, so
+        "not OTA" wins and the filter prunes streams before the callsign
+        matcher ever sees them.
+
+        Every site that decides whether the country filter applies to a
+        channel must go through this one function (never `_is_ota_channel`
+        alone), or the filter's notion of "is this channel OTA" can drift from
+        the callsign matcher's. `_resolve_ota_callsign` runs once per CHANNEL,
+        never per stream, so this stays cheap even though several call sites
+        each invoke it once for the same channel within one action run.
+        """
+        if self._is_ota_channel(channel_info):
+            return channel_info['callsign']
+        return self._resolve_ota_callsign(channel.get('name')) if channel else None
+
     def _callsign_needs_corroboration(self, callsign):
         """True when an OTA callsign is also a common English word (KING/WHO/
         WOLF/WAVE/WOOD/WEEK...). These live in the matcher's callsign denylist
@@ -3339,6 +3370,18 @@ class Plugin:
             channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
         database_used = channel_info.get('_country_code', 'N/A') if channel_info else 'N/A'
 
+        # Determine the OTA callsign for this channel EARLY (bug-161 review
+        # D1): the country-filter exemption below and the callsign matcher
+        # further down must agree on OTA-ness, and resolving it once here
+        # (instead of once for the exemption check and again for matching)
+        # keeps this a single per-CHANNEL call, not per-stream. Prefer the
+        # database entry, but fall back to a callsign carried in parentheses
+        # in the Dispatcharr channel name (e.g. "ABC - AL Montgomery (WNCF)")
+        # via _channel_ota_callsign -- see its docstring: NONE of the shipped
+        # channel databases carry a `callsign` entry, so this fallback is the
+        # ONLY path that ever resolves a callsign in production. bug-063.
+        callsign = self._channel_ota_callsign(channel, channel_info)
+
         # bug-158: country restriction. The filter only REMOVES proven-foreign
         # streams — it must never REORDER working_streams, because that list feeds
         # fuzzy_matcher.fuzzy_match() whose single winning name gates the whole
@@ -3352,8 +3395,12 @@ class Plugin:
         # country filter contributes nothing for them and only creates this
         # collision. A blanket US-state denylist was rejected: "CA:" is one of
         # the reporter's genuine foreign markers this branch exists to catch.
+        # Gated on `callsign` (the resolved runtime signal), NOT
+        # `_is_ota_channel(channel_info)` alone -- that predicate is False for
+        # every real OTA channel (see _channel_ota_callsign), which made the
+        # original guard dead code against the shipped databases.
         same_country_ids = None
-        if restrict_matching_to_country and not self._is_ota_channel(channel_info):
+        if restrict_matching_to_country and not callsign:
             channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
@@ -3389,16 +3436,9 @@ class Plugin:
         if "24/7" in channel_name.lower():
             logger.debug(f"[Stream-Mapparr] Cleaned channel name for matching: {cleaned_channel_name}")
 
-        # Determine the OTA callsign for this channel. Prefer the database
-        # entry, but fall back to a callsign carried in parentheses in the
-        # Dispatcharr channel name (e.g. "ABC - AL Montgomery (WNCF)") so OTA
-        # affiliates still match by callsign when US_channels.json has no
-        # broadcast/callsign entry for them. bug-063.
-        if self._is_ota_channel(channel_info):
-            callsign = channel_info['callsign']
-        else:
-            callsign = self._resolve_ota_callsign(channel_name)
-
+        # `callsign` was already resolved above (bug-063 database-or-paren-
+        # fallback via _channel_ota_callsign) so the country-filter exemption
+        # and this callsign match agree on OTA-ness without a second lookup.
         if callsign:
             logger.debug(f"[Stream-Mapparr] Matching OTA channel: {channel_name} using callsign: {callsign}")
 
@@ -3655,13 +3695,26 @@ class Plugin:
             channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
         channel_has_max = 'max' in channel_name.lower()
 
-        # bug-161: OTA channels are exempt from the country filter (see
-        # _match_streams_to_channel for the full rationale) -- matched by FCC
-        # callsign, not name/group, so the filter only creates US-state/
-        # country-code collisions ("IL:", "AR:") for them.
+        # bug-161 review D1: the exemption below must use the SAME runtime
+        # OTA signal _match_streams_to_channel uses (_channel_ota_callsign),
+        # not `_is_ota_channel(channel_info)` alone -- that predicate is False
+        # for every channel in the shipped databases (none carry a `callsign`
+        # entry), which made the original guard dead code. This is a
+        # per-CHANNEL call, not per-stream, and the `restrict_matching_to_country
+        # and` short-circuit keeps it from running at all on the setting-OFF
+        # path (byte-identical cost).
+        #
+        # NOTE (pre-existing, not fixed here): the callsign-MATCHING branch a
+        # few lines down still gates on `_is_ota_channel(channel_info)` only,
+        # so it never actually fires against the shipped databases either --
+        # Preview's threshold scan has no bug-063 paren-callsign fallback of
+        # its own and falls through to fuzzy threshold matching for every real
+        # OTA channel, unlike _match_streams_to_channel. This fix only makes
+        # the two AGREE on which channels are OTA for the country filter; it
+        # does not change which one actually callsign-matches.
         candidate_streams = all_streams
         same_country_ids = None
-        if restrict_matching_to_country and not self._is_ota_channel(channel_info):
+        if restrict_matching_to_country and not self._channel_ota_callsign(channel, channel_info):
             channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
@@ -4266,15 +4319,25 @@ class Plugin:
         stayed hands-off.
 
         bug-161: OTA channels are never qualified, even when the setting is on.
-        `base_key` is already `OTA_<callsign>` for them (see _build_channel_groups)
-        -- callsign is a stronger, per-channel identity than a country code, and
-        since OTA is now exempt from the filter itself (_match_streams_to_channel,
+        `base_key` is already `OTA_<callsign>` for them when the channel-database
+        entry itself supplies a callsign (see _build_channel_groups) -- callsign
+        is a stronger, per-channel identity than a country code, and since OTA
+        is now exempt from the filter itself (_match_streams_to_channel,
         _get_matches_at_thresholds, _same_country_ids_for), qualifying its group
         key with a country would be inconsistent: it would still split e.g. two
         same-callsign channels loaded from different country databases even
         though nothing downstream ever enforces that split for OTA.
+
+        Uses `_channel_ota_callsign`, NOT `_is_ota_channel(channel_info)` alone
+        (review D1): that predicate is False for every channel in the shipped
+        databases (none carry a `callsign` entry), so gating on it alone left
+        `_build_channel_groups`' bug-063-fallback OTA channels (cleaned-name
+        base_key, not `OTA_<callsign>` -- see the note in _build_channel_groups)
+        still eligible for country-qualification. `restrict_to_country` is
+        checked FIRST so `_channel_ota_callsign` never runs on the setting-OFF
+        path (byte-identical cost).
         """
-        if not restrict_to_country or self._is_ota_channel(channel_info):
+        if not restrict_to_country or self._channel_ota_callsign(channel, channel_info):
             return base_key
         code = self._channel_country_code(channel, channel_info, channel_info_matches)
         return f"{base_key}@@{code}" if code else base_key
@@ -4295,6 +4358,18 @@ class Plugin:
         channel per group" latch then enabled only one of the two countries --
         silently undoing the fix this branch shipped. All three call sites
         must build groups through this one function or they can disagree again.
+
+        NOTE (bug-161 review D1, pre-existing, NOT fixed here): the
+        `OTA_<callsign>` grouping branch below is gated on
+        `_is_ota_channel(channel_info)` alone, which is False for every
+        channel in the shipped databases (none carry a `callsign` entry -- see
+        `_channel_ota_callsign`'s docstring). So in production every OTA
+        channel groups by its cleaned NAME here, never by callsign, even
+        though `_match_streams_to_channel` matches it by callsign via the
+        bug-063 paren-callsign fallback. This is unrelated to the country
+        filter (grouping happens whether or not `restrict_matching_to_country`
+        is set) and predates this branch; flagged for a future fix, not
+        addressed as part of bug-161's scope.
         """
         channel_groups = {}
         for channel in channels:
