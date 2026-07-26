@@ -456,3 +456,33 @@ def test_assignment_path_preserves_country_order_over_zone(plugin_module):
         [generic, same_west], [], LOGGER, True)
     out = inst._streams_for_channel([generic, same_west], 9, {9: "DEFAULT"}, ids)
     assert [s["id"] for s in out] == [2, 1]
+
+
+def test_same_country_ids_for_returns_none_on_ambiguous_database_no_tiebreak(plugin_module):
+    """bug-160/bug-158: _same_country_ids_for must resolve the channel country
+    through the SAME ambiguity-aware path _match_streams_to_channel's filter
+    uses, or the two can disagree. This is the real six-way CNN collision
+    (channel_database=All matches BR/CA/ES/NL/UK/US) with no group/name
+    tiebreak -- the filter fails open (keeps everything) for exactly this
+    input, so the reorder helper must also decline to reorder, not fall
+    through to a first-match (alphabetically BR) code that would promote
+    Brazilian CNN streams to order 0 on a US channel."""
+    inst = _matcher_inst(plugin_module)
+    channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    br_stream = {"id": 1, "name": "BR: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u1"}
+    us_stream = {"id": 2, "name": "USA: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u2"}
+    db = [
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "BR"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "CA"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "ES"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "NL"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "UK"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "US"},
+    ]
+    ids = inst._same_country_ids_for(channel, [br_stream, us_stream], db, LOGGER, True)
+    assert ids is None
+
+    # And therefore the assignment path leaves order untouched (zone-only, or
+    # no-op if not zone-routed) rather than promoting the Brazilian stream.
+    out = inst._streams_for_channel([br_stream, us_stream], 1, {1: "DEFAULT"}, ids)
+    assert [s["id"] for s in out] == [1, 2]

@@ -2221,11 +2221,24 @@ class Plugin:
         a sixth element to _match_streams_to_channel's return tuple would break the
         test doubles that unpack it (the bug-140 trap). Cheap — one dict lookup and
         one anchored regex per stream.
+
+        bug-160/bug-158: must resolve the channel country through the SAME path
+        _match_streams_to_channel's filter uses -- _get_all_channel_info_matches plus
+        the channel_info_matches-aware _channel_country_code -- or the two can
+        disagree. With channel_database=All, CNN matches BR/CA/ES/NL/UK/US; the
+        two-argument _channel_country_code form takes the first alphabetical match
+        (BR) with no ambiguity check, which would promote Brazilian CNN streams to
+        order 0 on a US channel even though the filter correctly refused that signal
+        and kept everything. When the ambiguity guard yields no usable code (disputed
+        database entries AND no group/name signal), this returns None -- no
+        reordering -- rather than falling through to a first-match code.
         """
         if not restrict_matching_to_country:
             return None
-        channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-        channel_country_code = self._channel_country_code(channel, channel_info)
+        channel_name = channel['name']
+        channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
+        channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
+        channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
         if not channel_country_code:
             return None
         return {
