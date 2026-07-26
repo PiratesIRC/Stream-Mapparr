@@ -1,5 +1,22 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+### Fixed
+- **Restrict Matching To Same Country missed most real-world country markers (bug-158,
+  bug-159).** The setting only recognized a country code sitting alone at the start of a
+  group or channel name, so bare markers like `CANADA`, pipe-delimited ones like
+  `CA | Sports`, and multi-token ones like `UK FHD` were all read as "no country detected"
+  and silently fell through to legacy cross-country matching. Detection now checks, in
+  order: the channel database entry's own country code first, then the group name, then
+  the channel name, recognizing bare country names/codes, `|`-delimited markers and
+  multi-token prefixes. Streams carrying no recognizable country marker are no longer
+  dropped: they are kept as lower-priority alternates behind same-country matches instead
+  of being excluded outright. Same-named channels for different countries (for example a
+  `CANADA` and a `UK` channel both named "CNN") are now matched separately rather than
+  bleeding into each other. The completion summary reports how many groups the filter
+  actually engaged on, so a setting that quietly does nothing is visible again.
+
 ## v1.26.1992013 (July 18, 2026)
 
 ### Fixed

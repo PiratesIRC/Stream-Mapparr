@@ -69,7 +69,7 @@ Use the **`/deploy-plugin`** skill, or do it by hand. The critical rule:
 
 ```bash
 python Stream-Mapparr/bump_version.py
-for f in plugin.py plugin.json fuzzy_matcher.py matching_core.py aliases.py networks.json; do
+for f in plugin.py plugin.json fuzzy_matcher.py matching_core.py aliases.py country.py networks.json; do
   MSYS_NO_PATHCONV=1 docker cp "Stream-Mapparr/$f" dispatcharr:/data/plugins/stream-mapparr/
 done
 # copy any changed *_channels.json too. networks.json (FCC OTA station table) is

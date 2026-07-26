@@ -760,7 +760,7 @@ class Plugin:
                 "label": "🌎 Restrict Matching To Same Country",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY,
-                "help_text": "When enabled, channels will only match streams from the same detected country/group (for example CANADA/CA only matches CANADA/CA streams). When disabled, legacy cross-country matching behavior is used.",
+                "help_text": "When enabled, channels only match streams detected as the same country. Detection checks the channel database entry first, then the group name, then the channel name (bare, '|'-delimited or multi-token country markers all count). Streams with no recognizable country marker are not dropped; they are kept as lower-priority alternates behind same-country matches. Same-named channels for different countries (for example a CANADA and a UK channel both named CNN) are matched separately instead of being merged. When disabled, legacy cross-country matching behavior is used.",
             },
             {
                 "id": "webhook_url",
