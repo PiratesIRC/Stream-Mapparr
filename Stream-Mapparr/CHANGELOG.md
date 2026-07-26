@@ -1,6 +1,6 @@
 # Stream-Mapparr CHANGELOG
 
-## Unreleased
+## v1.26.2072208 (July 26, 2026)
 
 ### Added
 - **Quick Start block at the top of the settings page.** Names the four steps in order, warns
