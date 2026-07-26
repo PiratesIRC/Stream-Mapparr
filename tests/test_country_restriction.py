@@ -637,3 +637,34 @@ def test_csv_header_country_counts_default_to_zero_when_stats_missing(plugin_mod
         {}, {"restrict_matching_to_country": True}, action_name="Preview")
     assert "filter engaged on 0 channel group(s)" in header
     assert "skipped on 0" in header
+
+
+# --- follow-up fix: `details` dict must also be gated on the setting --------
+#
+# Review finding (post-Task-7): add_streams_to_channels_action's `details`
+# dict added 'country_filter_skipped'/'country_foreign_dropped'
+# UNCONDITIONALLY (even as zeros with the setting off), while the CSV,
+# message suffix, and log line were all correctly gated. `details` is
+# persisted to last_results.json (View Last Results renders it key-by-key)
+# and forwarded verbatim to _fire_webhook, so a user who never enabled the
+# setting would see two new rows/fields appear regardless. The plan's Global
+# Constraints ("users with the setting OFF are byte-for-byte unaffected")
+# outrank the task-7 brief's Step 3 snippet, which happened to show the keys
+# added unconditionally. Fixed by extracting `_country_filter_details`,
+# gated exactly like the CSV header sub-lines.
+
+def test_country_filter_details_empty_when_disabled(plugin_module):
+    """Setting off -> neither key may be present at all (not even as 0)."""
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    result = inst._country_filter_details(False, stats)
+    assert result == {}
+    assert "country_filter_skipped" not in result
+    assert "country_foreign_dropped" not in result
+
+
+def test_country_filter_details_populated_when_enabled(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 3, "skipped_unknown_channel": 2, "foreign_dropped": 7, "unknown_kept": 1}
+    result = inst._country_filter_details(True, stats)
+    assert result == {"country_filter_skipped": 2, "country_foreign_dropped": 7}

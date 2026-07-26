@@ -4765,6 +4765,21 @@ class Plugin:
             self._m3u_name_cache = self._m3u_name_map(logger)
         return self._labeled_stream_names(streams, self._m3u_name_cache)
 
+    def _country_filter_details(self, restrict_matching_to_country, country_stats):
+        """bug-158: country-filter counters for the `details` dict (View Last
+        Results + webhook payload), gated exactly like the CSV header's
+        sub-lines. Suppressed entirely (returns {}) when the setting is off,
+        so a user who never enabled restrict_matching_to_country sees no new
+        keys anywhere -- byte-for-byte unaffected, per the plan's Global
+        Constraints (which outrank a task step showing the keys added
+        unconditionally)."""
+        if not restrict_matching_to_country:
+            return {}
+        return {
+            'country_filter_skipped': country_stats["skipped_unknown_channel"],
+            'country_foreign_dropped': country_stats["foreign_dropped"],
+        }
+
     def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
@@ -5654,9 +5669,8 @@ class Plugin:
                 'channels_skipped': channels_skipped,
                 'csv': os.path.basename(csv_created) if csv_created else None,
                 'regex_rules_rejected': regex_rejected,
-                'country_filter_skipped': country_stats["skipped_unknown_channel"],
-                'country_foreign_dropped': country_stats["foreign_dropped"],
             }
+            details.update(self._country_filter_details(restrict_matching_to_country, country_stats))
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context, details)
             self._fire_webhook(settings, logger, 'add_streams_to_channels', success_msg, 'success', details)
 
