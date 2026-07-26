@@ -1,7 +1,7 @@
 {
   "country_code": "US",
   "country_name": "United States",
-  "version": "2025-12-08",
+  "version": "2026-05-17",
   "channels": [
     {
       "channel_name": "3ABN",
@@ -62,7 +62,10 @@
       "channel_name": "A&E",
       "category": "Documentary",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "A&E Crime 360",
@@ -203,7 +206,10 @@
       "channel_name": "AMC",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "America TeVe",
@@ -259,7 +265,10 @@
       "channel_name": "Animal Planet",
       "category": "Documentary",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Animax",
@@ -565,7 +574,10 @@
       "channel_name": "BET",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "BET Gospel",
@@ -681,7 +693,10 @@
       "channel_name": "Bravo",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Bravo Vault",
@@ -777,7 +792,10 @@
       "channel_name": "Cartoon Network",
       "category": "Kids",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Catchy Comedy",
@@ -998,7 +1016,10 @@
       "channel_name": "CMT",
       "category": "Music",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "CMT Music",
@@ -1044,7 +1065,10 @@
       "channel_name": "Comedy Central",
       "category": "Comedy",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Comedy Central Pluto TV",
@@ -1280,7 +1304,10 @@
       "channel_name": "Disney Channel",
       "category": "Kids",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Disney Junior",
@@ -1291,7 +1318,10 @@
       "channel_name": "Disney XD",
       "category": "Kids",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Divorce Court",
@@ -1352,7 +1382,10 @@
       "channel_name": "E!",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "E! Keeping Up",
@@ -1608,7 +1641,10 @@
       "channel_name": "Food Network",
       "category": "Lifestyle",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Food52",
@@ -1689,7 +1725,10 @@
       "channel_name": "Freeform",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Fubo Sports Network",
@@ -1720,7 +1759,10 @@
       "channel_name": "FX",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "FX Movie Channel",
@@ -1731,13 +1773,19 @@
       "channel_name": "FXM",
       "category": "Movies",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "FXX",
       "category": "Comedy",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "FYI",
@@ -2008,7 +2056,10 @@
       "channel_name": "HGTV",
       "category": "Lifestyle",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Hi-YAH!",
@@ -2034,7 +2085,10 @@
       "channel_name": "History",
       "category": "Documentary",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "History en Espanol",
@@ -2345,7 +2399,10 @@
       "channel_name": "Lifetime",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Lifetime Movie Network",
@@ -2731,7 +2788,10 @@
       "channel_name": "MTV",
       "category": "Music",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "MTV Biggest Pop",
@@ -2842,7 +2902,10 @@
       "channel_name": "National Geographic",
       "category": "Documentary",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "NBA League Pass",
@@ -3058,7 +3121,10 @@
       "channel_name": "Nickelodeon",
       "category": "Kids",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "NickMusic",
@@ -3164,7 +3230,10 @@
       "channel_name": "Oxygen",
       "category": "Crime",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Oxygen True Crimes Archive",
@@ -3190,7 +3259,10 @@
       "channel_name": "Paramount Network",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Paranormal File",
@@ -4011,7 +4083,10 @@
       "channel_name": "Syfy",
       "category": "Sci-Fi",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Tai Seng Sat TV",
@@ -4057,7 +4132,10 @@
       "channel_name": "TBS",
       "category": "Comedy",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "TCM",
@@ -4353,13 +4431,19 @@
       "channel_name": "TLC",
       "category": "Documentary",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "TNT",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Today All Day",
@@ -4400,7 +4484,10 @@
       "channel_name": "Travel Channel",
       "category": "Lifestyle",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Tri-State Christian Television",
@@ -4656,7 +4743,10 @@
       "channel_name": "USA Network",
       "category": "Entertainment",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "USA Today",
@@ -4682,7 +4772,10 @@
       "channel_name": "VH1",
       "category": "Music",
       "type": "National",
-      "zones": ["East", "West"]
+      "zones": [
+        "East",
+        "West"
+      ]
     },
     {
       "channel_name": "Vice",
@@ -158138,6 +158231,861 @@
       "channel_name": "SportsNet Pittsburgh- Alternate 2 HD",
       "category": "United States",
       "type": "Regional"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "HLN Headline News Network",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eleven Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN U",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NESN National+",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet New York National",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "YES National",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Action Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Five Star Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movie Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Outer Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Thriller Max",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick 2",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBCU GO",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "OWN: Oprah Winfrey Network",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "StellarTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "UP",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "E! Entertainment Television",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "History Channel",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime & Investigation Network",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "JusticeCentral.TV",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "Law & Crime Network",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "PTL TV",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "The SonLife Broadcasting Network",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Word",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Three Angels Broadcasting",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "QVC 2",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "QVC 3",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "MAX Latino",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision tINovelas",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "MAV TV",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "MyDestination TV",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "Pursuit",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "CCTV News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NASA",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Russia Today",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Weather Channel",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "beIN SPORT",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bases Loaded / Buzzer Beater / Goal Line",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBCSN",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Games Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Regional Sports Networks (market-based)",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Big 10 Network",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "EPIX 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showtime (E)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showtime (W)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showtime Beyond",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ (E)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ (W)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ Encore (E)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ Encore (W)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Movie Channel (E)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Movie Channel (W)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Movie Channel Xtra (E)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "BabyFirstTV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network (E)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network (W)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel (E)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel (W)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick/Nick at Nite (E)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick/Nick at Nite (W)",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "LAFF TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Uplifting Entertainment",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BUZZ",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "DIY",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "EVINE Live",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Justice Network",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hillsong Channel",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Shepherd's Chapel Network",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Impact Network",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Three Angels Broadcasting Network",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Victory",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "DISH Music Channels",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "SiriusXM Music Channels (Hopper/Wally/Joey)",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "SiriusXM Music Channels (all other receivers)",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "BeautyIQ",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sale",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "CCTV-E",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBC Universo",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision Deportes",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision East",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision West",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Great American Country",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "In Country Television",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "RECTV",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ride TV",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Localish",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNNi",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "News Mix",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "All Women's Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Big 12",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DIRECTV 4K Live 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DIRECTV 4K Live 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "DraftKings",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "League Sports Mix",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBA FAST Channel",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Players TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sports Illustrated",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sports Mix",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tennis Channel 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNA",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Chicago Sports Network",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Cincinnati",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Detroit",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Florida",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Midwest",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports North",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Ohio",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Oklahoma",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports SoCal",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports South",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Southeast",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Southwest",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Sun",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports West",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FanDuel Sports Wisconsin",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "MASN",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBA New Orleans Pelicans",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NESN",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NHL Network Alternate",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "SNY",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cinemax East",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Family Movie Classics (FMC)",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Comedy East HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Drama HD East",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Hits HD East",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paramount+ with SHOWTIME EAST",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "SHOWTIME 2 East",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "ShortsTV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ Cinema East HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ Comedy East HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ Edge East HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ ENCORE East",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ ENCORE West",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARZ In Black East HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tribeca Festival+",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "BabyFirst HD",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network East",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel East",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kids Mix",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "LooLooKids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon East",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "CleoTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "EBONY TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Heroes & Icons (H&I)",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ION East HD",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Pop TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV One (HD only)",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TheGrio",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "All Reality WeTV",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dance Moms by Lifetime",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Love After Lockup",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "OWN",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Always Funny",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy TV",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Family Feud (Steve Harvey)",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Price is Right: Drew Carey",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Three Stooges",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bob Ross",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Earth Touch",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "HISTORY Channel, The",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mythbusters",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic Channel",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Torque by History",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "I (Almost) Got Away With It",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dove TV",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Jewelry TV",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision (Este)",
+      "category": "Spanish",
+      "type": "National"
     }
   ]
 }
