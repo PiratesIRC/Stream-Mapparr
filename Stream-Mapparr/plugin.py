@@ -27,6 +27,7 @@ import threading
 # Import FuzzyMatcher from the same directory
 from .fuzzy_matcher import FuzzyMatcher
 from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES as ALIAS_COUNTRY_OVERRIDES
+from . import country as country_detect
 # Import fuzzy_matcher version for CSV header
 from . import fuzzy_matcher
 
@@ -2347,22 +2348,37 @@ class Plugin:
                 return code
         return None
 
-    def _extract_channel_country_code(self, channel):
-        """Resolve channel country/region code from group name first, then channel name."""
+    def _channel_country_code(self, channel, channel_info=None):
+        """Resolve a channel's country (bug-158).
+
+        Order matters. The channel-DATABASE entry is the primary signal: it is
+        per-channel and independent of naming, which is why it fixes channels like
+        CNN / TNT / USA Network whose own name and group carry no usable marker.
+        Group label second, channel name last.
+        """
         if not channel:
             return None
+        if channel_info:
+            db_code = channel_info.get('_country_code')
+            if db_code:
+                return str(db_code).upper()
         return (
-            self._extract_country_code_from_text(channel.get('channel_group__name'))
-            or self._extract_country_code_from_text(channel.get('name'))
+            country_detect.country_from_group(channel.get('channel_group__name'))
+            or country_detect.country_from_name(channel.get('name'))
         )
 
-    def _extract_stream_country_code(self, stream):
-        """Resolve stream country/region code from stream group first, then stream name."""
+    def _stream_country_code(self, stream):
+        """Resolve a stream's country from its group label, then its RAW name.
+
+        Reads stream['name'], never _mname(stream): the issue #36 consumer split
+        keeps identity/ordering consumers on the raw name so a matching-only regex
+        rule cannot blind this.
+        """
         if not stream:
             return None
         return (
-            self._extract_country_code_from_text(stream.get('channel_group__name'))
-            or self._extract_country_code_from_text(stream.get('name'))
+            country_detect.country_from_group(stream.get('channel_group__name'))
+            or country_detect.country_from_name(stream.get('name'))
         )
 
     def _extract_channel_quality_tag(self, channel_name):
