@@ -941,11 +941,11 @@ def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypa
     monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
     monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
     monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
-    # Country-first ordering is applied inside _order_streams_for_zone, which
-    # _streams_for_channel only reaches for a zone-routed channel_id -- exactly
-    # the same gate Match & Assign/Preview go through (see
-    # test_assignment_path_preserves_country_order_over_zone above). A channel
-    # not in zone_routed is unaffected everywhere, including here.
+    # This channel happens to be zone-routed here (country-then-zone via
+    # _order_streams_for_zone); since bug-161 residual 3, _streams_for_channel
+    # applies the same-country-first partition for non-zone-routed channels
+    # too -- see test_sort_action_country_first_ordering_when_not_zone_routed
+    # for that shape.
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
@@ -994,11 +994,11 @@ def test_sort_action_order_unchanged_when_disabled(plugin_module, monkeypatch):
     monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
     monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
     monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
-    # Country-first ordering is applied inside _order_streams_for_zone, which
-    # _streams_for_channel only reaches for a zone-routed channel_id -- exactly
-    # the same gate Match & Assign/Preview go through (see
-    # test_assignment_path_preserves_country_order_over_zone above). A channel
-    # not in zone_routed is unaffected everywhere, including here.
+    # This channel happens to be zone-routed here (country-then-zone via
+    # _order_streams_for_zone); since bug-161 residual 3, _streams_for_channel
+    # applies the same-country-first partition for non-zone-routed channels
+    # too -- see test_sort_action_country_first_ordering_when_not_zone_routed
+    # for that shape.
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
@@ -1185,3 +1185,389 @@ def test_m3_country_stats_write_gated_in_preview_and_add_streams(plugin_module):
         preceding = src[:idx]
         assert preceding.rstrip().endswith("if restrict_matching_to_country:"), (
             f"{action}: the country_stats write is not gated by restrict_matching_to_country")
+
+
+# ============================================================================
+# bug-161: owner decision 1 -- OTA channels are exempt from the country filter
+# ============================================================================
+#
+# Several US state codes are also ISO-2 country codes recognized by country.py
+# (CA=Canada/California, IN=India/Indiana, AL=Albania/Alabama, AR=Argentina/
+# Arkansas, CO=Colombia/Colorado, IL=Israel/Illinois). A US locals group or
+# stream name like "IL: CHICAGO WGN" or "AR: LITTLE ROCK" therefore classifies
+# as FOREIGN against a US OTA channel and its own streams get dropped. OTA
+# channels are matched by FCC callsign, not by name/group, so the filter never
+# contributed anything for them -- the owner's decision is to exempt them
+# entirely rather than denylist the colliding state codes (which would break
+# the "CA:" foreign marker this whole branch exists to catch).
+
+WGN_OTA_DB = [{"channel_name": "WGN Chicago", "type": "broadcast (OTA)",
+               "callsign": "WGN", "_country_code": "US"}]
+
+KARK_OTA_DB = [{"channel_name": "KARK Little Rock", "type": "broadcast (OTA)",
+                "callsign": "KARK", "_country_code": "US"}]
+
+
+def test_ota_channel_keeps_state_code_collision_stream_il(plugin_module):
+    """Real-shape collision: a stream literally named 'IL: CHICAGO WGN' reads
+    as Israel under country.py's prefix detection. Without the OTA exemption
+    the channel's US database country would classify it FOREIGN and drop it,
+    even though it is the exact callsign match for this OTA channel.
+
+    Mutation this catches: removing `not self._is_ota_channel(channel_info)`
+    from the country-filter gate in `_match_streams_to_channel`."""
+    inst = _matcher_inst(plugin_module)
+    streams = [
+        {"id": 1, "name": "IL: CHICAGO WGN", "channel_group__name": None,
+         "m3u_account": 1, "url": "u1"},
+    ]
+    matched, _, _, reason, _ = inst._match_streams_to_channel(
+        {"id": 1, "name": "WGN Chicago", "channel_group__name": None},
+        streams, LOGGER, channels_data=WGN_OTA_DB, restrict_matching_to_country=True)
+    assert reason == "Callsign match"
+    assert [s["name"] for s in matched] == ["IL: CHICAGO WGN"]
+
+
+def test_ota_channel_keeps_state_code_collision_stream_ar(plugin_module):
+    """Same collision shape, Arkansas/Argentina: 'AR: LITTLE ROCK' would read
+    as Argentina against a US-database OTA channel.
+
+    Mutation this catches: same as above, exercised through a different
+    colliding code (AR) and a different callsign (KARK) to rule out a
+    code-specific fix that only special-cased IL."""
+    inst = _matcher_inst(plugin_module)
+    streams = [
+        {"id": 1, "name": "AR: LITTLE ROCK KARK", "channel_group__name": None,
+         "m3u_account": 1, "url": "u1"},
+    ]
+    matched, _, _, reason, _ = inst._match_streams_to_channel(
+        {"id": 1, "name": "KARK Little Rock", "channel_group__name": None},
+        streams, LOGGER, channels_data=KARK_OTA_DB, restrict_matching_to_country=True)
+    assert reason == "Callsign match"
+    assert [s["name"] for s in matched] == ["AR: LITTLE ROCK KARK"]
+
+
+def test_non_ota_channel_still_filtered_with_same_collision_shape(plugin_module):
+    """Contrast case for the two tests above: a NON-OTA (premium/cable) channel
+    with the identical 'IL:' collision must still have the foreign stream
+    dropped -- the exemption is OTA-specific, not a blanket skip of the IL/AR
+    prefixes.
+
+    Mutation this catches: a broken exemption that skips the filter for every
+    channel (e.g. inverting the guard, or exempting on something always-true)
+    would let this foreign stream survive too."""
+    inst = _matcher_inst(plugin_module)
+    streams = [
+        {"id": 1, "name": "IL: METRO NEWS", "channel_group__name": None,
+         "m3u_account": 1, "url": "u1"},
+        {"id": 2, "name": "US: METRO NEWS", "channel_group__name": None,
+         "m3u_account": 1, "url": "u2"},
+    ]
+    db = [{"channel_name": "Metro News", "type": "premium/cable/national", "_country_code": "US"}]
+    matched, *_ = inst._match_streams_to_channel(
+        {"id": 1, "name": "Metro News", "channel_group__name": None},
+        streams, LOGGER, channels_data=db, restrict_matching_to_country=True)
+    got = [s["name"] for s in matched]
+    assert "IL: METRO NEWS" not in got
+    assert "US: METRO NEWS" in got
+
+
+def test_get_matches_at_thresholds_ota_exempt_from_country_filter(plugin_module):
+    """`_get_matches_at_thresholds` is Preview's second scan and has its own
+    copy of the country-filter gate -- it must be exempted the same way as
+    `_match_streams_to_channel` or Preview would show a different (wrongly
+    filtered) result than Match & Assign for the same OTA channel.
+
+    Mutation this catches: removing the OTA guard from
+    `_get_matches_at_thresholds`'s country-filter block specifically (the
+    other tests here would not catch a fix applied to only one of the two
+    functions)."""
+    inst = _matcher_inst(plugin_module)
+    streams = [
+        {"id": 1, "name": "IL: CHICAGO WGN", "channel_group__name": None,
+         "m3u_account": 1, "url": "u1"},
+    ]
+    results = inst._get_matches_at_thresholds(
+        {"id": 1, "name": "WGN Chicago", "channel_group__name": None},
+        streams, LOGGER, [], True, True, True, True, WGN_OTA_DB, 85,
+        restrict_matching_to_country=True)
+    key = "callsign_85"
+    assert key in results
+    assert [s["name"] for s in results[key]["streams"]] == ["IL: CHICAGO WGN"]
+
+
+def test_same_country_ids_for_returns_none_for_ota_channel(plugin_module):
+    """`_same_country_ids_for` feeds the assignment-time reorder
+    (`_streams_for_channel`); it must also decline to compute a country
+    partition for an OTA channel, or a same-callsign, colliding-prefix stream
+    could be silently demoted to a lower-priority alternate even though the
+    filter that would justify that ranking never engaged.
+
+    Mutation this catches: dropping the `_is_ota_channel` short-circuit added
+    to `_same_country_ids_for`."""
+    inst = _matcher_inst(plugin_module)
+    stream = {"id": 1, "name": "IL: CHICAGO WGN", "channel_group__name": None,
+              "m3u_account": 1, "url": "u1"}
+    ids = inst._same_country_ids_for(
+        {"id": 1, "name": "WGN Chicago", "channel_group__name": None},
+        [stream], WGN_OTA_DB, LOGGER, True)
+    assert ids is None
+
+
+def test_group_key_for_channel_ota_not_qualified(plugin_module):
+    """bug-161: OTA group keys (`OTA_<callsign>`) are never country-qualified,
+    even with the setting on -- qualifying them would be inconsistent with
+    exempting OTA from the filter itself (it would still split same-callsign
+    channels loaded from different country databases even though nothing
+    downstream enforces that split for OTA).
+
+    Mutation this catches: dropping the `self._is_ota_channel(channel_info)`
+    check from `_group_key_for_channel`'s early-return guard."""
+    inst = _matcher_inst(plugin_module)
+    channel_info = {"channel_name": "WGN Chicago", "type": "broadcast (OTA)",
+                     "callsign": "WGN", "_country_code": "US"}
+    key = inst._group_key_for_channel(
+        "OTA_WGN", {"id": 1, "name": "WGN Chicago", "channel_group__name": None},
+        channel_info, True, [channel_info])
+    assert key == "OTA_WGN"
+
+
+def test_build_channel_groups_ota_key_unqualified_end_to_end(plugin_module):
+    """End-to-end companion to the direct `_group_key_for_channel` test above,
+    through the real grouping helper `_build_channel_groups` (bug-158 review
+    I1's shared grouper used by Match & Assign, Preview and Manage Channel
+    Visibility).
+
+    Mutation this catches: same as above, but would also catch a regression
+    where `_build_channel_groups` stopped calling `_group_key_for_channel` for
+    OTA channels at all (e.g. an early `continue`/`return` before it)."""
+    inst = _matcher_inst(plugin_module)
+    channel = {"id": 1, "name": "WGN Chicago", "channel_group__name": None}
+    groups = inst._build_channel_groups(
+        [channel], WGN_OTA_DB, LOGGER, [], True, True, True, True,
+        restrict_matching_to_country=True)
+    assert "OTA_WGN" in groups
+    assert "OTA_WGN@@US" not in groups
+
+
+# ============================================================================
+# bug-161 residual 1: Sort must not fetch channel_group for every stream when
+# restrict_matching_to_country is off (an extra lazy-FK query per stream on
+# top of Sort's existing per-stream Stream.objects.get(), inside a
+# non-yielding gevent greenlet -- the bug-117 worker-freeze family).
+# ============================================================================
+
+
+class _TrackingChannelGroup:
+    """Stands in for the ORM's `stream.channel_group` lazy FK. Records every
+    access so a test can assert it was NEVER touched on the off path."""
+
+    def __init__(self, name):
+        self._name = name
+        self.access_count = 0
+
+    @property
+    def name(self):
+        self.access_count += 1
+        return self._name
+
+
+def _sort_action_harness(plugin_module, monkeypatch, restrict_matching_to_country):
+    """Shared setup for the two residual-1 tests below: one channel, one
+    stream carrying a `channel_group_id` (so the code WOULD look the group up
+    if it evaluated the `getattr(...)` half of the guard on its own), wired
+    through the real `sort_streams_action`."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.fuzzy_matcher = fuzzy_matcher.FuzzyMatcher()
+    inst._throughput_state_primed = True
+    inst._throughput_sorting_enabled = False
+    inst.saved_settings = {}
+
+    channel = {"id": 9, "name": "CNN", "channel_group__name": "News",
+               "channel_group_id": None}
+    monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
+    monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
+    monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
+    monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {})
+    monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
+
+    group = _TrackingChannelGroup("US")
+    fake_streams = {
+        1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
+                                  m3u_account_id=None, channel_group_id=7,
+                                  channel_group=group),
+        2: types.SimpleNamespace(id=2, name="Encore Feed", stream_stats={},
+                                  m3u_account_id=None, channel_group_id=7,
+                                  channel_group=group),
+    }
+
+    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
+                         _fake_orm_manager([9]))
+    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
+                         _fake_orm_manager([1, 2]))
+    monkeypatch.setattr(plugin_module.Stream, "objects",
+                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    plugin_module.ChannelStream.reset_mock()
+
+    settings = {"profile_name": "Default", "dry_run_mode": False}
+    if restrict_matching_to_country is not None:
+        settings["restrict_matching_to_country"] = restrict_matching_to_country
+    result = inst.sort_streams_action(settings, LOGGER)
+    return result, group
+
+
+def test_sort_skips_channel_group_lookup_when_setting_off(plugin_module, monkeypatch):
+    """bug-161 residual 1: with the setting off, `sort_streams_action` must
+    never touch `stream.channel_group` at all, even though every stream here
+    carries a truthy `channel_group_id` (the shape that would trigger a lookup
+    if the code only checked `getattr(stream, 'channel_group_id', None)`).
+
+    Mutation this catches: removing `restrict_matching_to_country and` from
+    the `if restrict_matching_to_country and getattr(stream, 'channel_group_id', None):`
+    guard in `sort_streams_action` -- `group.access_count` would go from 0 to 2."""
+    result, group = _sort_action_harness(plugin_module, monkeypatch, restrict_matching_to_country=None)
+    assert result["status"] == "success"
+    assert group.access_count == 0, (
+        f"channel_group.name was read {group.access_count} time(s) with the setting off")
+
+
+def test_sort_does_fetch_channel_group_when_setting_on(plugin_module, monkeypatch):
+    """Control for the test above: with the setting genuinely on, the lookup
+    must still happen (proves the guard isn't accidentally always-false)."""
+    result, group = _sort_action_harness(plugin_module, monkeypatch, restrict_matching_to_country=True)
+    assert result["status"] == "success"
+    assert group.access_count == 2, (
+        f"expected both streams' channel_group.name to be read once each, got {group.access_count}")
+
+
+# ============================================================================
+# bug-161 residual 2: Preview's `details` payload must stay symmetric with
+# pre-bug-158 behaviour (no details at all) on the off path -- only the
+# country stats justify sending anything new, per M2's own intent.
+# ============================================================================
+
+
+def test_preview_details_defaults_to_none(plugin_module):
+    """Mutation this catches: reverting `details = None` back to an
+    unconditional dict literal (the bug-161 residual-2 regression)."""
+    src = inspect.getsource(plugin_module.Plugin.preview_changes_action)
+    assert "details = None" in src, (
+        "preview_changes_action must default details to None, matching the "
+        "pre-bug-158 no-details call on the off path")
+
+
+def test_preview_details_dict_only_built_when_restriction_on(plugin_module):
+    """The `channels_to_update`/`regex_rules_rejected` dict (and the country
+    keys folded into it) must be built inside `if restrict_matching_to_country:`,
+    not unconditionally -- otherwise a user with the setting off still gains
+    two new keys in View Last Results that never existed pre-bug-158.
+
+    Mutation this catches: un-indenting the `details = {...}` block (and the
+    `_country_filter_details` update call) back out from under the guard."""
+    src = inspect.getsource(plugin_module.Plugin.preview_changes_action)
+    idx = src.index("'channels_to_update': total_channels_to_update,")
+    preceding = src[:idx]
+    # The nearest preceding non-blank line must be the guard, and the dict-open
+    # line right before it must be the `details = {` this guard controls.
+    lines = [ln for ln in preceding.splitlines() if ln.strip()]
+    assert lines[-2].strip() == "if restrict_matching_to_country:", (
+        f"unexpected guard line: {lines[-2]!r}")
+    assert lines[-1].strip() == "details = {", f"unexpected dict-open line: {lines[-1]!r}"
+
+
+# ============================================================================
+# bug-161 residual 3: `_streams_for_channel` must apply the same-country-first
+# partition for EVERY channel, not only zone-routed ones, so Sort cannot
+# silently drop country-first ordering for a channel with no zone sibling.
+# ============================================================================
+
+
+def test_streams_for_channel_partitions_by_country_when_not_zone_routed(plugin_module):
+    """Direct unit test of the residual-3 fix: a channel absent from
+    `zone_routed` (the exact shape of a lone marked-zone channel with no
+    opposite-zone sibling, or simply any non-zone-routed channel) must still
+    get same-country streams promoted first.
+
+    Mutation this catches: reverting `_streams_for_channel` to `return streams`
+    for any channel not in `zone_routed` (the pre-fix behaviour) -- this would
+    leave the streams in their original (foreign-first) order instead of
+    [2, 1]."""
+    inst = _matcher_inst(plugin_module)
+    foreign_or_unknown = {"id": 1, "name": "Generic Feed", "m3u_account": 1, "url": "u1"}
+    same_country = {"id": 2, "name": "US: Feed", "m3u_account": 1, "url": "u2"}
+    out = inst._streams_for_channel(
+        [foreign_or_unknown, same_country], channel_id=42, zone_routed={},
+        same_country_ids={id(same_country)})
+    assert [s["id"] for s in out] == [2, 1]
+
+
+def test_streams_for_channel_still_noop_when_no_country_ids_and_not_zone_routed(plugin_module):
+    """Control: a non-zone-routed channel with no same_country_ids (filter off,
+    or filter on but nothing proven same-country) is untouched -- confirms the
+    residual-3 fix did not turn `_streams_for_channel` into an unconditional
+    reorder."""
+    inst = _matcher_inst(plugin_module)
+    a = {"id": 1, "name": "A", "m3u_account": 1, "url": "u1"}
+    b = {"id": 2, "name": "B", "m3u_account": 1, "url": "u2"}
+    out = inst._streams_for_channel([a, b], channel_id=42, zone_routed={}, same_country_ids=None)
+    assert [s["id"] for s in out] == [1, 2]
+
+
+def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, monkeypatch):
+    """End-to-end companion to the direct unit test above, through the real
+    `sort_streams_action` with `_zone_routed_map` returning {} -- the lone
+    marked-zone-channel-with-no-sibling shape from the residual-3 writeup.
+    Before the fix, this reproduced the bug: `_streams_for_channel` returned
+    `streams` unchanged for a channel absent from `zone_routed`, so Sort
+    reverted to quality-tied ORM-fetch order regardless of country.
+
+    Mutation this catches: the same `_streams_for_channel` reversion as
+    `test_streams_for_channel_partitions_by_country_when_not_zone_routed`,
+    caught here through the full action instead of the helper directly."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.fuzzy_matcher = fuzzy_matcher.FuzzyMatcher()
+    inst._throughput_state_primed = True
+    inst._throughput_sorting_enabled = False
+    inst.saved_settings = {}
+
+    channel = {"id": 9, "name": "CNN", "channel_group__name": "News",
+               "channel_group_id": None}
+    monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
+    monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
+    monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
+    # Not zone-routed at all -- the exact gap residual 3 closes.
+    monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {})
+    monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
+
+    fake_streams = {
+        1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
+                                  m3u_account_id=None, channel_group_id=None),
+        2: types.SimpleNamespace(id=2, name="Encore Feed", stream_stats={},
+                                  m3u_account_id=None, channel_group_id=7,
+                                  channel_group=types.SimpleNamespace(name="US")),
+    }
+
+    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
+                         _fake_orm_manager([9]))
+    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
+                         _fake_orm_manager([1, 2]))
+    monkeypatch.setattr(plugin_module.Stream, "objects",
+                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    plugin_module.ChannelStream.reset_mock()
+
+    result = inst.sort_streams_action(
+        {"profile_name": "Default", "dry_run_mode": False,
+         "restrict_matching_to_country": True},
+        LOGGER)
+
+    assert result["status"] == "success"
+    constructed_order = [c.kwargs["stream_id"] for c in plugin_module.ChannelStream.call_args_list]
+    assert constructed_order == [2, 1], (
+        f"expected the group-confirmed same-country stream (2) first even though "
+        f"the channel is not zone-routed, got {constructed_order}")
