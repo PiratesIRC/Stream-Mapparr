@@ -14,69 +14,68 @@
       "id": "on_m3u_refresh",
       "label": "Auto-match after M3U refresh",
       "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
-      "events": ["m3u_refresh"]
+      "events": [
+        "m3u_refresh"
+      ]
     },
     {
       "id": "validate_settings",
-      "label": "\u2705 Validate Settings",
+      "label": "✅ Validate Settings",
       "description": "Check database connectivity, profiles, groups, and channel databases.",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "\u2705 Validate"
+      "button_label": "✅ Validate"
     },
     {
       "id": "update_schedule",
-      "label": "\ud83d\udcc5 Update Schedule",
+      "label": "💾 Update Schedule",
       "description": "Save settings and restart the background scheduler.",
       "button_variant": "filled",
       "button_color": "green",
-      "button_label": "\ud83d\udcbe Save Schedule"
+      "button_label": "💾 Save Schedule"
     },
     {
-      "id": "load_process_channels",
-      "label": "\ud83d\udce5 Load/Process Channels",
-      "description": "Load channel and stream data from the database.",
-      "button_variant": "filled",
-      "button_color": "green",
-      "button_label": "\ud83d\udce5 Load Channels"
+      "id": "cleanup_periodic_tasks",
+      "label": "🧹 Cleanup Orphaned Tasks",
+      "description": "Remove any orphaned Celery periodic tasks from old plugin versions"
     },
     {
       "id": "preview_changes",
-      "label": "\ud83d\udcca Preview Changes",
+      "label": "👁️ Preview Changes (Dry Run)",
       "description": "Generate a CSV preview without making changes.",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "\ud83d\udcca Preview"
+      "button_label": "📊 Preview"
     },
     {
       "id": "add_streams_to_channels",
-      "label": "\u25b6\ufe0f Match & Assign Streams",
+      "label": "✅ Match & Assign Streams",
       "description": "Match and assign streams to channels.",
       "button_variant": "filled",
       "button_color": "blue",
-      "button_label": "\u25b6\ufe0f Match & Assign",
+      "button_label": "▶️ Match & Assign",
       "confirm": {
         "message": "This will modify channel-stream assignments based on the current settings. Continue?"
       }
     },
     {
-      "id": "match_us_ota_only",
-      "label": "\ud83d\udcfa Match US OTA Only",
-      "description": "Match US OTA channels by callsign.",
+      "id": "sort_streams",
+      "label": "🔄 Sort Alternate Streams",
+      "description": "Sort existing alternate streams by quality.",
       "button_color": "orange",
-      "button_label": "\ud83d\udcfa Match OTA",
+      "button_label": "🔄 Sort Streams",
       "confirm": {
-        "message": "This will modify channel-stream assignments for US OTA channels. Continue?"
+        "message": "This will reorder alternate streams on matched channels. Continue?"
       }
     },
     {
-      "id": "sort_streams",
-      "label": "\u2195\ufe0f Sort Alternate Streams",
-      "description": "Sort existing alternate streams by quality.",
+      "id": "match_us_ota_only",
+      "label": "📡 Match US OTA Only",
+      "description": "Match US OTA channels by callsign.",
       "button_color": "orange",
-      "button_label": "\ud83d\udd04 Sort Streams",
+      "button_label": "📺 Match OTA",
       "confirm": {
-        "message": "This will reorder alternate streams on matched channels. Continue?"
+        "message": "This will modify channel-stream assignments for US OTA channels. Continue?"
       }
     },
     {
@@ -91,54 +90,54 @@
     },
     {
       "id": "manage_channel_visibility",
-      "label": "\ud83d\udc41\ufe0f Manage Channel Visibility",
+      "label": "👁️ Manage Channel Visibility",
       "description": "Enable or disable channels based on stream count.",
       "button_color": "orange",
-      "button_label": "\ud83d\udc41\ufe0f Manage Visibility",
+      "button_label": "👁️ Manage Visibility",
       "confirm": {
         "message": "This will enable or disable channels based on the current settings. Continue?"
       }
     },
     {
-      "id": "test_regex_rules",
-      "label": "\ud83e\udde0 Test Regex Rules",
-      "description": "Preview what Stream Name Regex Rules would do, against all streams (read-only).",
-      "button_variant": "outline",
-      "button_color": "blue",
-      "button_label": "\ud83e\udde0 Test Rules"
-    },
-    {
       "id": "view_check_progress",
-      "label": "\ud83d\udcca View Check Progress",
+      "label": "📊 View Check Progress",
       "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "\ud83d\udcca View Progress"
+      "button_label": "📊 View Progress"
     },
     {
       "id": "view_last_results",
-      "label": "\ud83d\udccb View Last Results",
+      "label": "📋 View Last Results",
       "description": "View a summary of the last completed operation.",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "\ud83d\udccb View Last Results"
+      "button_label": "📋 View Last Results"
+    },
+    {
+      "id": "test_regex_rules",
+      "label": "🧪 Test Regex Rules",
+      "description": "Preview what Stream Name Regex Rules would do, against all streams (read-only).",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "🧠 Test Rules"
     },
     {
       "id": "clear_csv_exports",
-      "label": "\ud83d\uddd1\ufe0f Clear CSV Exports",
+      "label": "🗑️ Clear CSV Exports",
       "description": "Delete all CSV export files created by this plugin.",
       "button_color": "red",
-      "button_label": "\ud83d\uddd1\ufe0f Clear Exports",
+      "button_label": "🗑️ Clear Exports",
       "confirm": {
         "message": "This will delete all CSV files in /data/exports/. This action cannot be undone. Continue?"
       }
     },
     {
       "id": "clear_operation_lock",
-      "label": "\ud83d\udd13 Clear Operation Lock",
+      "label": "🔓 Clear Operation Lock",
       "description": "Manually clear a stuck operation lock.",
       "button_color": "orange",
-      "button_label": "\ud83d\udd13 Clear Lock",
+      "button_label": "🔓 Clear Lock",
       "confirm": {
         "message": "Only clear the lock if you are sure no operation is currently running. Continue?"
       }
