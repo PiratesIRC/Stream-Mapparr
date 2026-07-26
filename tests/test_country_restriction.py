@@ -1,6 +1,8 @@
 """End-to-end tests for the country restriction filter (bug-158, bug-159, bug-160)."""
 
+import inspect
 import logging
+import types
 
 import fuzzy_matcher
 
@@ -20,15 +22,17 @@ def test_both_actions_load_before_reading_processed_data(plugin_module):
     """Spec §10: reading the flag from processed_data is safe only because both
     consuming actions call load_process_channels_action FIRST with live settings.
     That is an emergent property of two call sites, not an enforced invariant —
-    this is the lock (bug-139 family)."""
+    this is the lock (bug-139 family).
+
+    bug-158/M1 update: the read site moved from a raw
+    `processed_data.get('restrict_matching_to_country', ...)` to
+    `self._resolve_restrict_matching_to_country(processed_data)` (so a stored
+    string "false" coerces correctly) -- match THAT call now."""
     import inspect
     for action in ("preview_changes_action", "add_streams_to_channels_action"):
         src = inspect.getsource(getattr(plugin_module.Plugin, action))
         load_at = src.index("load_process_channels_action")
-        # NB: the read spans a line break in the source —
-        #     processed_data.get(\n    'restrict_matching_to_country', ...)
-        # so match the quoted literal, not the whole call expression.
-        read_at = src.index("'restrict_matching_to_country'")
+        read_at = src.index("self._resolve_restrict_matching_to_country(processed_data)")
         assert load_at < read_at, f"{action} reads the flag before loading channels"
 
 
@@ -823,3 +827,361 @@ def test_setting_off_completion_message_suffix_never_triggers(plugin_module):
     # (plugin.py: `if country_stats["skipped_unknown_channel"]:`).
     assert stats["skipped_unknown_channel"] == 0
     assert stats == {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+
+
+# --- Final review fixes: I1 (Manage Channel Visibility re-merges groups) -----
+
+
+def test_build_channel_groups_splits_by_country_when_enabled(plugin_module):
+    """bug-158 review I1: `_build_channel_groups` is the SHARED grouping helper
+    Match & Assign, Preview, and Manage Channel Visibility must all use, or the
+    last one can silently re-merge the country-split groups the first two
+    create (exactly the regression the review caught: a same-named UK/US pair
+    collapsed back into one group and only one country's channel got enabled).
+
+    Mutation this catches: `_build_channel_groups` not calling
+    `_group_key_for_channel` (or calling it with `restrict_matching_to_country`
+    hardcoded False) -- either would leave both channels in ONE group even
+    with the flag on."""
+    inst = _matcher_inst(plugin_module)
+    uk = {"id": 1, "name": "UK: CNN", "channel_group__name": None}
+    us = {"id": 2, "name": "US CNN", "channel_group__name": None}
+    groups = inst._build_channel_groups(
+        [uk, us], [], LOGGER, [], True, True, True, True, restrict_matching_to_country=True)
+    assert len(groups) == 2, f"expected 2 country-split groups, got {list(groups.keys())}"
+    assert {ch["id"] for chans in groups.values() for ch in chans} == {1, 2}
+    for chans in groups.values():
+        assert len(chans) == 1
+
+
+def test_build_channel_groups_merges_when_disabled(plugin_module):
+    """Byte-identical to pre-bug-158: with the setting off, a same-named
+    UK/US pair still normalizes to one shared key and lands in ONE group --
+    exactly today's behaviour."""
+    inst = _matcher_inst(plugin_module)
+    uk = {"id": 1, "name": "UK: CNN", "channel_group__name": None}
+    us = {"id": 2, "name": "US CNN", "channel_group__name": None}
+    groups = inst._build_channel_groups(
+        [uk, us], [], LOGGER, [], True, True, True, True, restrict_matching_to_country=False)
+    assert len(groups) == 1, f"expected the two channels to merge, got {list(groups.keys())}"
+    (only_group,) = groups.values()
+    assert {ch["id"] for ch in only_group} == {1, 2}
+
+
+def test_manage_channel_visibility_uses_shared_group_builder(plugin_module):
+    """bug-158 review I1: guards against `manage_channel_visibility_action`
+    reverting to its own duplicated, unqualified grouping loop -- exactly
+    what silently re-merged the country-split groups and disabled the very
+    channel this branch was written to fix. Also guards the resolver source
+    (live settings, not a processed_data snapshot, per the finding)."""
+    src = inspect.getsource(plugin_module.Plugin.manage_channel_visibility_action)
+    assert "self._build_channel_groups(" in src, (
+        "manage_channel_visibility_action must group channels via the shared helper")
+    assert "self._resolve_restrict_matching_to_country(settings)" in src, (
+        "manage_channel_visibility_action must resolve the flag from LIVE settings")
+
+
+# --- Final review fixes: I2 (Sort drops the country tier) --------------------
+
+
+def _fake_orm_manager(result):
+    """A stand-in for `<Model>.objects` that answers `.filter(...).order_by(...)
+    .values_list(...)` with a fixed `result`, ignoring every argument, and no-ops
+    `.delete()` / `.bulk_create()` for the LIVE-mode write path."""
+    ns = types.SimpleNamespace()
+    ns.filter = lambda **kw: ns
+    ns.order_by = lambda *a, **kw: ns
+    ns.values_list = lambda *a, **kw: result
+    ns.delete = lambda: None
+    ns.bulk_create = lambda rows: None
+    return ns
+
+
+def test_sort_stream_dict_includes_channel_group_name(plugin_module):
+    """bug-158 review I2: without `channel_group__name` on the stream dicts
+    Sort builds, `_stream_country_code` can only see the raw name -- a stream
+    whose ONLY country signal is its group (no marker in the name) resolves
+    differently here than it did in Match & Assign for the same stream row.
+
+    Mutation this catches: dropping the `'channel_group__name': channel_group_name`
+    key back out of the dict `sort_streams_action` builds per stream."""
+    src = inspect.getsource(plugin_module.Plugin.sort_streams_action)
+    assert "'channel_group__name': channel_group_name" in src
+
+
+def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypatch):
+    """bug-158 review I2: a scheduled/manual Sort must preserve the
+    same-country-first ordering Match & Assign already applied, not revert to
+    pure quality order. Drives the REAL `sort_streams_action` end to end with
+    the ORM stubbed out, LIVE mode (not dry-run) so the constructed
+    `ChannelStream(...)` rows -- inspected via the mocked class's
+    `call_args_list`, in construction order -- reveal the exact final order.
+
+    The channel's country ("US") comes from `channels_data` (like every other
+    country-detection test here). Stream 1 ("Encore Generic") carries no
+    country marker anywhere and is UNKNOWN. Stream 2 ("Encore Feed") carries
+    no marker in its NAME either -- its country comes ONLY from
+    `channel_group__name` ("US" via its ORM `channel_group.name`), so this
+    also exercises the I2 field-addition directly, not just the reorder call.
+
+    Mutation this catches: dropping the `same_country_ids` argument (or the
+    call that computes it) at the `_streams_for_channel` call site in
+    `sort_streams_action` -- either leaves stream 1 before stream 2 (their
+    ORM fetch order), not stream 2 promoted to the front.
+    """
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.fuzzy_matcher = fuzzy_matcher.FuzzyMatcher()
+    inst._throughput_state_primed = True
+    inst._throughput_sorting_enabled = False
+    inst.saved_settings = {}
+
+    channel = {"id": 9, "name": "CNN", "channel_group__name": "News",
+               "channel_group_id": None}
+    monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
+    monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
+    monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
+    # Country-first ordering is applied inside _order_streams_for_zone, which
+    # _streams_for_channel only reaches for a zone-routed channel_id -- exactly
+    # the same gate Match & Assign/Preview go through (see
+    # test_assignment_path_preserves_country_order_over_zone above). A channel
+    # not in zone_routed is unaffected everywhere, including here.
+    monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
+    monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
+
+    fake_streams = {
+        1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
+                                 m3u_account_id=None, channel_group_id=None),
+        2: types.SimpleNamespace(id=2, name="Encore Feed", stream_stats={},
+                                 m3u_account_id=None, channel_group_id=7,
+                                 channel_group=types.SimpleNamespace(name="US")),
+    }
+
+    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
+                         _fake_orm_manager([9]))
+    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
+                         _fake_orm_manager([1, 2]))
+    monkeypatch.setattr(plugin_module.Stream, "objects",
+                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    plugin_module.ChannelStream.reset_mock()
+
+    result = inst.sort_streams_action(
+        {"profile_name": "Default", "dry_run_mode": False,
+         "restrict_matching_to_country": True},
+        LOGGER)
+
+    assert result["status"] == "success"
+    constructed_order = [c.kwargs["stream_id"] for c in plugin_module.ChannelStream.call_args_list]
+    assert constructed_order == [2, 1], (
+        f"expected the group-confirmed same-country stream (2) first, got {constructed_order}")
+
+
+def test_sort_action_order_unchanged_when_disabled(plugin_module, monkeypatch):
+    """Setting-off control for the test above: with the flag off, Sort must
+    reproduce the exact pre-bug-158 order (the streams' original ORM fetch
+    order, both being quality-tied)."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.fuzzy_matcher = fuzzy_matcher.FuzzyMatcher()
+    inst._throughput_state_primed = True
+    inst._throughput_sorting_enabled = False
+    inst.saved_settings = {}
+
+    channel = {"id": 9, "name": "CNN", "channel_group__name": "News",
+               "channel_group_id": None}
+    monkeypatch.setattr(inst, "_get_all_profiles", lambda logger: [{"name": "Default", "id": 1}])
+    monkeypatch.setattr(inst, "_get_all_channels", lambda logger: [channel])
+    monkeypatch.setattr(inst, "_load_channels_data", lambda logger, settings: US_CNN_DB)
+    # Country-first ordering is applied inside _order_streams_for_zone, which
+    # _streams_for_channel only reaches for a zone-routed channel_id -- exactly
+    # the same gate Match & Assign/Preview go through (see
+    # test_assignment_path_preserves_country_order_over_zone above). A channel
+    # not in zone_routed is unaffected everywhere, including here.
+    monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
+    monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
+    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
+
+    fake_streams = {
+        1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
+                                 m3u_account_id=None, channel_group_id=None),
+        2: types.SimpleNamespace(id=2, name="Encore Feed", stream_stats={},
+                                 m3u_account_id=None, channel_group_id=7,
+                                 channel_group=types.SimpleNamespace(name="US")),
+    }
+
+    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
+                         _fake_orm_manager([9]))
+    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
+                         _fake_orm_manager([1, 2]))
+    monkeypatch.setattr(plugin_module.Stream, "objects",
+                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    plugin_module.ChannelStream.reset_mock()
+
+    result = inst.sort_streams_action(
+        {"profile_name": "Default", "dry_run_mode": False},
+        LOGGER)
+
+    assert result["status"] == "success"
+    # No reorder happened at all -> "already sorted", nothing gets rewritten.
+    constructed_order = [c.kwargs["stream_id"] for c in plugin_module.ChannelStream.call_args_list]
+    assert constructed_order == [], (
+        f"setting off must reproduce pre-bug-158 behaviour (no reorder), got {constructed_order}")
+
+
+# --- Final review fixes: I3 (O(groups x streams) country classification) ----
+
+
+def test_stream_country_memo_reused_across_groups(plugin_module):
+    """bug-158 review I3: `_build_stream_country_memo` must classify each
+    stream ONCE, and `_match_streams_to_channel` must consult the memo rather
+    than re-classifying the full stream list per group.
+
+    Mutation this catches: dropping `stream_country_memo` threading from
+    `_match_streams_to_channel` (the parameter itself, or the
+    `_resolve_stream_country` call site inside its filter loop) -- either
+    would make the classify-call count below scale with the number of groups
+    instead of staying at zero after the memo is built."""
+    inst = _matcher_inst(plugin_module)
+    calls = []
+    real = inst._stream_country_code
+
+    def counting(stream):
+        calls.append(1)
+        return real(stream)
+
+    inst._stream_country_code = counting
+
+    memo = inst._build_stream_country_memo(REPORTER_CNN_STREAMS)
+    assert len(calls) == len(REPORTER_CNN_STREAMS)
+    calls.clear()
+
+    channels = [
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        {"id": 2, "name": "CNN", "channel_group__name": "News"},
+        {"id": 3, "name": "CNN", "channel_group__name": "News"},
+    ]
+    for channel in channels:
+        inst._match_streams_to_channel(
+            channel, REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+            restrict_matching_to_country=True, stream_country_memo=memo)
+
+    assert calls == [], (
+        "every stream should have been served from the memo, not re-classified "
+        f"({len(calls)} extra classify call(s) across 3 groups)")
+
+
+def test_stream_country_memo_not_used_without_a_memo(plugin_module):
+    """Control for the test above: omitting `stream_country_memo` (every
+    pre-I3 call site, and every call site that legitimately has no run-scoped
+    memo) must classify normally, not raise or silently skip the filter."""
+    inst = _matcher_inst(plugin_module)
+    matched, *_ = inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=True)
+    assert matched
+
+
+def test_channel_info_cache_reused_across_call_sites(plugin_module):
+    """bug-158 review I3 (subsumes 'channels_data scanned twice per channel'):
+    `channel_info_cache` must stop `_match_streams_to_channel` and
+    `_same_country_ids_for` from each re-scanning `channels_data` for the SAME
+    channel within one action run.
+
+    Mutation this catches: dropping `channel_info_cache` threading at either
+    call site, or `_get_channel_info_and_matches` not actually writing/reading
+    the cache -- either would make the channels_data-scan count below repeat
+    on the second call instead of staying at zero."""
+    inst = _matcher_inst(plugin_module)
+    scans = []
+    real_matches = inst._get_all_channel_info_matches
+
+    def counting_matches(channel_name, channels_data):
+        scans.append(1)
+        return real_matches(channel_name, channels_data)
+
+    inst._get_all_channel_info_matches = counting_matches
+
+    channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    cache = {}
+    inst._match_streams_to_channel(
+        channel, REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=True, channel_info_cache=cache)
+    assert len(scans) == 1
+    scans.clear()
+
+    inst._same_country_ids_for(
+        channel, REPORTER_CNN_STREAMS, US_CNN_DB, LOGGER, True,
+        channel_info_cache=cache)
+    assert scans == [], (
+        "the second call should be served entirely from channel_info_cache")
+
+
+# --- Final review fixes: M1 (raw processed_data reads bypass the resolver) --
+
+
+def test_m1_actions_resolve_restrict_flag_via_resolver(plugin_module):
+    """bug-158/M1: processed_data.json can carry the STRING "false" (written
+    by a previous release, or hand-edited), which is truthy under a raw
+    `dict.get()` -- the resolver's string coercion must run at BOTH read
+    sites, not only wherever it happened to already be applied.
+
+    Mutation this catches: reverting either action's read of
+    `restrict_matching_to_country` from
+    `self._resolve_restrict_matching_to_country(processed_data)` back to a
+    raw `processed_data.get('restrict_matching_to_country', DEFAULT)`."""
+    for action in ("preview_changes_action", "add_streams_to_channels_action"):
+        src = inspect.getsource(getattr(plugin_module.Plugin, action))
+        assert "self._resolve_restrict_matching_to_country(processed_data)" in src, (
+            f"{action} does not resolve restrict_matching_to_country via the resolver")
+
+
+def test_resolver_coerces_truthy_string_false_from_a_dict_like_processed_data(plugin_module):
+    """The resolver only calls `.get()`, so it is safe to reuse at the
+    processed_data read sites (M1) -- pins the exact failure mode: a stored
+    string "false" must resolve to Python False, not the truthy default."""
+    inst = _inst(plugin_module)
+    processed_data = {"restrict_matching_to_country": "false"}
+    assert inst._resolve_restrict_matching_to_country(processed_data) is False
+
+
+# --- Final review fixes: M2 (Preview never sends `details` on completion) ---
+
+
+def test_preview_sends_details_on_completion(plugin_module):
+    """bug-158/M2: Preview must call the completion `_send_progress_update`
+    WITH a `details` payload, so `_country_filter_details`'s engagement
+    counts reach View Last Results / the webhook the same way
+    add_streams_to_channels_action's completion call already does.
+
+    Mutation this catches: reverting the final
+    `self._send_progress_update("preview_changes", 'success', 100, message, context)`
+    call in `preview_changes_action` to omit the trailing `details` argument."""
+    src = inspect.getsource(plugin_module.Plugin.preview_changes_action)
+    assert (
+        'self._send_progress_update("preview_changes", \'success\', 100, message, context, details)'
+        in src
+    ), "preview_changes_action's completion update must pass details"
+
+
+# --- Final review fixes: M3 (unconditional country_stats write) -------------
+
+
+def test_m3_country_stats_write_gated_in_preview_and_add_streams(plugin_module):
+    """bug-158/M3: `processed_data['country_stats']` must only be written
+    when `restrict_matching_to_country` is True -- otherwise it was the one
+    unconditional new write in a change whose single global constraint is
+    "setting OFF -> byte-for-byte unaffected".
+
+    Mutation this catches: removing (or un-indenting) the
+    `if restrict_matching_to_country:` guard immediately above the write in
+    either action."""
+    for action in ("preview_changes_action", "add_streams_to_channels_action"):
+        src = inspect.getsource(getattr(plugin_module.Plugin, action))
+        idx = src.index("processed_data['country_stats'] = country_stats")
+        preceding = src[:idx]
+        assert preceding.rstrip().endswith("if restrict_matching_to_country:"), (
+            f"{action}: the country_stats write is not gated by restrict_matching_to_country")

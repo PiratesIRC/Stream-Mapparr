@@ -2214,13 +2214,14 @@ class Plugin:
         return streams
 
     def _same_country_ids_for(self, channel, streams, channels_data, logger,
-                              restrict_matching_to_country):
+                              restrict_matching_to_country,
+                              stream_country_memo=None, channel_info_cache=None):
         """Identity set of `streams` proven to share `channel`'s country, or None.
 
         Recomputed at assignment time because the matcher does not return it: adding
         a sixth element to _match_streams_to_channel's return tuple would break the
         test doubles that unpack it (the bug-140 trap). Cheap — one dict lookup and
-        one anchored regex per stream.
+        one anchored regex per stream (or a memo hit — see `stream_country_memo`).
 
         bug-160/bug-158: must resolve the channel country through the SAME path
         _match_streams_to_channel's filter uses -- _get_all_channel_info_matches plus
@@ -2232,19 +2233,26 @@ class Plugin:
         and kept everything. When the ambiguity guard yields no usable code (disputed
         database entries AND no group/name signal), this returns None -- no
         reordering -- rather than falling through to a first-match code.
+
+        `stream_country_memo` / `channel_info_cache` (bug-158 review I3): optional
+        memo dicts built once per action (`_build_stream_country_memo` /
+        a plain `{}`) and threaded through so this does not re-classify every
+        stream or re-scan channels_data for a channel already resolved by
+        `_match_streams_to_channel` in the same run. Both default to None,
+        which reproduces the exact prior per-call computation.
         """
         if not restrict_matching_to_country:
             return None
-        channel_name = channel['name']
-        channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
-        channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
+        channel_info, channel_info_matches = self._get_channel_info_and_matches(
+            channel, channels_data, logger, True, channel_info_cache)
         channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
         if not channel_country_code:
             return None
         return {
             id(s) for s in streams
-            if country_detect.classify(channel_country_code,
-                                       self._stream_country_code(s)) is country_detect.SAME
+            if country_detect.classify(
+                channel_country_code,
+                self._resolve_stream_country(s, stream_country_memo)) is country_detect.SAME
         }
 
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
@@ -2377,6 +2385,68 @@ class Plugin:
             country_detect.country_from_group(stream.get('channel_group__name'))
             or country_detect.country_from_name(stream.get('name'))
         )
+
+    def _build_stream_country_memo(self, streams):
+        """One `_stream_country_code()` call per stream, reused for the rest of
+        one action run (bug-158 review finding I3).
+
+        Without this, every group's country filter re-classified the ENTIRE
+        stream list from scratch (O(groups x streams): ~800 groups x 19,000
+        streams measured at ~176us/call is ~2,675s of added CPU on a real box,
+        and Preview pays it twice via `_get_matches_at_thresholds`). A stream's
+        country never changes mid-run, so classifying it once and reusing the
+        result for every group is safe.
+
+        Keyed by `id(stream)` -- the same identity key `_finalize_streams` /
+        `_same_country_ids_for` already use for `same_country_ids` -- rather
+        than `stream['id']`, and returned as a plain dict never written back
+        onto the stream objects themselves: the same dict instances are shared
+        across every group's candidate pool, so mutating them would leak state
+        across groups. Explicit optional parameter threaded by the calling
+        action, exactly like `country_stats` -- never cached on `self`.
+        """
+        return {id(s): self._stream_country_code(s) for s in streams}
+
+    def _resolve_stream_country(self, stream, stream_country_memo=None):
+        """`_stream_country_code(stream)`, served from `stream_country_memo`
+        when the caller supplied one (see `_build_stream_country_memo`).
+        Falls back to a direct (uncached) computation when no memo is given,
+        so every existing call site that omits the parameter is unaffected."""
+        if stream_country_memo is not None:
+            key = id(stream)
+            if key in stream_country_memo:
+                return stream_country_memo[key]
+            code = self._stream_country_code(stream)
+            stream_country_memo[key] = code
+            return code
+        return self._stream_country_code(stream)
+
+    def _get_channel_info_and_matches(self, channel, channels_data, logger, need_matches,
+                                       channel_info_cache=None):
+        """`(channel_info, channel_info_matches)` for one channel, memoized per
+        channel id when `channel_info_cache` is supplied (bug-158 review I3).
+
+        Without this, `_get_channel_info_from_json` and
+        `_get_all_channel_info_matches` each re-scan `channels_data` once while
+        building the channel group (grouping loop), again for the group leader
+        in `_match_streams_to_channel`, and again per member channel in
+        `_same_country_ids_for` -- three linear scans of the same country
+        database for the same channel. Explicit optional parameter, never
+        cached on `self`; a cache miss (or no cache at all) computes exactly
+        as before, so every existing call site that omits it is unaffected.
+        """
+        if channel_info_cache is not None:
+            cached = channel_info_cache.get(channel['id'])
+            if cached is not None and (not need_matches or cached[1] is not None):
+                return cached
+        channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
+        channel_info_matches = (
+            self._get_all_channel_info_matches(channel['name'], channels_data)
+            if need_matches else None
+        )
+        if channel_info_cache is not None:
+            channel_info_cache[channel['id']] = (channel_info, channel_info_matches)
+        return channel_info, channel_info_matches
 
     def _extract_channel_quality_tag(self, channel_name):
         """Extract quality tag from channel name for prioritization."""
@@ -3216,8 +3286,17 @@ class Plugin:
                                   ignore_quality=True, ignore_regional=True, ignore_geographic=True,
                                   ignore_misc=True, channels_data=None, filter_dead=False,
                                   restrict_matching_to_country=False,
-                                  allow_same_name_streams=False, country_stats=None):
-        """Find matching streams for a channel using fuzzy matching when available."""
+                                  allow_same_name_streams=False, country_stats=None,
+                                  stream_country_memo=None, channel_info_cache=None):
+        """Find matching streams for a channel using fuzzy matching when available.
+
+        `stream_country_memo` / `channel_info_cache` (bug-158 review I3): optional
+        memo dicts a caller may build once per action run and thread through every
+        group's call, instead of every group re-classifying the full stream list
+        and re-scanning channels_data from scratch. Both default to None, which
+        reproduces the exact prior per-call computation -- see
+        `_build_stream_country_memo` / `_get_channel_info_and_matches`.
+        """
         if ignore_tags is None:
             ignore_tags = []
         if channels_data is None:
@@ -3230,7 +3309,8 @@ class Plugin:
             working_streams = all_streams
 
         channel_name = channel['name']
-        channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
+        channel_info, channel_info_matches = self._get_channel_info_and_matches(
+            channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
         database_used = channel_info.get('_country_code', 'N/A') if channel_info else 'N/A'
 
         # bug-158: country restriction. The filter only REMOVES proven-foreign
@@ -3239,13 +3319,12 @@ class Plugin:
         # result set. Ordering happens in _finalize_streams.
         same_country_ids = None
         if restrict_matching_to_country:
-            channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
             channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
                 for stream in working_streams:
                     verdict = country_detect.classify(
-                        channel_country_code, self._stream_country_code(stream))
+                        channel_country_code, self._resolve_stream_country(stream, stream_country_memo))
                     if verdict is country_detect.FOREIGN:
                         continue
                     kept.append(stream)
@@ -3510,10 +3589,17 @@ class Plugin:
     def _get_matches_at_thresholds(self, channel, all_streams, logger, ignore_tags, ignore_quality,
                                    ignore_regional, ignore_geographic, ignore_misc, channels_data,
                                    current_threshold, restrict_matching_to_country=False,
-                                   allow_same_name_streams=False):
+                                   allow_same_name_streams=False,
+                                   stream_country_memo=None, channel_info_cache=None):
         """Get streams that match at different threshold levels.
 
         Returns a dict with threshold levels as keys and matched streams as values.
+
+        `stream_country_memo` / `channel_info_cache` (bug-158 review I3): see
+        `_match_streams_to_channel` -- Preview calls this once per channel-to-update
+        IN ADDITION to `_match_streams_to_channel`, so it is the second scan of the
+        full stream list per channel; threading the same memo here is what actually
+        eliminates the double-count the review flagged.
         """
         results = {}
         thresholds_to_test = []
@@ -3530,19 +3616,19 @@ class Plugin:
             thresholds_to_test.sort(reverse=True)
 
         channel_name = channel['name']
-        channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
+        channel_info, channel_info_matches = self._get_channel_info_and_matches(
+            channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
         channel_has_max = 'max' in channel_name.lower()
 
         candidate_streams = all_streams
         same_country_ids = None
         if restrict_matching_to_country:
-            channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
             channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
                 for stream in candidate_streams:
                     verdict = country_detect.classify(
-                        channel_country_code, self._stream_country_code(stream))
+                        channel_country_code, self._resolve_stream_country(stream, stream_country_memo))
                     if verdict is country_detect.FOREIGN:
                         continue
                     kept.append(stream)
@@ -4144,6 +4230,40 @@ class Plugin:
             return base_key
         code = self._channel_country_code(channel, channel_info, channel_info_matches)
         return f"{base_key}@@{code}" if code else base_key
+
+    def _build_channel_groups(self, channels, channels_data, logger, ignore_tags, ignore_quality,
+                              ignore_regional, ignore_geographic, ignore_misc,
+                              restrict_matching_to_country=False, channel_info_cache=None):
+        """Group `channels` by normalized name (OTA channels by callsign),
+        country-qualified via `_group_key_for_channel` when the country filter
+        is on. Key is unchanged when the setting is off.
+
+        bug-158 review finding I1: this is the SINGLE grouping implementation
+        shared by Match & Assign, Preview, and Manage Channel Visibility.
+        Manage Channel Visibility previously carried its own copy of this loop
+        that never called `_group_key_for_channel`, so with the setting on it
+        re-collapsed the country-split groups Match & Assign had just created
+        (e.g. `cnn@@US` + `cnn@@UK` back into one `cnn`) and its "enable one
+        channel per group" latch then enabled only one of the two countries --
+        silently undoing the fix this branch shipped. All three call sites
+        must build groups through this one function or they can disagree again.
+        """
+        channel_groups = {}
+        for channel in channels:
+            channel_info, channel_info_matches = self._get_channel_info_and_matches(
+                channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
+            if self._is_ota_channel(channel_info):
+                callsign = channel_info.get('callsign', '')
+                group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
+            else:
+                group_key = self._clean_channel_name(
+                    channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+
+            group_key = self._group_key_for_channel(
+                group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
+
+            channel_groups.setdefault(group_key, []).append(channel)
+        return channel_groups
 
     def save_settings(self, settings, context):
         """Save settings. Schedule changes are applied via the Update Schedule action."""
@@ -5079,9 +5199,11 @@ class Plugin:
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
             filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
-            restrict_matching_to_country = processed_data.get(
-                'restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY
-            )
+            # bug-158/M1: apply the same string-coercion the resolver applies at write
+            # time -- reading raw here meant a processed_data.json from a PREVIOUS
+            # release (or written before this feature) could carry the string "false",
+            # which is truthy, engaging the filter far more aggressively than shown.
+            restrict_matching_to_country = self._resolve_restrict_matching_to_country(processed_data)
             allow_same_name_streams = bool(processed_data.get(
                 'allow_same_name_streams', PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS
             ))
@@ -5094,23 +5216,18 @@ class Plugin:
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
                     ignore_geographic=ignore_geographic, ignore_misc=ignore_misc)
 
-            channel_groups = {}
-            for channel in channels:
-                channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-                if self._is_ota_channel(channel_info):
-                    callsign = channel_info.get('callsign', '')
-                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
-                else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+            # bug-158 review I3: classify every stream's country ONCE for this whole
+            # run instead of once per channel group, and memoize the per-channel
+            # channels_data lookups too. Both stay None/empty (= exact prior
+            # per-call computation) when the setting is off.
+            stream_country_memo = (
+                self._build_stream_country_memo(streams) if restrict_matching_to_country else None
+            )
+            channel_info_cache = {}
 
-                channel_info_matches = None
-                if restrict_matching_to_country:
-                    channel_info_matches = self._get_all_channel_info_matches(channel['name'], channels_data)
-                group_key = self._group_key_for_channel(
-                    group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
-
-                if group_key not in channel_groups: channel_groups[group_key] = []
-                channel_groups[group_key].append(channel)
+            channel_groups = self._build_channel_groups(
+                channels, channels_data, logger, ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc, restrict_matching_to_country, channel_info_cache)
 
             # bug-068: same zone-aware routing as Match & Assign, so the preview
             # reflects the per-channel order the real run will apply.
@@ -5153,7 +5270,8 @@ class Plugin:
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
-                    allow_same_name_streams, country_stats=country_stats
+                    allow_same_name_streams, country_stats=country_stats,
+                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
                 )
 
                 # Track group stats
@@ -5171,14 +5289,17 @@ class Plugin:
                     streams_for_channel = self._streams_for_channel(
                         matched_streams, channel['id'], zone_routed,
                         self._same_country_ids_for(channel, matched_streams, channels_data,
-                                                   logger, restrict_matching_to_country))
+                                                   logger, restrict_matching_to_country,
+                                                   stream_country_memo=stream_country_memo,
+                                                   channel_info_cache=channel_info_cache))
 
                     # Get detailed threshold analysis
                     threshold_matches = self._get_matches_at_thresholds(
                         channel, streams, logger, ignore_tags, ignore_quality,
                         ignore_regional, ignore_geographic, ignore_misc, channels_data,
                         current_threshold, restrict_matching_to_country,
-                        allow_same_name_streams
+                        allow_same_name_streams,
+                        stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
                     )
                     
                     # Store threshold analysis for recommendations
@@ -5254,7 +5375,11 @@ class Plugin:
                 logger.info(
                     f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
                     f"group(s); {country_stats['foreign_dropped']} foreign match(es) excluded.")
-            processed_data['country_stats'] = country_stats
+            # bug-158/M3: gate this write like every other country-filter surface --
+            # it is otherwise the one unconditional new write in a change whose
+            # single global constraint is "setting OFF -> byte-for-byte unaffected".
+            if restrict_matching_to_country:
+                processed_data['country_stats'] = country_stats
 
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -5292,7 +5417,16 @@ class Plugin:
             if country_stats["skipped_unknown_channel"]:
                 message += (f" ⚠ country filter skipped on "
                             f"{country_stats['skipped_unknown_channel']} group(s) — no country detected.")
-            self._send_progress_update("preview_changes", 'success', 100, message, context)
+            # bug-158/M2: Preview previously sent no `details` at all, so
+            # `_country_filter_details` never ran for this action -- only
+            # add-streams reported engagement counts in View Last Results /
+            # the webhook payload. Made symmetric with add_streams_to_channels_action.
+            details = {
+                'channels_to_update': total_channels_to_update,
+                'regex_rules_rejected': regex_rejected,
+            }
+            details.update(self._country_filter_details(restrict_matching_to_country, country_stats))
+            self._send_progress_update("preview_changes", 'success', 100, message, context, details)
             return {"status": "success", "message": message}
 
         except Exception as e:
@@ -5395,9 +5529,11 @@ class Plugin:
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
             filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
-            restrict_matching_to_country = processed_data.get(
-                'restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY
-            )
+            # bug-158/M1: apply the same string-coercion the resolver applies at write
+            # time -- reading raw here meant a processed_data.json from a PREVIOUS
+            # release (or written before this feature) could carry the string "false",
+            # which is truthy, engaging the filter far more aggressively than shown.
+            restrict_matching_to_country = self._resolve_restrict_matching_to_country(processed_data)
             allow_same_name_streams = bool(processed_data.get(
                 'allow_same_name_streams', PluginConfig.DEFAULT_ALLOW_SAME_NAME_STREAMS
             ))
@@ -5410,23 +5546,18 @@ class Plugin:
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
                     ignore_geographic=ignore_geographic, ignore_misc=ignore_misc)
 
-            channel_groups = {}
-            for channel in channels:
-                channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-                if self._is_ota_channel(channel_info):
-                    callsign = channel_info.get('callsign', '')
-                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
-                else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+            # bug-158 review I3: classify every stream's country ONCE for this whole
+            # run instead of once per channel group, and memoize the per-channel
+            # channels_data lookups too. Both stay None/empty (= exact prior
+            # per-call computation) when the setting is off.
+            stream_country_memo = (
+                self._build_stream_country_memo(streams) if restrict_matching_to_country else None
+            )
+            channel_info_cache = {}
 
-                channel_info_matches = None
-                if restrict_matching_to_country:
-                    channel_info_matches = self._get_all_channel_info_matches(channel['name'], channels_data)
-                group_key = self._group_key_for_channel(
-                    group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
-
-                if group_key not in channel_groups: channel_groups[group_key] = []
-                channel_groups[group_key].append(channel)
+            channel_groups = self._build_channel_groups(
+                channels, channels_data, logger, ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc, restrict_matching_to_country, channel_info_cache)
 
             # bug-068: zone-aware routing. Map channels that share a zone-stripped
             # base name with a different-zone sibling (e.g. "Starz Encore" +
@@ -5471,7 +5602,8 @@ class Plugin:
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
-                    allow_same_name_streams, country_stats=country_stats
+                    allow_same_name_streams, country_stats=country_stats,
+                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
                 )
 
                 # Track group stats
@@ -5502,7 +5634,9 @@ class Plugin:
                     streams_for_channel = self._streams_for_channel(
                         matched_streams, channel_id, zone_routed,
                         self._same_country_ids_for(channel, matched_streams, channels_data,
-                                                   logger, restrict_matching_to_country))
+                                                   logger, restrict_matching_to_country,
+                                                   stream_country_memo=stream_country_memo,
+                                                   channel_info_cache=channel_info_cache))
 
                     try:
                         if matched_streams:
@@ -5571,7 +5705,11 @@ class Plugin:
                 logger.info(
                     f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
                     f"group(s); {country_stats['foreign_dropped']} foreign match(es) excluded.")
-            processed_data['country_stats'] = country_stats
+            # bug-158/M3: gate this write like every other country-filter surface --
+            # it is otherwise the one unconditional new write in a change whose
+            # single global constraint is "setting OFF -> byte-for-byte unaffected".
+            if restrict_matching_to_country:
+                processed_data['country_stats'] = country_stats
 
             # CSV Export - create if dry run OR if setting is enabled
             create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
@@ -6047,6 +6185,15 @@ class Plugin:
                 f"({'quality tier before M3U source' if self._prioritize_quality else 'M3U source before quality tier'})"
             )
 
+            # bug-158 review I2: Sort must resolve this itself too, for the same
+            # reason as _prioritize_quality above -- otherwise a scheduled/manual
+            # Sort silently reverts the country-first ordering Match & Assign just
+            # applied. channels_data is only loaded when the setting is on (an
+            # unfiltered channel database file read is otherwise pure waste, and
+            # would be a behaviour-invisible-but-still-a-change when off).
+            restrict_matching_to_country = self._resolve_restrict_matching_to_country(settings)
+            channels_data = self._load_channels_data(logger, settings) if restrict_matching_to_country else []
+
             # Get settings
             profile_name = settings.get('profile_name', '').strip()
             if profile_name == "_none":
@@ -6150,12 +6297,25 @@ class Plugin:
                             else:
                                 # Stream not from a prioritized M3U source
                                 m3u_priority = 999
-                            
+
+                            # bug-158 review I2: without this, _stream_country_code
+                            # here sees only the raw name (no group signal), which
+                            # can disagree with Match & Assign's verdict for the
+                            # SAME stream and reorder it differently on the next
+                            # scheduled sort.
+                            channel_group_name = None
+                            if getattr(stream, 'channel_group_id', None):
+                                try:
+                                    channel_group_name = stream.channel_group.name
+                                except Exception:
+                                    channel_group_name = None
+
                             streams.append({
                                 'id': stream.id,
                                 'name': stream.name,
                                 'stats': stream.stream_stats or {},
-                                '_m3u_priority': m3u_priority
+                                '_m3u_priority': m3u_priority,
+                                'channel_group__name': channel_group_name,
                             })
                         except Stream.DoesNotExist:
                             logger.warning(f"[Stream-Mapparr] Stream {stream_id} no longer exists, skipping")
@@ -6181,8 +6341,14 @@ class Plugin:
                 
                 # Sort streams by quality, then zone-route (bug-068) so a West
                 # channel keeps West feeds first instead of reverting to quality only.
+                # bug-158 review I2: country tier outranks zone affinity within that
+                # reorder, exactly like Match & Assign/Preview -- otherwise Sort
+                # reverts the country-first ordering on every scheduled run.
                 sorted_streams = self._sort_streams_by_quality(streams)
-                sorted_streams = self._streams_for_channel(sorted_streams, channel_id, zone_routed)
+                same_country_ids = self._same_country_ids_for(
+                    channel, sorted_streams, channels_data, logger, restrict_matching_to_country)
+                sorted_streams = self._streams_for_channel(
+                    sorted_streams, channel_id, zone_routed, same_country_ids)
 
                 # Check if order changed
                 original_ids = [s['id'] for s in streams]
@@ -6369,8 +6535,7 @@ class Plugin:
             # Step 3: Determine channels to enable
             self._send_progress_update("manage_channel_visibility", 'running', 60, 'Determining channels to enable...', context)
             channels_to_enable = []
-            channel_groups = {}
-            
+
             # Reuse grouping logic
             ignore_tags = processed_data.get('ignore_tags', [])
             ignore_quality = processed_data.get('ignore_quality', True)
@@ -6378,17 +6543,19 @@ class Plugin:
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
             filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
+            # bug-158 review I1: resolved from LIVE settings (never processed_data,
+            # never cached on self -- same shape as bug-139/_resolve_prioritize_quality)
+            # and threaded into the SAME _build_channel_groups helper Match & Assign
+            # and Preview use. Without this, this action re-merged the country-split
+            # groups those two actions create (e.g. "cnn@@US" + "cnn@@UK" back into
+            # one "cnn"), and its "enable one channel per group" latch below then
+            # enabled only one country's channel -- disabling the very channel this
+            # branch was written to fix.
+            restrict_matching_to_country = self._resolve_restrict_matching_to_country(settings)
 
-            for channel in channels:
-                channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
-                if self._is_ota_channel(channel_info):
-                    callsign = channel_info.get('callsign', '')
-                    group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
-                else:
-                    group_key = self._clean_channel_name(channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
-                if group_key not in channel_groups: 
-                    channel_groups[group_key] = []
-                channel_groups[group_key].append(channel)
+            channel_groups = self._build_channel_groups(
+                channels, channels_data, logger, ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc, restrict_matching_to_country)
 
             for group_key, group_channels in channel_groups.items():
                 sorted_channels = self._sort_channels_by_priority(group_channels)
