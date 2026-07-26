@@ -135,3 +135,48 @@ def test_no_em_dashes_in_user_facing_text(plugin_module, fid):
     by = {f.get("id"): f for f in _fields(plugin_module)}
     text = by[fid]["label"] + by[fid]["description"]
     assert "—" not in text and "–" not in text
+
+
+# --------------------------------------------------------------------------- #
+# version checker removal
+# --------------------------------------------------------------------------- #
+
+def test_no_version_check_methods_remain(plugin_module):
+    """The GitHub update check is gone: no method, no cache path, no constant."""
+    P = plugin_module.Plugin
+    assert not hasattr(P, "_check_version_update")
+    assert not hasattr(P, "_get_latest_version")
+    cfg = plugin_module.PluginConfig
+    assert not hasattr(cfg, "VERSION_CHECK_CACHE_HOURS")
+    assert not hasattr(cfg, "VERSION_CHECK_CACHE_FILE")
+
+
+def test_fields_render_without_any_network_call(plugin_module, monkeypatch):
+    """Building the settings form must never touch the network.
+
+    `fields` is on Dispatcharr's per-request hot path, so a blocking call here
+    stalls a worker (the bug-117 family). Any urlopen attempt fails this test.
+    """
+    import urllib.request
+
+    def _boom(*a, **k):
+        raise AssertionError("fields performed a network call")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    fields = inst.fields
+    by = {f.get("id"): f for f in fields}
+    assert by["version_status"]["label"] == "Current version: 1.26.9999999"
+
+
+def test_version_line_is_static_text(plugin_module):
+    """It reports the running version and makes no claim about being up to date."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    by = {f.get("id"): f for f in inst.fields}
+    label = by["version_status"]["label"]
+    for gone in ("Update available", "up to date", "unable to check", "update check failed"):
+        assert gone.lower() not in label.lower()

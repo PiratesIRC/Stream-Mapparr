@@ -329,13 +329,11 @@ class PluginConfig:
     SCHEDULER_STOP_TIMEOUT = 5                  # Seconds to wait for graceful shutdown
 
     # === CACHE SETTINGS ===
-    VERSION_CHECK_CACHE_HOURS = 24              # Hours to cache GitHub version check
 
     # === FILE PATHS ===
     DATA_DIR = "/data"
     EXPORTS_DIR = "/data/exports"
     PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
-    VERSION_CHECK_CACHE_FILE = "/data/stream_mapparr_version_check.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
@@ -638,12 +636,6 @@ class Plugin:
     @property
     def fields(self):
         """Dynamically generate settings fields including channel database selection."""
-        version_info = {'message': f"Current version: {self.version}", 'status': 'unknown'}
-        try:
-            version_info = self._check_version_update()
-        except Exception as e:
-            LOGGER.debug(f"[Stream-Mapparr] Error checking version update: {e}")
-
         # Discover channel profiles for dropdown
         profile_options = []
         try:
@@ -670,7 +662,7 @@ class Plugin:
             {
                 "id": "version_status",
                 "type": "info",
-                "label": version_info['message'],
+                "label": f"Current version: {self.version}",
             },
             {
                 "id": "overwrite_streams",
@@ -1134,7 +1126,6 @@ class Plugin:
 
         # Use config values for file paths
         self.processed_data_file = PluginConfig.PROCESSED_DATA_FILE
-        self.version_check_cache_file = PluginConfig.VERSION_CHECK_CACHE_FILE
         self.settings_file = PluginConfig.SETTINGS_FILE
         self.loaded_channels = []
         self.loaded_streams = []
@@ -1662,67 +1653,6 @@ class Plugin:
             state.bg_thread = None
             state.signature = None
             state.armed_live = False
-
-    def _check_version_update(self):
-        """Check if a new version is available on GitHub."""
-        current_version = self.version
-        github_owner = "PiratesIRC"
-        github_repo = "Stream-Mapparr"
-        result = {
-            'message': f"Current version: {current_version}",
-            'status': 'unknown'
-        }
-        try:
-            cache_data = {}
-            should_check = True
-            if os.path.exists(self.version_check_cache_file):
-                try:
-                    with open(self.version_check_cache_file, 'r', encoding='utf-8') as f:
-                        cache_data = json.load(f)
-                    cached_plugin_version = cache_data.get('plugin_version')
-                    last_check_str = cache_data.get('last_check')
-                    if cached_plugin_version == current_version and last_check_str:
-                        last_check = datetime.fromisoformat(last_check_str)
-                        time_diff = datetime.now() - last_check
-                        if time_diff < timedelta(hours=PluginConfig.VERSION_CHECK_CACHE_HOURS):
-                            should_check = False
-                            latest_version = cache_data.get('latest_version')
-                            if latest_version and latest_version != current_version:
-                                result = {'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}", 'status': 'update_available'}
-                            else:
-                                result = {'message': f"✅ You are up to date (v{current_version})", 'status': 'up_to_date'}
-                except Exception as e:
-                    LOGGER.debug(f"[Stream-Mapparr] Error reading version cache: {e}")
-                    should_check = True
-            if should_check:
-                latest_version = self._get_latest_version(github_owner, github_repo)
-                cache_data = {'plugin_version': current_version, 'latest_version': latest_version, 'last_check': datetime.now().isoformat()}
-                try:
-                    with open(self.version_check_cache_file, 'w', encoding='utf-8') as f:
-                        json.dump(cache_data, f, indent=2)
-                except Exception as e:
-                    LOGGER.debug(f"[Stream-Mapparr] Error writing version cache: {e}")
-                if latest_version and latest_version != current_version:
-                    result = {'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}", 'status': 'update_available'}
-                elif latest_version:
-                    result = {'message': f"✅ You are up to date (v{current_version})", 'status': 'up_to_date'}
-                else:
-                    result = {'message': f"Current version: {current_version} (unable to check for updates)", 'status': 'error'}
-        except Exception as e:
-            LOGGER.debug(f"[Stream-Mapparr] Error in version check: {e}")
-            result = {'message': f"Current version: {current_version} (update check failed)", 'status': 'error'}
-        return result
-
-    def _get_latest_version(self, owner, repo):
-        """Helper to fetch latest version tag from GitHub"""
-        try:
-            url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Dispatcharr-Plugin'})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                data = json.loads(response.read().decode())
-                return data.get('tag_name', '').lstrip('v')
-        except Exception:
-            return None
 
     def _get_channel_databases(self):
         """Scan for channel database files and return metadata for each."""

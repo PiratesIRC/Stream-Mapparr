@@ -1,5 +1,14 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+### Removed
+- **The GitHub update checker is gone.** Opening the plugin settings no longer calls the GitHub
+  API, and the cached result file /data/stream_mapparr_version_check.json is no longer written or
+  read (delete it if you want to tidy up; nothing reads it). The settings page still shows the
+  running version, as plain text, with no claim about whether it is current. Building the settings
+  form runs on Dispatcharr's per-request path, so it should never wait on the network.
+
 ## v1.26.2072208 (July 26, 2026)
 
 ### Added
