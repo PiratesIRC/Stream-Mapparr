@@ -330,6 +330,20 @@ class PluginConfig:
     DEFAULT_NOTIFY_REPORT_FORMAT = "both"       # Which report files are emailed
     DEFAULT_ALLOW_SAME_NAME_STREAMS = False     # Opt-in: keep distinct same-named streams from one source (bug-140)
 
+    # === EPG-AWARE PLACEHOLDER MATCHING ===
+    DEFAULT_EPG_PLACEHOLDER_MATCHING_ENABLED = False   # Opt-in: resolve placeholder names via current EPG programme
+    DEFAULT_EPG_PLACEHOLDER_NAME_PATTERNS = (
+        r"^PPV EVENT \d+$" "\n"
+        r"^LIVE EVENT \d+$" "\n"
+        r"^PPV \d+ \|?$" "\n"
+        r"^HBO \d+$"
+    )
+    DEFAULT_EPG_TITLE_CLEANUP_RULES = (
+        '[["^Next Event:\\\\s*", ""], '
+        '["\\\\s+at \\\\d{1,2}:\\\\d{2}\\\\s*[AP]M on \\\\w+ \\\\d{1,2}$", ""]]'
+    )
+    DEFAULT_EPG_SKIP_TITLES = "Signing Off,No Event Today,No Game Today"  # Idle/no-signal placeholder titles to ignore
+
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
     DEFAULT_RATE_LIMITING = "none"              # Options: none, low, medium, high
     RATE_LIMIT_NONE = 0.0                       # No rate limiting
@@ -908,6 +922,63 @@ class Plugin:
                              "easier to read and the CSV is easier to sort and filter. Both "
                              "files are written to /data/stream_mapparr_reports either way; "
                              "this setting only decides which are emailed.",
+            },
+            {
+                "id": "_section_epg_matching",
+                "label": "EPG-Aware Placeholder Matching",
+                "type": "info",
+                "description": (
+                    "Some providers give PPV/event slots generic placeholder names "
+                    "(e.g. 'PPV EVENT 04') on both the channel and the raw stream, while "
+                    "the real event title only ever appears in EPG programme data. When "
+                    "enabled, a channel or stream whose name matches one of the patterns "
+                    "below is matched using its CURRENTLY AIRING EPG programme title "
+                    "instead of its literal name — so a channel you've named for a "
+                    "specific event (e.g. 'AEW Redemption') can match a generically-named "
+                    "incoming stream once that event is the one airing on it. "
+                    "Matching only: Channel.name and Stream.name are never modified."
+                ),
+            },
+            {
+                "id": "epg_placeholder_matching_enabled",
+                "label": "📡 Enable EPG-Based Placeholder Matching",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_EPG_PLACEHOLDER_MATCHING_ENABLED,
+                "help_text": "Master toggle for EPG-aware placeholder matching. Off by default.",
+            },
+            {
+                "id": "epg_placeholder_name_patterns",
+                "label": "🏷️ Placeholder Name Patterns (one regex per line)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_EPG_PLACEHOLDER_NAME_PATTERNS,
+                "placeholder": "^PPV EVENT \\d+$",
+                "help_text": "A channel or stream name is only ever treated as a generic "
+                             "placeholder (eligible for EPG substitution) if it matches one "
+                             "of these regexes. Anything else (e.g. 'Dodgers', 'AEW "
+                             "Redemption') is matched exactly as it is today — no behavior "
+                             "change. One Python regex per line.",
+            },
+            {
+                "id": "epg_title_cleanup_rules",
+                "label": "🧽 EPG Title Cleanup Rules (JSON)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_EPG_TITLE_CLEANUP_RULES,
+                "placeholder": '[["^Next Event:\\\\s*", ""], ["\\\\s+at \\\\d{1,2}:\\\\d{2}\\\\s*[AP]M on \\\\w+ \\\\d{1,2}$", ""]]',
+                "help_text": "Same [find, replace] JSON format as Stream Name Regex Rules "
+                             "above, applied to the raw EPG programme title before it's used "
+                             "for matching (e.g. strips a 'Next Event: X at 6:00AM on Jul 26' "
+                             "wrapper down to just 'X').",
+            },
+            {
+                "id": "epg_skip_titles",
+                "label": "⏭️ Skip Titles (comma-separated)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_EPG_SKIP_TITLES,
+                "placeholder": "Signing Off",
+                "help_text": "If the cleaned current EPG title matches one of these "
+                             "(case-insensitive), the channel/stream is left on its literal "
+                             "placeholder name for this pass — there's no useful event "
+                             "signal available (e.g. the slot is idle).",
             },
             {
                 "id": "prioritize_quality",
@@ -2156,14 +2227,16 @@ class Plugin:
                 enabled.add(db_info['id'])
         return enabled if enabled else None
 
-    def _resolve_stream_regex_rules(self, settings):
-        """Parse + gate the stream_name_regex_rules setting (spec §3/§4).
+    def _resolve_stream_regex_rules(self, settings, setting_key="stream_name_regex_rules"):
+        """Parse + gate a [find, replace] regex-rules JSON setting (spec §3/§4).
+        `setting_key` defaults to stream_name_regex_rules but any setting using the
+        same JSON shape can reuse this parser (e.g. epg_title_cleanup_rules).
         Returns (rules, report): rules = [(compiled, replacement)] that passed
         every gate; report = per-rule {index, pattern, status, detail}.
         Degrade-don't-fail: never raises. Empty/absent setting -> ([], [])."""
         cfg = PluginConfig
         settings = settings if isinstance(settings, dict) else {}
-        raw = (settings.get("stream_name_regex_rules") or "").strip()
+        raw = (settings.get(setting_key) or "").strip()
         if not raw:
             return [], []
         try:
@@ -2171,7 +2244,7 @@ class Plugin:
             if not isinstance(data, list):
                 raise ValueError("top level must be a JSON array")
         except Exception as e:
-            LOGGER.warning(f"[Stream-Mapparr] stream_name_regex_rules: invalid JSON - "
+            LOGGER.warning(f"[Stream-Mapparr] {setting_key}: invalid JSON - "
                            f"feature disabled: {e}")
             return [], [{"index": 0, "pattern": raw[:80], "status": "invalid_json_shape",
                          "detail": str(e)}]
@@ -2406,6 +2479,156 @@ class Plugin:
             return {"sent": 0,
                     "skipped_reason": f"the report path raised and was contained: {e}"}
 
+    # ── EPG-aware placeholder matching ─────────────────────────────────────
+    # Some providers give PPV/event slots generic placeholder names (channel AND
+    # raw stream) while the real event title only ever lives in EPG programme
+    # data. These helpers resolve a placeholder name to its currently-airing EPG
+    # title for MATCHING PURPOSES ONLY — Channel.name/Stream.name are never
+    # written to.
+
+    def _resolve_epg_placeholder_patterns(self, settings):
+        """Parse + compile the epg_placeholder_name_patterns setting (one regex
+        per line or comma-separated, blank entries ignored). Degrade-don't-fail:
+        an invalid pattern is logged and skipped rather than raising. Empty or
+        absent setting -> []."""
+        settings = settings if isinstance(settings, dict) else {}
+        raw = (settings.get("epg_placeholder_name_patterns") or "").strip()
+        if not raw:
+            return []
+        compiled = []
+        for line in raw.replace(",", "\n").splitlines():
+            pattern = line.strip()
+            if not pattern:
+                continue
+            try:
+                compiled.append(re.compile(pattern, re.IGNORECASE))
+            except re.error as e:
+                LOGGER.warning(f"[Stream-Mapparr] epg_placeholder_name_patterns: "
+                               f"skipping invalid pattern {pattern!r}: {e}")
+        return compiled
+
+    def _is_epg_placeholder_name(self, name, patterns):
+        """True if `name` matches one of the configured placeholder patterns —
+        i.e. it's a generic provider slot name eligible for EPG substitution."""
+        if not name or not patterns:
+            return False
+        return any(p.search(name) for p in patterns)
+
+    def _resolve_current_epg_title_for_epg_data_id(self, epg_data_id, cleanup_rules, skip_titles):
+        """Shared primitive: look up the programme currently airing on the given
+        EPGData id (start_time <= now < end_time), clean its title, and return it
+        — or None if there's no current programme, the cleaned title is empty, or
+        it matches a configured skip title (idle/no-signal placeholder)."""
+        if not epg_data_id:
+            return None
+        try:
+            from apps.epg.models import ProgramData
+            now = timezone.now()
+            title = (ProgramData.objects
+                     .filter(epg_id=epg_data_id, start_time__lte=now, end_time__gt=now)
+                     .order_by('start_time')
+                     .values_list('title', flat=True)
+                     .first())
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] EPG lookup failed for epg_data_id={epg_data_id}: {e}")
+            return None
+        if not title:
+            return None
+        cleaned = title
+        for compiled, replacement in cleanup_rules:
+            try:
+                cleaned = compiled.sub(replacement, cleaned)
+            except Exception:
+                continue
+        cleaned = cleaned.strip()
+        if not cleaned:
+            return None
+        if skip_titles and cleaned.lower() in skip_titles:
+            return None
+        return cleaned
+
+    def _resolve_current_epg_title_for_channel(self, channel, cleanup_rules, skip_titles):
+        """Channel-side case: a Channel has a direct epg_data FK."""
+        return self._resolve_current_epg_title_for_epg_data_id(
+            channel.get('epg_data_id'), cleanup_rules, skip_titles)
+
+    def _resolve_current_epg_title_for_stream(self, stream, cleanup_rules, skip_titles, epg_data_id_cache):
+        """Stream-side case — the concrete scenario this feature exists for: a
+        Stream has no direct epg_data FK, only a tvg_id string that has to be
+        joined against EPGData.tvg_id. `epg_data_id_cache` is a dict the caller
+        keeps for the duration of one matching pass so repeated/blank tvg_ids
+        don't re-query."""
+        tvg_id = (stream.get('tvg_id') or '').strip()
+        if not tvg_id:
+            return None
+        if tvg_id in epg_data_id_cache:
+            epg_data_id = epg_data_id_cache[tvg_id]
+        else:
+            try:
+                from apps.epg.models import EPGData
+                epg_data_id = EPGData.objects.filter(tvg_id=tvg_id).values_list('id', flat=True).first()
+            except Exception as e:
+                LOGGER.debug(f"[Stream-Mapparr] EPGData lookup failed for tvg_id={tvg_id}: {e}")
+                epg_data_id = None
+            epg_data_id_cache[tvg_id] = epg_data_id
+        if not epg_data_id:
+            return None
+        return self._resolve_current_epg_title_for_epg_data_id(epg_data_id, cleanup_rules, skip_titles)
+
+    def _resolve_epg_matching_settings(self, settings):
+        """Resolve the epg_* settings once per pass into the dict consumed by both
+        _apply_epg_resolution_to_streams (stream side) and _match_streams_to_channel
+        (channel side, via its epg_settings= param) — same pre-resolve-once-before-
+        the-loop convention as ignore_tags/current_threshold/etc."""
+        settings = settings if isinstance(settings, dict) else {}
+        enabled = self._get_bool_setting(settings, 'epg_placeholder_matching_enabled',
+                                          PluginConfig.DEFAULT_EPG_PLACEHOLDER_MATCHING_ENABLED)
+        patterns = self._resolve_epg_placeholder_patterns(settings) if enabled else []
+        cleanup_rules, _ = self._resolve_stream_regex_rules(settings, setting_key="epg_title_cleanup_rules")
+        skip_titles = {t.strip().lower() for t in
+                       settings.get("epg_skip_titles", PluginConfig.DEFAULT_EPG_SKIP_TITLES).split(",")
+                       if t.strip()}
+        return {
+            "enabled": enabled and bool(patterns),
+            "patterns": patterns,
+            "cleanup_rules": cleanup_rules,
+            "skip_titles": skip_titles,
+        }
+
+    def _apply_epg_resolution_to_streams(self, streams, settings, logger=None):
+        """Stamp stream['match_name'] with the currently-airing EPG programme
+        title for any stream whose raw name matches a configured placeholder
+        pattern. Runs AFTER _apply_regex_rules_to_streams in the same pass and
+        overrides its result for placeholder streams only — regex cleanup and EPG
+        resolution are complementary: EPG is the stronger signal when a
+        placeholder slot actually has one. Never mutates stream['name']; every
+        other consumer (ordering, quality sort, CSV/display) keeps reading the
+        literal name. Degrade-don't-fail throughout — a lookup failure just
+        leaves that stream on whatever match_name it already had."""
+        epg_settings = self._resolve_epg_matching_settings(settings)
+        if not epg_settings["enabled"]:
+            return {"resolved": 0, "checked": 0}
+        patterns = epg_settings["patterns"]
+        cleanup_rules = epg_settings["cleanup_rules"]
+        skip_titles = epg_settings["skip_titles"]
+        epg_data_id_cache = {}
+        resolved = 0
+        checked = 0
+        for s in streams:
+            raw_name = s.get("name") or ""
+            if not self._is_epg_placeholder_name(raw_name, patterns):
+                continue
+            checked += 1
+            title = self._resolve_current_epg_title_for_stream(
+                s, cleanup_rules, skip_titles, epg_data_id_cache)
+            if title:
+                s["match_name"] = title
+                resolved += 1
+        if logger and checked:
+            logger.info(f"[Stream-Mapparr] EPG placeholder matching: {resolved}/{checked} "
+                        f"placeholder stream(s) resolved to a current EPG title")
+        return {"resolved": resolved, "checked": checked}
+
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
         if self.fuzzy_matcher is None:
@@ -2515,7 +2738,10 @@ class Plugin:
 
     def _get_all_channels(self, logger):
         """Fetch all channels via Django ORM."""
-        fields = ['id', 'name', 'channel_number', 'channel_group_id', 'channel_group__name']
+        # 'epg_data_id' is fetched for EPG-aware placeholder matching (resolves a
+        # placeholder-named channel's currently airing programme title).
+        fields = ['id', 'name', 'channel_number', 'channel_group_id', 'channel_group__name',
+                  'epg_data_id']
         # Include attached_channel_id if the model has it (used by visibility management)
         try:
             Channel._meta.get_field('attached_channel')
@@ -2527,8 +2753,10 @@ class Plugin:
     def _get_all_streams(self, logger):
         """Fetch all streams via Django ORM, returning dicts compatible with existing processing logic."""
         # 'url' is fetched for the allow_same_name_streams dedup key (bug-140).
+        # 'tvg_id' is fetched for EPG-aware placeholder matching (a Stream has no direct
+        # epg_data FK like Channel does, so its EPG data is looked up via tvg_id).
         return list(Stream.objects.all().values(
-            'id', 'name', 'm3u_account', 'url', 'channel_group', 'channel_group__name'
+            'id', 'name', 'm3u_account', 'url', 'channel_group', 'channel_group__name', 'tvg_id'
         ))
 
     def _get_all_m3u_accounts(self, logger):
@@ -3947,7 +4175,8 @@ class Plugin:
                                   ignore_misc=True, channels_data=None, filter_dead=False,
                                   restrict_matching_to_country=False,
                                   allow_same_name_streams=False, country_stats=None,
-                                  stream_country_memo=None, channel_info_cache=None):
+                                  stream_country_memo=None, channel_info_cache=None,
+                                  epg_settings=None):
         """Find matching streams for a channel using fuzzy matching when available.
 
         `stream_country_memo` / `channel_info_cache` (bug-158 review I3): optional
@@ -3956,6 +4185,13 @@ class Plugin:
         and re-scanning channels_data from scratch. Both default to None, which
         reproduces the exact prior per-call computation -- see
         `_build_stream_country_memo` / `_get_channel_info_and_matches`.
+
+        `epg_settings`, when provided as {'enabled', 'patterns', 'cleanup_rules',
+        'skip_titles'} (see _resolve_epg_matching_settings), lets a placeholder-named
+        channel (e.g. still literally 'PPV EVENT 04') be matched using its currently
+        airing EPG programme title instead — the stream side of the same feature is
+        handled upstream via stream['match_name'] (_apply_epg_resolution_to_streams),
+        so `all_streams`/_mname() already reflect it by the time this runs.
         """
         if ignore_tags is None:
             ignore_tags = []
@@ -3969,6 +4205,14 @@ class Plugin:
             working_streams = all_streams
 
         channel_name = channel['name']
+        if epg_settings and epg_settings.get('enabled') and self._is_epg_placeholder_name(
+                channel_name, epg_settings.get('patterns')):
+            epg_title = self._resolve_current_epg_title_for_channel(
+                channel, epg_settings.get('cleanup_rules', []), epg_settings.get('skip_titles', set()))
+            if epg_title:
+                logger.debug(f"[Stream-Mapparr] Channel '{channel_name}' is a placeholder name — "
+                             f"matching against current EPG title '{epg_title}' instead")
+                channel_name = epg_title
         channel_info, channel_info_matches = self._get_channel_info_and_matches(
             channel, channels_data, logger, restrict_matching_to_country, channel_info_cache)
         database_used = channel_info.get('_country_code', 'N/A') if channel_info else 'N/A'
@@ -5947,6 +6191,8 @@ class Plugin:
             regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
             regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
             _apply_regex_rules_to_streams(streams, regex_rules, logger)
+            epg_settings = self._resolve_epg_matching_settings(settings)
+            self._apply_epg_resolution_to_streams(streams, settings, logger)
             visible_channel_limit = processed_data.get('visible_channel_limit', 1)
             ignore_tags = processed_data.get('ignore_tags', [])
 
@@ -6028,7 +6274,8 @@ class Plugin:
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
                     allow_same_name_streams, country_stats=country_stats,
-                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
+                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache,
+                    epg_settings=epg_settings
                 )
 
                 # Track group stats
@@ -6288,6 +6535,8 @@ class Plugin:
             regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
             regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
             _apply_regex_rules_to_streams(streams, regex_rules, logger)
+            epg_settings = self._resolve_epg_matching_settings(settings)
+            self._apply_epg_resolution_to_streams(streams, settings, logger)
             ignore_tags = processed_data.get('ignore_tags', [])
             visible_channel_limit = processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)
             overwrite_streams = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
@@ -6373,7 +6622,8 @@ class Plugin:
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
                     allow_same_name_streams, country_stats=country_stats,
-                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
+                    stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache,
+                    epg_settings=epg_settings
                 )
 
                 # Track group stats
@@ -6746,6 +6996,7 @@ class Plugin:
             regex_rules, regex_report = self._resolve_stream_regex_rules(settings)
             regex_rejected = sum(1 for r in regex_report if r["status"] != "ok")
             _apply_regex_rules_to_streams(all_streams, regex_rules, logger)
+            self._apply_epg_resolution_to_streams(all_streams, settings, logger)
 
             if not all_streams:
                 error_msg = "No streams found in Dispatcharr"
