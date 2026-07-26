@@ -668,3 +668,158 @@ def test_country_filter_details_populated_when_enabled(plugin_module):
     stats = {"engaged": 3, "skipped_unknown_channel": 2, "foreign_dropped": 7, "unknown_kept": 1}
     result = inst._country_filter_details(True, stats)
     assert result == {"country_filter_skipped": 2, "country_foreign_dropped": 7}
+
+
+# --- Task 8: setting-off equivalence lock ------------------------------------
+#
+# "Users with the setting OFF are byte-for-byte unaffected" is the single claim
+# the whole plan rests on. It was already contradicted once (Task 7's `details`
+# dict leaked two zero-valued keys with the setting off, caught only by review
+# and fixed above as `_country_filter_details`). Every surface Tasks 1-7 touched
+# gets its own equivalence test here rather than trusting that "off" is merely
+# the logical negation of the "on" tests already in this file.
+
+
+def test_setting_off_matches_are_identical_to_unfiltered(plugin_module):
+    """Global constraint: with the setting OFF nothing about matching changes.
+
+    NB (adapted from the brief's literal snippet): id 2 ("CNN USA") does not
+    clear the fuzzy matcher's own token-overlap threshold and is legitimately
+    excluded for reasons unrelated to country detection -- the same
+    pre-existing, non-country exclusion documented on
+    test_fail_open_when_channel_country_unknown above. Asserting the full
+    12-item REPORTER_CNN_STREAMS set survives would be a wrong (over-strict)
+    expectation this codebase has never met, country restriction or not,
+    so the expected set below is REPORTER_CNN_STREAMS minus id 2, matching
+    what a country-restriction-free build already returns.
+
+    Mutation this catches: the `if restrict_matching_to_country:` guard at the
+    top of _match_streams_to_channel's country-filter block (plugin.py) being
+    dropped, inverted, or replaced with a truthy-default -- any of which would
+    start dropping REPORTER_CNN_STREAMS' foreign-looking rows (ARG:/UK:/CA:/
+    PT:/MEX:) even with the setting off, shrinking `off` well below 11."""
+    inst = _matcher_inst(plugin_module)
+    channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    off, _, _, _, _ = inst._match_streams_to_channel(
+        channel, REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=False)
+    expected_ids = {s["id"] for s in REPORTER_CNN_STREAMS} - {2}
+    assert len(off) == len(expected_ids)
+    assert {s["id"] for s in off} == expected_ids
+
+
+def test_setting_off_group_key_has_no_country_suffix(plugin_module):
+    """Mutation this catches: _group_key_for_channel resolving/appending a
+    country suffix without checking its `restrict_to_country` parameter."""
+    inst = _matcher_inst(plugin_module)
+    key = inst._group_key_for_channel(
+        "cnn", {"id": 1, "name": "UK: CNN", "channel_group__name": None}, None, False)
+    assert "@@" not in key
+    assert key == "cnn"
+
+
+def test_setting_off_finalize_ordering_unchanged(plugin_module):
+    """Mutation this catches: _finalize_streams reordering on a None
+    same_country_ids (e.g. treating None as "no matches" -> reorder everything
+    to the back, or crashing on `id(s) in None`) instead of passing straight
+    through to sort+dedup untouched."""
+    inst = _matcher_inst(plugin_module)
+    streams = [{"id": i, "name": f"CNN {i}", "m3u_account": i, "url": f"u{i}"} for i in range(1, 5)]
+    expected = inst._deduplicate_streams(inst._sort_streams_by_quality(list(streams)), False)
+    got = inst._finalize_streams(list(streams), False, same_country_ids=None)
+    assert [s["id"] for s in got] == [s["id"] for s in expected]
+
+
+def test_setting_off_order_streams_for_zone_unchanged(plugin_module):
+    """Ordering surface #2 named in the task: _order_streams_for_zone(...,
+    same_country_ids=None) must reproduce pre-bug-158 zone-only ordering.
+    Duplicate-in-spirit of test_zone_order_unchanged_when_no_country_ids
+    above; kept as an explicit, separately-named lock for this task's audit
+    trail since the brief calls this surface out by name."""
+    inst = _matcher_inst(plugin_module)
+    generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
+    west = {"id": 2, "name": "Starz Encore (W)", "m3u_account": 1, "url": "u2"}
+    out = inst._order_streams_for_zone([west, generic], "DEFAULT", same_country_ids=None)
+    assert [s["id"] for s in out] == [1, 2]
+
+
+def test_setting_off_same_country_ids_for_returns_none(plugin_module):
+    """_same_country_ids_for must short-circuit to None as soon as
+    restrict_matching_to_country is False, without even looking at
+    channels_data/streams -- so no reordering happens anywhere downstream.
+
+    Mutation this catches: the `if not restrict_matching_to_country: return
+    None` early-return at the top of _same_country_ids_for being removed,
+    which would let a channel_database entry drive a reorder decision even
+    with the setting off."""
+    inst = _matcher_inst(plugin_module)
+    channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    us_stream = {"id": 1, "name": "US: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u1"}
+    ids = inst._same_country_ids_for(channel, [us_stream], US_CNN_DB, LOGGER, False)
+    assert ids is None
+
+
+def test_setting_off_csv_header_omits_country_sub_lines(plugin_module):
+    """CSV surface: duplicate-in-spirit of
+    test_csv_header_omits_country_counts_when_disabled above, restated here so
+    this task's own coverage list is self-contained and independently
+    greppable. Mutation this catches: dropping the
+    `if processed_data.get('restrict_matching_to_country')` guard in
+    _generate_csv_header_comment so the country sub-lines print unconditionally."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {}, {"restrict_matching_to_country": False,
+             "country_stats": {"engaged": 5, "skipped_unknown_channel": 5,
+                                "foreign_dropped": 99, "unknown_kept": 0}},
+        action_name="Preview")
+    assert "filter engaged on" not in header
+    assert "99" not in header
+
+
+def test_setting_off_details_dict_has_neither_country_key(plugin_module):
+    """The surface that actually broke once already (Task 7 review finding):
+    duplicate-in-spirit of test_country_filter_details_empty_when_disabled,
+    restated here with non-zero stats to prove the gate is on the `False` flag
+    and not merely on the stats happening to be zero."""
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 4, "skipped_unknown_channel": 3, "foreign_dropped": 9, "unknown_kept": 1}
+    result = inst._country_filter_details(False, stats)
+    assert result == {}
+    assert "country_filter_skipped" not in result
+    assert "country_foreign_dropped" not in result
+
+
+def test_setting_off_completion_message_suffix_never_triggers(plugin_module):
+    """Completion-message surface (preview_changes_action /
+    add_streams_to_channels_action): both actions append a country-filter
+    warning to their success message only when
+    `country_stats["skipped_unknown_channel"]` is truthy after accumulating
+    across every channel group processed in the run. Simulates that
+    accumulation loop -- several distinct channels sharing one stats dict,
+    exactly how the real action loop calls _match_streams_to_channel once per
+    group -- with the setting OFF, and proves the counter that gates the
+    suffix stays at its initial zero.
+
+    Mutation this catches: the `if restrict_matching_to_country:` guard
+    around the country-filter block in _match_streams_to_channel being
+    dropped/inverted, which would start incrementing
+    skipped_unknown_channel with the setting off and silently print the
+    warning suffix the user would see as "country filter skipped on N
+    group(s)" despite never having enabled the feature.
+    """
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    channels = [
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        {"id": 2, "name": "USA Network", "channel_group__name": "Entertainment"},
+        {"id": 3, "name": "Starz Encore", "channel_group__name": "Movies"},
+    ]
+    for channel in channels:
+        inst._match_streams_to_channel(
+            channel, REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+            restrict_matching_to_country=False, country_stats=stats)
+    # This is exactly the condition both actions' message-building code reads
+    # (plugin.py: `if country_stats["skipped_unknown_channel"]:`).
+    assert stats["skipped_unknown_channel"] == 0
+    assert stats == {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
