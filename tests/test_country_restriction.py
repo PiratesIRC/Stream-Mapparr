@@ -511,9 +511,23 @@ def test_group_key_agrees_with_filter_via_channel_info_matches(plugin_module):
     """bug-158/bug-160: the group key must be resolved through the SAME
     ambiguity-aware path the filter uses (channel_info_matches), not the plain
     two-argument _channel_country_code form -- else a channel_database=All box
-    could group a channel under a country the filter itself refuses to trust."""
+    could group a channel under a country the filter itself refuses to trust.
+
+    `channel_info` is deliberately set to the naive single-match lookup's result
+    (first-alphabetical BR, exactly what _get_channel_info_from_json would return
+    for the real BR/CA/ES/NL/UK/US CNN collision) while `channel_info_matches`
+    carries the full ambiguous set. This is the ONLY configuration where the two
+    resolution paths diverge: the two-argument form reads channel_info directly
+    and returns "BR" (key becomes "cnn@@BR"), while the correct three-argument,
+    ambiguity-guarded form sees 2 disputed candidate codes, discards channel_info
+    entirely, and falls through to the group/name signal -- None here, since
+    "News" carries no country marker -- so the key stays unqualified. A test that
+    passed channel_info=None would not discriminate: both paths already agree on
+    None for a None channel_info, so it would pass under the very regression it
+    claims to catch."""
     inst = _matcher_inst(plugin_module)
     channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    naive_single_match = {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "BR"}
     ambiguous_matches = [
         {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "BR"},
         {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "US"},
@@ -521,4 +535,4 @@ def test_group_key_agrees_with_filter_via_channel_info_matches(plugin_module):
     # Ambiguous database matches with no group/name tiebreak -> no usable code,
     # so the key must be left unqualified rather than split on a first-match guess.
     assert inst._group_key_for_channel(
-        "cnn", channel, None, True, ambiguous_matches) == "cnn"
+        "cnn", channel, naive_single_match, True, ambiguous_matches) == "cnn"
