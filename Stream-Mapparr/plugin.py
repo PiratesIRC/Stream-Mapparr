@@ -1834,6 +1834,19 @@ class Plugin:
             value = value.lower() in ('true', 'yes', '1')
         return bool(value)
 
+    def _resolve_restrict_matching_to_country(self, settings):
+        """Resolve the 'restrict_matching_to_country' toggle from LIVE settings.
+
+        bug-158: this was the only boolean in processed_data read raw, while every
+        sibling coerces strings — so a stored "false" engaged the filter. Same
+        shape as _resolve_prioritize_quality (bug-139): never cache on self.
+        """
+        value = settings.get('restrict_matching_to_country',
+                             PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)
+        if isinstance(value, str):
+            value = value.lower() in ('true', 'yes', '1')
+        return bool(value)
+
     def _resolve_enabled_databases(self, settings):
         """Resolve which channel databases are enabled from new channel_database select or legacy db_enabled_XX booleans.
         Returns set of enabled country codes (e.g., {'US', 'UK'}) or None for all."""
@@ -4581,7 +4594,7 @@ class Plugin:
                 "ignore_geographic": ignore_geographic,
                 "ignore_misc": ignore_misc,
                 "filter_dead_streams": settings.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS),
-                "restrict_matching_to_country": settings.get('restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY),
+                "restrict_matching_to_country": self._resolve_restrict_matching_to_country(settings),
                 "allow_same_name_streams": self._resolve_allow_same_name_streams(settings),
                 "channels": channels_to_process,
                 "streams": all_streams_data
