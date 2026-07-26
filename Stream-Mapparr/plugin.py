@@ -1962,8 +1962,8 @@ class Plugin:
         ignored — never raised into the match loop.
 
         Note: ALIAS_COUNTRY_OVERRIDES is the alias-matching country scaffold from
-        aliases.py — distinct from the Plugin.COUNTRY_ALIASES country-code
-        detection table.
+        aliases.py — distinct from country.py's country-code detection helpers
+        (_channel_country_code / _stream_country_code, bug-158).
         """
         alias_map = {k: list(v) for k, v in CHANNEL_ALIASES.items()}
 
@@ -2266,86 +2266,6 @@ class Plugin:
                 for pattern in patterns:
                     if re.search(pattern, stream_name, re.IGNORECASE):
                         return quality
-        return None
-
-    # Country/region aliases. Maps whatever string forms appear in channel group
-    # or stream/channel names to the canonical code used by the shipped
-    # *_channels.json databases. Covers all 12 shipped country DBs.
-    COUNTRY_ALIASES = {
-        # United States
-        "US": "US", "USA": "US", "U.S.": "US", "U.S.A": "US",
-        "UNITED STATES": "US", "UNITED STATES OF AMERICA": "US",
-        # United Kingdom
-        "UK": "UK", "GB": "UK", "GBR": "UK",
-        "UNITED KINGDOM": "UK", "GREAT BRITAIN": "UK", "BRITAIN": "UK",
-        "ENGLAND": "UK", "SCOTLAND": "UK", "WALES": "UK",
-        # Canada
-        "CA": "CA", "CAN": "CA", "CANADA": "CA",
-        # Australia
-        "AU": "AU", "AUS": "AU", "AUSTRALIA": "AU",
-        # India
-        "IN": "IN", "IND": "IN", "INDIA": "IN",
-        # Germany
-        "DE": "DE", "GER": "DE", "DEU": "DE",
-        "GERMANY": "DE", "DEUTSCHLAND": "DE",
-        # France
-        "FR": "FR", "FRA": "FR", "FRANCE": "FR",
-        # Netherlands
-        "NL": "NL", "NLD": "NL", "HOL": "NL",
-        "NETHERLANDS": "NL", "HOLLAND": "NL",
-        # Norway
-        "NO": "NO", "NOR": "NO", "NORWAY": "NO", "NORGE": "NO",
-        # Spain
-        "ES": "ES", "ESP": "ES", "SPAIN": "ES", "ESPANA": "ES", "ESPAÑA": "ES",
-        # Mexico (normalize to MX — matches MX_channels.json)
-        "MX": "MX", "MEX": "MX", "MEXICO": "MX", "MÉXICO": "MX",
-        # Brazil
-        "BR": "BR", "BRA": "BR", "BRAZIL": "BR", "BRASIL": "BR",
-    }
-
-    # Tokens that look like country codes but aren't. Prefix detection must
-    # skip these to avoid stripping quality markers as country codes.
-    _COUNTRY_CODE_FALSE_POSITIVES = {
-        "HD", "SD", "UHD", "FHD", "4K", "8K", "HDR",
-        "TV", "PPV", "VIP", "XXX",
-    }
-
-    def _extract_country_code_from_text(self, value):
-        """Extract country/region code from tags, prefixes, or full country names."""
-        if not value:
-            return None
-        text = str(value).strip()
-        if not text:
-            return None
-
-        # [XX] bracket prefix
-        bracket_match = re.match(r'^\[([A-Z]{2,3})\]', text, re.IGNORECASE)
-        if bracket_match:
-            code = bracket_match.group(1).upper()
-            return self.COUNTRY_ALIASES.get(code, code)
-
-        # "XX:" or "XX-" prefix. We deliberately require punctuation (not whitespace)
-        # so that English words like "IN HD ESPN" are not mis-detected as country IN.
-        # Whole-word detection below still catches space-separated forms via word boundaries.
-        prefix_match = re.match(r'^([A-Z]{2,3})[:\-]', text, re.IGNORECASE)
-        if prefix_match:
-            code = prefix_match.group(1).upper()
-            if code not in self._COUNTRY_CODE_FALSE_POSITIVES:
-                return self.COUNTRY_ALIASES.get(code, code)
-
-        # Whole-word match anywhere in the normalized text. Longest aliases
-        # first so "UNITED STATES OF AMERICA" wins over "USA". Only aliases of
-        # length >= 3 participate here — two-letter codes like "IN" or "CA"
-        # collide with common English words and must use the bracket/prefix
-        # forms above to be detected.
-        normalized_text = re.sub(r'[\[\]\(\)_\-]+', ' ', text.upper())
-        normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
-        for alias, code in sorted(self.COUNTRY_ALIASES.items(),
-                                  key=lambda item: len(item[0]), reverse=True):
-            if len(alias) < 3:
-                continue
-            if re.search(rf'\b{re.escape(alias)}\b', normalized_text):
-                return code
         return None
 
     def _channel_country_code(self, channel, channel_info=None):
@@ -2910,6 +2830,31 @@ class Plugin:
 
         return deduplicated
 
+    def _finalize_streams(self, streams, allow_same_name_streams, same_country_ids=None):
+        """Quality-sort, country-partition, then deduplicate a channel's matches.
+
+        Folded from six byte-identical sort+dedup pairs so the country step cannot
+        be forgotten at one of them.
+
+        MUST dispatch through self._sort_streams_by_quality / self._deduplicate_streams:
+        several tests stub those as instance attributes to isolate the matcher, and
+        inlining the equivalents would leave the stubs silently unused.
+
+        Partition BEFORE dedup: _deduplicate_streams keys on (name, m3u_account) and
+        keeps the first occurrence, so a same-country and an unknown stream sharing a
+        key must be ordered before they collapse.
+
+        same_country_ids=None means the filter did not engage; the partition is then
+        a no-op and ordering is byte-identical to the pre-bug-158 behaviour.
+        """
+        sorted_streams = self._sort_streams_by_quality(streams)
+        if same_country_ids:
+            sorted_streams = (
+                [s for s in sorted_streams if id(s) in same_country_ids]
+                + [s for s in sorted_streams if id(s) not in same_country_ids]
+            )
+        return self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+
     def _load_channels_data(self, logger, settings=None):
         """Load channel data from enabled *_channels.json files."""
         plugin_dir = os.path.dirname(__file__)
@@ -3208,22 +3153,34 @@ class Plugin:
             working_streams = all_streams
 
         channel_name = channel['name']
-        if restrict_matching_to_country:
-            channel_country_code = self._extract_channel_country_code(channel)
-            if channel_country_code:
-                same_country_streams = [
-                    stream for stream in working_streams
-                    if self._extract_stream_country_code(stream) == channel_country_code
-                ]
-                if same_country_streams:
-                    logger.debug(
-                        f"[Stream-Mapparr] Country filter for '{channel_name}': "
-                        f"{len(same_country_streams)}/{len(working_streams)} streams matched {channel_country_code}"
-                    )
-                    working_streams = same_country_streams
-
         channel_info = self._get_channel_info_from_json(channel_name, channels_data, logger)
         database_used = channel_info.get('_country_code', 'N/A') if channel_info else 'N/A'
+
+        # bug-158: country restriction. The filter only REMOVES proven-foreign
+        # streams — it must never REORDER working_streams, because that list feeds
+        # fuzzy_matcher.fuzzy_match() whose single winning name gates the whole
+        # result set. Ordering happens in _finalize_streams.
+        same_country_ids = None
+        if restrict_matching_to_country:
+            channel_country_code = self._channel_country_code(channel, channel_info)
+            if channel_country_code:
+                kept, same_ids = [], set()
+                for stream in working_streams:
+                    verdict = country_detect.classify(
+                        channel_country_code, self._stream_country_code(stream))
+                    if verdict is country_detect.FOREIGN:
+                        continue
+                    kept.append(stream)
+                    if verdict is country_detect.SAME:
+                        same_ids.add(id(stream))
+                logger.debug(
+                    f"[Stream-Mapparr] Country filter for '{channel_name}': "
+                    f"{len(kept)}/{len(working_streams)} streams kept for "
+                    f"{channel_country_code} ({len(same_ids)} same-country)"
+                )
+                working_streams = kept
+                same_country_ids = same_ids
+
         channel_has_max = 'max' in channel_name.lower()
 
         cleaned_channel_name = self._clean_channel_name(
@@ -3261,8 +3218,8 @@ class Plugin:
                     matching_streams.append(stream)
 
             if matching_streams:
-                sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+                sorted_streams = self._finalize_streams(
+                    matching_streams, allow_same_name_streams, same_country_ids)
                 cleaned_stream_names = [self._clean_channel_name(
                     _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3402,8 +3359,8 @@ class Plugin:
                                 matching_streams.append(stream)
 
                 if matching_streams:
-                    sorted_streams = self._sort_streams_by_quality(matching_streams)
-                    sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+                    sorted_streams = self._finalize_streams(
+                        matching_streams, allow_same_name_streams, same_country_ids)
                     cleaned_stream_names = [self._clean_channel_name(
                         _mname(s), ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3435,8 +3392,8 @@ class Plugin:
                     matching_streams.append(stream)
 
             if matching_streams:
-                sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+                sorted_streams = self._finalize_streams(
+                    matching_streams, allow_same_name_streams, same_country_ids)
                 cleaned_stream_names = [self._clean_channel_name(
                     _mname(s), ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3456,8 +3413,8 @@ class Plugin:
                 matching_streams.append(stream)
 
         if matching_streams:
-            sorted_streams = self._sort_streams_by_quality(matching_streams)
-            sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+            sorted_streams = self._finalize_streams(
+                matching_streams, allow_same_name_streams, same_country_ids)
             cleaned_stream_names = [self._clean_channel_name(
                 _mname(s), ignore_tags, ignore_quality, ignore_regional,
                 ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -3493,15 +3450,21 @@ class Plugin:
         channel_has_max = 'max' in channel_name.lower()
 
         candidate_streams = all_streams
+        same_country_ids = None
         if restrict_matching_to_country:
-            channel_country_code = self._extract_channel_country_code(channel)
+            channel_country_code = self._channel_country_code(channel, channel_info)
             if channel_country_code:
-                same_country_streams = [
-                    stream for stream in all_streams
-                    if self._extract_stream_country_code(stream) == channel_country_code
-                ]
-                if same_country_streams:
-                    candidate_streams = same_country_streams
+                kept, same_ids = [], set()
+                for stream in candidate_streams:
+                    verdict = country_detect.classify(
+                        channel_country_code, self._stream_country_code(stream))
+                    if verdict is country_detect.FOREIGN:
+                        continue
+                    kept.append(stream)
+                    if verdict is country_detect.SAME:
+                        same_ids.add(id(stream))
+                candidate_streams = kept
+                same_country_ids = same_ids
 
         # For OTA channels, callsign matching doesn't use threshold
         if self._is_ota_channel(channel_info):
@@ -3514,8 +3477,8 @@ class Plugin:
                     matching_streams.append(stream)
             
             if matching_streams:
-                sorted_streams = self._sort_streams_by_quality(matching_streams)
-                sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+                sorted_streams = self._finalize_streams(
+                    matching_streams, allow_same_name_streams, same_country_ids)
                 results[f"callsign_{current_threshold}"] = {
                     'streams': sorted_streams,
                     'match_type': 'Callsign match'
@@ -3573,8 +3536,8 @@ class Plugin:
                             matching_streams.append(stream)
 
                     if matching_streams:
-                        sorted_streams = self._sort_streams_by_quality(matching_streams)
-                        sorted_streams = self._deduplicate_streams(sorted_streams, allow_same_name_streams)
+                        sorted_streams = self._finalize_streams(
+                            matching_streams, allow_same_name_streams, same_country_ids)
                         results[threshold] = {
                             'streams': sorted_streams,
                             'match_type': match_type if matched_stream_name else "alias",
