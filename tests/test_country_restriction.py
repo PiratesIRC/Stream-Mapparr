@@ -486,3 +486,39 @@ def test_same_country_ids_for_returns_none_on_ambiguous_database_no_tiebreak(plu
     # no-op if not zone-routed) rather than promoting the Brazilian stream.
     out = inst._streams_for_channel([br_stream, us_stream], 1, {1: "DEFAULT"}, ids)
     assert [s["id"] for s in out] == [1, 2]
+
+
+def test_group_key_splits_by_country_when_enabled(plugin_module):
+    """Matching runs once per GROUP on the leader channel and fans the result out,
+    so a UK and a US channel sharing a normalized name would otherwise be governed
+    by whichever sorted first."""
+    inst = _matcher_inst(plugin_module)
+    uk = {"id": 1, "name": "UK: CNN", "channel_group__name": None}
+    us = {"id": 2, "name": "US CNN", "channel_group__name": None}
+    assert inst._group_key_for_channel("cnn", uk, None, True) != \
+           inst._group_key_for_channel("cnn", us, None, True)
+
+
+def test_group_key_unchanged_when_disabled(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    uk = {"id": 1, "name": "UK: CNN", "channel_group__name": None}
+    us = {"id": 2, "name": "US CNN", "channel_group__name": None}
+    assert inst._group_key_for_channel("cnn", uk, None, False) == \
+           inst._group_key_for_channel("cnn", us, None, False) == "cnn"
+
+
+def test_group_key_agrees_with_filter_via_channel_info_matches(plugin_module):
+    """bug-158/bug-160: the group key must be resolved through the SAME
+    ambiguity-aware path the filter uses (channel_info_matches), not the plain
+    two-argument _channel_country_code form -- else a channel_database=All box
+    could group a channel under a country the filter itself refuses to trust."""
+    inst = _matcher_inst(plugin_module)
+    channel = {"id": 1, "name": "CNN", "channel_group__name": "News"}
+    ambiguous_matches = [
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "BR"},
+        {"channel_name": "CNN", "type": "premium/cable/national", "_country_code": "US"},
+    ]
+    # Ambiguous database matches with no group/name tiebreak -> no usable code,
+    # so the key must be left unqualified rather than split on a first-match guess.
+    assert inst._group_key_for_channel(
+        "cnn", channel, None, True, ambiguous_matches) == "cnn"

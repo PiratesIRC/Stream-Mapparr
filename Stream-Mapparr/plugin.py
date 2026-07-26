@@ -4111,6 +4111,34 @@ class Plugin:
         channel_name_lower = channel_name.lower()
         return [e for e in channels_data if e.get('channel_name', '').lower() == channel_name_lower]
 
+    def _group_key_for_channel(self, base_key, channel, channel_info, restrict_to_country,
+                               channel_info_matches=None):
+        """Group key for a channel, country-qualified when the country filter is on.
+
+        bug-158: matching runs once per group on the leader channel and the result is
+        assigned to every member, but country is a per-channel property. Since
+        PROVIDER_PREFIX_PATTERNS strips country prefixes during normalization, a
+        "UK: CNN" and a "US CNN" channel collapse into one group and the leader's
+        country would govern both. Splitting the key keeps each country's channels
+        matched against their own country. Key is unchanged when the setting is off,
+        so non-users see no behaviour change at all.
+
+        bug-160: `channel_info_matches` -- every channels_data entry whose name
+        matched (see _get_all_channel_info_matches) -- is threaded through so this
+        resolves a channel's country through the SAME ambiguity-aware path
+        _match_streams_to_channel's filter and _same_country_ids_for use, rather
+        than the plain two-argument _channel_country_code form. Without it, a
+        channel_database=All box could group a channel under a country the filter
+        itself refuses to trust: CNN matches BR/CA/ES/NL/UK/US, and the two-argument
+        form takes the first alphabetical match (BR) with no ambiguity check, which
+        would group a US channel under Brazil even though the filter correctly
+        stayed hands-off.
+        """
+        if not restrict_to_country:
+            return base_key
+        code = self._channel_country_code(channel, channel_info, channel_info_matches)
+        return f"{base_key}@@{code}" if code else base_key
+
     def save_settings(self, settings, context):
         """Save settings. Schedule changes are applied via the Update Schedule action."""
         try:
@@ -5044,6 +5072,12 @@ class Plugin:
                 else:
                     group_key = self._clean_channel_name(channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
 
+                channel_info_matches = None
+                if restrict_matching_to_country:
+                    channel_info_matches = self._get_all_channel_info_matches(channel['name'], channels_data)
+                group_key = self._group_key_for_channel(
+                    group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
+
                 if group_key not in channel_groups: channel_groups[group_key] = []
                 channel_groups[group_key].append(channel)
 
@@ -5334,6 +5368,12 @@ class Plugin:
                     group_key = f"OTA_{callsign}" if callsign else self._clean_channel_name(channel['name'], ignore_tags)
                 else:
                     group_key = self._clean_channel_name(channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+
+                channel_info_matches = None
+                if restrict_matching_to_country:
+                    channel_info_matches = self._get_all_channel_info_matches(channel['name'], channels_data)
+                group_key = self._group_key_for_channel(
+                    group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
 
                 if group_key not in channel_groups: channel_groups[group_key] = []
                 channel_groups[group_key].append(channel)
