@@ -2268,24 +2268,57 @@ class Plugin:
                         return quality
         return None
 
-    def _channel_country_code(self, channel, channel_info=None):
-        """Resolve a channel's country (bug-158).
+    def _channel_country_code(self, channel, channel_info=None, channel_info_matches=None):
+        """Resolve a channel's country (bug-158, bug-160).
 
-        Order matters. The channel-DATABASE entry is the primary signal: it is
-        per-channel and independent of naming, which is why it fixes channels like
-        CNN / TNT / USA Network whose own name and group carry no usable marker.
-        Group label second, channel name last.
+        The channel-DATABASE entry is the primary signal: it is per-channel and
+        independent of naming, which is why it fixes channels like CNN / TNT /
+        USA Network whose own name and group carry no usable marker. Group
+        label second, channel name last.
+
+        bug-160: with channel_database=All the same channel_name can appear in
+        several *_channels.json files with disagreeing _country_code values
+        (verified against the shipped data: CNN matches BR/CA/ES/NL/UK/US, so
+        _get_channel_info_from_json's "first match wins" would silently
+        classify a US channel as Brazilian and drop the real US streams as
+        FOREIGN). So the database signal is trusted only when UNAMBIGUOUS:
+
+        channel_info_matches, when supplied, is EVERY channels_data entry whose
+        name matched (see _get_all_channel_info_matches) and takes priority
+        over a single channel_info:
+        - All matching entries agree on one _country_code (including the
+          single-match case) -> that code wins.
+        - They disagree -> fall back to the group/name-derived code (which may
+          be None, i.e. fail open). The database signal is never trusted while
+          ambiguous, regardless of whether the group/name code happens to
+          match one of the disputed candidates.
+
+        Callers with only a single channel_info (no ambiguity information)
+        keep the old direct behaviour.
         """
         if not channel:
             return None
+
+        group_name_code = (
+            country_detect.country_from_group(channel.get('channel_group__name'))
+            or country_detect.country_from_name(channel.get('name'))
+        )
+
+        if channel_info_matches is not None:
+            candidate_codes = {
+                str(m['_country_code']).upper()
+                for m in channel_info_matches if m.get('_country_code')
+            }
+            if len(candidate_codes) == 1:
+                return next(iter(candidate_codes))
+            return group_name_code
+
         if channel_info:
             db_code = channel_info.get('_country_code')
             if db_code:
                 return str(db_code).upper()
-        return (
-            country_detect.country_from_group(channel.get('channel_group__name'))
-            or country_detect.country_from_name(channel.get('name'))
-        )
+
+        return group_name_code
 
     def _stream_country_code(self, stream):
         """Resolve a stream's country from its group label, then its RAW name.
@@ -3162,7 +3195,8 @@ class Plugin:
         # result set. Ordering happens in _finalize_streams.
         same_country_ids = None
         if restrict_matching_to_country:
-            channel_country_code = self._channel_country_code(channel, channel_info)
+            channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
+            channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
                 for stream in working_streams:
@@ -3452,7 +3486,8 @@ class Plugin:
         candidate_streams = all_streams
         same_country_ids = None
         if restrict_matching_to_country:
-            channel_country_code = self._channel_country_code(channel, channel_info)
+            channel_info_matches = self._get_all_channel_info_matches(channel_name, channels_data)
+            channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
                 for stream in candidate_streams:
@@ -4013,6 +4048,24 @@ class Plugin:
             if entry.get('channel_name', '').lower() == channel_name_lower:
                 return entry
         return None
+
+    def _get_all_channel_info_matches(self, channel_name, channels_data):
+        """Return every channels_data entry whose name matches `channel_name`.
+
+        Mirrors _get_channel_info_from_json's exact-then-case-insensitive
+        priority tiers but returns ALL entries at the winning tier instead of
+        just the first (bug-160: channel_database=All can load the same
+        channel_name from several *_channels.json files with disagreeing
+        _country_code values). Added as a separate lookup rather than changing
+        _get_channel_info_from_json's existing single-match contract, which
+        other callers rely on.
+        """
+        exact = [e for e in channels_data if e.get('channel_name', '') == channel_name]
+        if exact:
+            return exact
+
+        channel_name_lower = channel_name.lower()
+        return [e for e in channels_data if e.get('channel_name', '').lower() == channel_name_lower]
 
     def save_settings(self, settings, context):
         """Save settings. Schedule changes are applied via the Update Schedule action."""
