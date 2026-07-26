@@ -30,6 +30,7 @@ jobs:
           python -m py_compile Stream-Mapparr/plugin.py
           python -m py_compile Stream-Mapparr/fuzzy_matcher.py
           python -m py_compile Stream-Mapparr/matching_core.py
+          python -m py_compile Stream-Mapparr/country.py
           python -m py_compile Stream-Mapparr/__init__.py
 
       - name: Version sync (plugin.json == plugin.py)

@@ -1,5 +1,47 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+### Fixed
+- **Restrict Matching To Same Country missed most real-world country markers (bug-158,
+  bug-159).** The setting only recognized a country code sitting alone at the start of a
+  group or channel name, so bare markers like `CANADA`, pipe-delimited ones like
+  `CA | Sports`, and multi-token ones like `UK FHD` were all read as "no country detected"
+  and silently fell through to legacy cross-country matching. Detection now checks, in
+  order: the channel database entry's own country code first, then the group name, then
+  the channel name, recognizing bare country names/codes, `|`-delimited markers and
+  multi-token prefixes. Streams carrying no recognizable country marker are no longer
+  dropped: they are kept as lower-priority alternates behind same-country matches instead
+  of being excluded outright. Same-named channels for different countries (for example a
+  `CANADA` and a `UK` channel both named "CNN") are now matched separately rather than
+  bleeding into each other. The completion summary reports how many groups the filter
+  actually engaged on, so a setting that quietly does nothing is visible again.
+- **OTA broadcast channels are now exempt from Restrict Matching To Same Country (bug-161).**
+  Several US state codes are also ISO-2 country codes (CA, IN, AL, AR, CO, IL), so a US
+  locals group labelled `IL: CHICAGO WGN` or `AR: LITTLE ROCK` was read as foreign against
+  a US OTA channel and its own streams were dropped. OTA channels are matched by FCC
+  callsign, not by name or group, so the country filter never contributed anything for them
+  and only created this collision. A blanket US-state denylist was considered and rejected:
+  `CA:` is a genuine foreign marker in the reporter's own feed, and denylisting it would
+  break the fix this filter exists for. OTA channels now skip the filter entirely, including
+  the channel-group key, which is no longer country-qualified for them.
+- **Known limitation, documented rather than special-cased: Channel Database = All weakens
+  country detection.** With every database enabled, a channel name that exists in several
+  of them with disagreeing countries (CNN matches BR/CA/ES/NL/UK/US, TNT matches BR/MX/US,
+  USA Network matches CA/US) is ambiguous, so the database signal is correctly refused and
+  the filter is skipped for that channel rather than guessing. This is intentional: the
+  filter works best with a single Channel Database selected, and the help text now says so.
+
+### Note on ordering parity between actions
+- Match & Assign and Preview apply same-country-first ordering to every channel the filter
+  engages on, independent of zone routing (`_finalize_streams`, unconditional). Sort's
+  reorder previously only applied that ordering to channels that were also zone-routed
+  (`_streams_for_channel` was gated on zone membership), so a lone marked-zone channel with
+  no opposite-zone sibling (for example a standalone `STARZ Encore (W)`) would revert to
+  non-country ordering on a scheduled Sort. `_streams_for_channel` now applies the
+  same-country-first partition unconditionally, with zone affinity layered on top only when
+  the channel is also zone-routed, closing that gap.
+
 ## v1.26.1992013 (July 18, 2026)
 
 ### Fixed
