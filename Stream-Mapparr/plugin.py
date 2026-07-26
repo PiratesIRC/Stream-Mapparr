@@ -654,12 +654,6 @@ class Plugin:
                 "description": "New here? Typical workflow: 1) ✅ Validate Settings, 2) choose a Channel Profile and Channel Groups below, 3) 👁️ Preview Changes, which is a dry run that changes nothing and writes a CSV report, 4) ✅ Match & Assign Streams. 🔄 Sort Alternate Streams reorders streams a channel already has, without rematching. Preview first, every time: with Overwrite Existing Streams on, Match & Assign REPLACES a channel's entire stream list. Most runs finish in the background, so use 📊 View Check Progress and 📋 View Last Results instead of waiting on the popup, which disappears after a few seconds and truncates long text. The CSV export in /data/exports is the full report.",
             },
             {
-                "id": "_section_help",
-                "label": "🐛 Report a Bug or Request a Feature",
-                "type": "info",
-                "description": "Found a bug, or want a feature? Open an issue at https://github.com/PiratesIRC/Stream-Mapparr/issues (copy the address into your browser). Please include the version shown below, which action you ran, and the CSV report from /data/exports if the problem is about matching. That CSV lists every channel, the streams matched to it and the settings used, which is usually enough to reproduce the problem.",
-            },
-            {
                 "id": "version_status",
                 "type": "info",
                 "label": f"Current version: {self.version}",
@@ -1098,6 +1092,11 @@ class Plugin:
                 "title": "Clear CSV Exports?",
                 "message": "This will delete all CSV export files created by this plugin. Continue?"
             }
+        },
+        {
+            "id": "report_a_bug",
+            "label": "🐛 Report a Bug or Request a Feature",
+            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
         },
         {
             "id": "clear_operation_lock",
@@ -1653,6 +1652,90 @@ class Plugin:
             state.bg_thread = None
             state.signature = None
             state.armed_live = False
+
+    ISSUES_URL = "https://github.com/PiratesIRC/Stream-Mapparr/issues"
+    BUG_REPORT_DIR = "/config/stream-mapparr"
+    _SECRET_SETTING_KEYS = ("webhook_url",)
+
+    def _redact_settings_for_report(self, settings):
+        """Settings with secrets masked, for pasting into a public issue.
+
+        webhook_url carries a Discord or Slack token in its path, so it is masked
+        rather than omitted: the reporter still sees THAT one is configured.
+        """
+        out = {}
+        for k, v in sorted((settings or {}).items()):
+            if k in self._SECRET_SETTING_KEYS and v:
+                out[k] = "(set, redacted)"
+            else:
+                out[k] = v
+        return out
+
+    def report_a_bug_action(self, settings, logger, context=None):
+        """Write a ready-to-paste bug report and point the user at the issues page.
+
+        The toast clips at roughly 280 characters and closes after a few seconds,
+        so it carries only the address; everything the maintainer actually needs
+        goes in a file under /config, which is a normal folder on the host.
+        """
+        message = (
+            f"Open an issue at {self.ISSUES_URL} . A ready-to-paste report with your "
+            f"version, settings and latest CSV was written to the file below."
+        )
+        try:
+            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+            path = os.path.join(self.BUG_REPORT_DIR, "report-a-bug.txt")
+
+            exports = []
+            try:
+                from glob import glob as _glob
+                exports = sorted(
+                    _glob("/data/exports/*.csv"), key=os.path.getmtime, reverse=True
+                )[:3]
+            except Exception:
+                pass
+
+            lines = [
+                "Stream-Mapparr bug report",
+                "=========================",
+                "",
+                f"Open an issue at: {self.ISSUES_URL}",
+                "Paste everything below this line into the issue, then describe what you",
+                "expected to happen and what happened instead.",
+                "",
+                "-" * 70,
+                "",
+                f"Plugin version : {self.version}",
+                f"Report written : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "",
+                "Latest CSV reports (attach the relevant one, it lists every channel, the",
+                "streams matched to it and the settings used):",
+            ]
+            lines += [f"  {p}" for p in exports] or ["  (none found in /data/exports)"]
+            lines += [
+                "",
+                "Settings (secrets masked):",
+                json.dumps(self._redact_settings_for_report(settings), indent=2, ensure_ascii=False),
+                "",
+                "Which action did you run? ..........................................",
+                "What did you expect? ...............................................",
+                "What happened instead? .............................................",
+            ]
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+
+            logger.info(f"[Stream-Mapparr] Bug report template written to {path}")
+            return {"status": "success", "message": message, "file": path}
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Could not write the bug report template: {e}")
+            return {
+                "status": "error",
+                "error": (
+                    f"Could not write the bug report file ({e}). You can still open an "
+                    f"issue at {self.ISSUES_URL} ; please include the version {self.version}, "
+                    f"which action you ran, and your latest CSV from /data/exports."
+                ),
+            }
 
     def _get_channel_databases(self):
         """Scan for channel database files and return metadata for each."""
@@ -4445,6 +4528,7 @@ class Plugin:
                 "update_schedule": self.update_schedule_action,
                 "cleanup_periodic_tasks": self.cleanup_periodic_tasks_action,
                 "clear_csv_exports": self.clear_csv_exports_action,
+                "report_a_bug": self.report_a_bug_action,
                 "clear_operation_lock": self.clear_operation_lock_action,
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,

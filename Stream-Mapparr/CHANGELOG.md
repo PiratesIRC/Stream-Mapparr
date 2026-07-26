@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+- **Report a Bug or Request a Feature is now a button** instead of a block of text on the
+  settings page. Pressing it writes a ready-to-paste report to
+  /config/stream-mapparr/report-a-bug.txt containing the plugin version, your settings with
+  secrets masked, and the paths of your three most recent CSV exports, then shows the issues
+  address. The file exists because the popup shows only about 280 characters and closes after a
+  few seconds, which is not enough room for anything useful.
+
 ### Removed
 - **The GitHub update checker is gone.** Opening the plugin settings no longer calls the GitHub
   API, and the cached result file /data/stream_mapparr_version_check.json is no longer written or

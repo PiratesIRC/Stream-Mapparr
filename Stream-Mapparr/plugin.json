@@ -133,6 +133,11 @@
       }
     },
     {
+      "id": "report_a_bug",
+      "label": "🐛 Report a Bug or Request a Feature",
+      "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address."
+    },
+    {
       "id": "clear_operation_lock",
       "label": "🔓 Clear Operation Lock",
       "description": "Manually clear a stuck operation lock.",
