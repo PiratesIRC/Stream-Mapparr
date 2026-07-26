@@ -423,3 +423,36 @@ def test_get_matches_at_thresholds_orders_same_country_first(plugin_module):
     for threshold, entry in results.items():
         ids = [s["id"] for s in entry["streams"]]
         assert ids[0] == 2, f"same-country stream should sort first at {threshold}: {ids}"
+
+
+def test_country_tier_outranks_zone_affinity(plugin_module):
+    """bug-158/bug-132: a DEFAULT-zone channel ranks generic streams at 0 and WEST
+    at 2, so without this a proven same-country WEST feed loses order 0 to an
+    unmarked generic one."""
+    inst = _matcher_inst(plugin_module)
+    unknown_generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
+    same_west = {"id": 2, "name": "US: Starz Encore (W)", "m3u_account": 1, "url": "u2"}
+    out = inst._order_streams_for_zone(
+        [same_west, unknown_generic], "DEFAULT", same_country_ids={id(same_west)})
+    assert [s["id"] for s in out] == [2, 1]
+
+
+def test_zone_order_unchanged_when_no_country_ids(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
+    west = {"id": 2, "name": "Starz Encore (W)", "m3u_account": 1, "url": "u2"}
+    out = inst._order_streams_for_zone([west, generic], "DEFAULT", same_country_ids=None)
+    assert [s["id"] for s in out] == [1, 2]
+
+
+def test_assignment_path_preserves_country_order_over_zone(plugin_module):
+    """Guards the inert-task failure mode: _order_streams_for_zone is only reached
+    via _streams_for_channel, so the call sites must pass the country ids."""
+    inst = _matcher_inst(plugin_module)
+    generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
+    same_west = {"id": 2, "name": "US: Starz Encore (W)", "m3u_account": 1, "url": "u2"}
+    ids = inst._same_country_ids_for(
+        {"id": 9, "name": "Starz Encore", "channel_group__name": "USA: Movies"},
+        [generic, same_west], [], LOGGER, True)
+    out = inst._streams_for_channel([generic, same_west], 9, {9: "DEFAULT"}, ids)
+    assert [s["id"] for s in out] == [2, 1]

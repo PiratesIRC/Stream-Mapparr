@@ -2184,24 +2184,55 @@ class Plugin:
                     covered.add(z)
         return channels
 
-    def _order_streams_for_zone(self, matched_streams, channel_zone):
+    def _order_streams_for_zone(self, matched_streams, channel_zone, same_country_ids=None):
         """Stable re-sort of a channel's matched streams by zone affinity — own zone
         first, generic next, other zone last — preserving the existing quality/
-        throughput order within each tier (bug-068)."""
+        throughput order within each tier (bug-068).
+
+        bug-158: when the country filter engaged, the country tier is the OUTER key
+        and zone affinity the inner one. Without this a DEFAULT-zone channel (which
+        since bug-132 is most of the lineup) ranks an unmarked generic stream at 0
+        and a proven same-country WEST feed at 2, handing order 0 to the unproven one.
+        """
         if not self.fuzzy_matcher or not matched_streams:
             return matched_streams
+        ids = same_country_ids or set()
         return sorted(
             matched_streams,
-            key=lambda s: _zone_affinity_rank(channel_zone, self.fuzzy_matcher.extract_zone(s.get('name', ''))),
+            key=lambda s: (
+                0 if id(s) in ids else 1,
+                _zone_affinity_rank(channel_zone, self.fuzzy_matcher.extract_zone(s.get('name', ''))),
+            ),
         )
 
-    def _streams_for_channel(self, streams, channel_id, zone_routed):
+    def _streams_for_channel(self, streams, channel_id, zone_routed, same_country_ids=None):
         """A single channel's stream list, zone-reordered if the channel is zone-routed
         (bug-068). Returns the input list unchanged for non-routed channels. Shared by
         Match & Assign, Sort, and Preview so all three agree on the per-channel order."""
         if channel_id in zone_routed:
-            return self._order_streams_for_zone(streams, zone_routed[channel_id])
+            return self._order_streams_for_zone(streams, zone_routed[channel_id], same_country_ids)
         return streams
+
+    def _same_country_ids_for(self, channel, streams, channels_data, logger,
+                              restrict_matching_to_country):
+        """Identity set of `streams` proven to share `channel`'s country, or None.
+
+        Recomputed at assignment time because the matcher does not return it: adding
+        a sixth element to _match_streams_to_channel's return tuple would break the
+        test doubles that unpack it (the bug-140 trap). Cheap — one dict lookup and
+        one anchored regex per stream.
+        """
+        if not restrict_matching_to_country:
+            return None
+        channel_info = self._get_channel_info_from_json(channel['name'], channels_data, logger)
+        channel_country_code = self._channel_country_code(channel, channel_info)
+        if not channel_country_code:
+            return None
+        return {
+            id(s) for s in streams
+            if country_detect.classify(channel_country_code,
+                                       self._stream_country_code(s)) is country_detect.SAME
+        }
 
     def _clean_channel_name(self, name, ignore_tags=None, ignore_quality=True, ignore_regional=True,
                            ignore_geographic=True, ignore_misc=True, remove_cinemax=False, remove_country_prefix=False):
@@ -5057,7 +5088,10 @@ class Plugin:
 
                 for channel in channels_to_update:
                     match_count = len(matched_streams)
-                    streams_for_channel = self._streams_for_channel(matched_streams, channel['id'], zone_routed)
+                    streams_for_channel = self._streams_for_channel(
+                        matched_streams, channel['id'], zone_routed,
+                        self._same_country_ids_for(channel, matched_streams, channels_data,
+                                                   logger, restrict_matching_to_country))
 
                     # Get detailed threshold analysis
                     threshold_matches = self._get_matches_at_thresholds(
@@ -5359,7 +5393,11 @@ class Plugin:
 
                     # bug-068: zone-route this channel's streams (West feeds →
                     # "STARZ Encore (W)"); non-routed channels keep quality order.
-                    streams_for_channel = self._streams_for_channel(matched_streams, channel_id, zone_routed)
+                    # bug-158: country tier outranks zone affinity within that reorder.
+                    streams_for_channel = self._streams_for_channel(
+                        matched_streams, channel_id, zone_routed,
+                        self._same_country_ids_for(channel, matched_streams, channels_data,
+                                                   logger, restrict_matching_to_country))
 
                     try:
                         if matched_streams:
