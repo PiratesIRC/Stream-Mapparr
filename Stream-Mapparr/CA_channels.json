@@ -1,7 +1,7 @@
 {
   "country_code": "CA",
   "country_name": "Canada",
-  "version": "2025-12-08",
+  "version": "2026-05-17",
   "channels": [
     {
       "channel_name": "1 Plus 1 International",
@@ -16222,6 +16222,541 @@
       "channel_name": "Évasion HD",
       "category": "Canada",
       "type": "Regional"
+    },
+    {
+      "channel_name": "BBC World News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bloomberg TV Canada",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "BNN",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CCTV News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNNI",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "FOX News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "MSNBC",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Weather Network",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN Classic Sports",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fight Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FNTSY Sports Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "MLB Extra Innings",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBA League Pass",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NFL Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NFL Sunday Ticket",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "NHL Centre Ice",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "radX",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TSN5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "WWE Network",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet Flames",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet Oilers",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet Pacific/West",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportsnet Vancouver Hockey",
+      "category": "Regional Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CraveTV On Demand",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FXX",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO Canada",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hollywood Suite 70",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hollywood Suite 80",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hollywood Suite 90",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hollywood Suite 00",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "IFC",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sundance Channel",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Channel 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Channel 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Channel 3",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Channel 4",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TMN 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TMN Encore 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Turner Classic Movies",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "W Movies",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "BabyTV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "CHRGD",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Junior",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney XD",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Family Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Family Jr",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Teletoon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "A&E",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "ABC Spark",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Canada",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bravo",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cosmopolitan TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "DejaView",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "E!",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fashion Television Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "G4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Lifetime",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "OWN",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showcase",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Spike TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "VICELAND",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "DIY Network",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Gold",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Peachtree TV",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Comedy Network",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Book TV",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Velocity",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Documentary",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "H2",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic Channel",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nat Geo Wild",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime+ Investigation",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "EWTN",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hope TV",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Miracle Channel",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Salt + Light",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "BET",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "CMT",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "HIFI",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV2",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MuchLoud",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MuchMusic",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Much Retro",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MuchVibe",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Stingray Music",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "The Shopping Channel",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telelatino",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Univision",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "OLN",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "World Fishing Network",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "Travel + Escape",
+      "category": "Food & Travel",
+      "type": "National"
     }
   ]
 }

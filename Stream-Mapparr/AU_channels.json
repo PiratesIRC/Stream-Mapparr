@@ -1,7 +1,7 @@
 {
   "country_code": "AU",
   "country_name": "Australia",
-  "version": "2025-11-10",
+  "version": "2026-05-17",
   "channels": [
     {
       "channel_name": "ABC TV",
@@ -251,6 +251,636 @@
     {
       "channel_name": "BBC Earth",
       "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News HD",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News Weather",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News Extra",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky News UK",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox News Channel",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN International",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "MS NOW",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NBC News NOW",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bloomberg Television",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Al Jazeera English",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CGTN",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NHK World",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "GB News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports 503",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports 505",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports 506",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports More+",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "ESPN2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Main Event",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Main Event UFC",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Racing 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Racing 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Thoroughbred Central",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fox Sports Ultra HD",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies 4K Ultra HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Premiere",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Hits",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Family",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Comedy",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Romance",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Drama",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movies Greats",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "British Cinema",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Aussie Classics",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "PULP",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Movies",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "DreamWorks",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Foxtel One",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC UKTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "FOX8",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Showcase",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Classics",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "British",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Universal TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Foxtel Pop Up",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Drama",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "More British",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Classics",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BoxSets",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Aurora Community Channel",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Real Life",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "LifeStyle Home",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Lifestyle",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fashion TV",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Seinfeld",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Comedy",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "DocPlay Channel",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Real History",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Trace Sport Stars",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nature Time",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "HauntTV",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Love Pets",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "More Docos",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Turbo",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "CGTN Documentary",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "Real Crime",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "Investigation Discovery",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "GOOD.",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Daystar",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBN",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Trending",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kids Music",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Club",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Retro",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "CMC",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Max",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Australian Played",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo Pop",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo 2K",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo '90s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo '70s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo Retro Rock",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Vevo Country",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Good Vibes",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M 70s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Oldskool 80s Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M 90s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M 2000s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Almost Acoustic",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Rock 'n' Road Trip",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M Classic Rock",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Indie & Alt",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "60s Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Blender Beats",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M 80s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Almost Acoustic Pop",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Easy Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Deep Calm",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "RnB Chill",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Chill Pop Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Oldskool 90s Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Top 30",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "90s Soft Pop",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "RnB Fridays Radio",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dance Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "2010s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Triple M Country",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Country Classics",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC World Service",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS Radio 1",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS Radio 2",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "SBS Chill",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Easy 97.2",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Rai Radio 1",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVSN",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Antenna Pacific",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Rai Italia",
+      "category": "Spanish",
+      "type": "National"
+    },
+    {
+      "channel_name": "Outdoor Channel",
+      "category": "Outdoors",
+      "type": "National"
+    },
+    {
+      "channel_name": "LifeStyle Food",
+      "category": "Food & Travel",
       "type": "National"
     }
   ]

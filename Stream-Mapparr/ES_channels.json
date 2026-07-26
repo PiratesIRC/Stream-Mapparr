@@ -1,7 +1,7 @@
 {
   "country_code": "ES",
   "country_name": "Spain",
-  "version": "2025-12-08",
+  "version": "2026-05-17",
   "channels": [
     {
       "channel_name": "#Vamos",
@@ -2732,6 +2732,621 @@
       "channel_name": "À Punt internacional",
       "category": "Spain",
       "type": "Regional"
+    },
+    {
+      "channel_name": "La 1",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "La 2",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cuatro",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "Telecinco",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "La Sexta",
+      "category": "Generalistas",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movistar Plus",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "Movistar Vamos",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Estrenos",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Hits",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Originales",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Documentales",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Clásicos",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Acción",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Comedia",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Drama",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Indie",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Cine Español",
+      "category": "Movistar+",
+      "type": "National"
+    },
+    {
+      "channel_name": "ETB 1",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "ETB 2",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "TeleBilbao",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Sur Andalucía",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVG Europa",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "7TV Sevilla",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Aragón TV",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "7TV",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "ETBon 1",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "ETBon 2",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Betevé",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Esport 3",
+      "category": "Autonómicos",
+      "type": "National"
+    },
+    {
+      "channel_name": "AMC Western",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Top Gear",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "BeMad",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "Calle 13",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cosmo",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "Syfy",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "SundanceTV",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "STAR TVE",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "AMC Living",
+      "category": "Cine y Series",
+      "type": "National"
+    },
+    {
+      "channel_name": "Veo 7",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Trece",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Energy",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "FDF",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Neox",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Divinity",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nova",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mega",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ten",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Squirrel",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Squirrel 2",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bom Cine",
+      "category": "Entretenimiento",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Vamos",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Primera Federación",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN MotoGP",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ LaLiga",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN LaLiga",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "LaLiga TV Hypermotion",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ LaLiga 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN LaLiga 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "LaLiga TV Hypermotion 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Liga de Campeones",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Liga de Campeones 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Liga de Campeones 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Vamos 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Vamos 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Golf",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Golf 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "GOL",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Caza y Pesca TV",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Iberalia TV",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "El Garage TV",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Rally TV",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "UBEAT",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN Baloncesto",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN Baloncesto 2",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN Baloncesto 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "CazaVision",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "UCL",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "ONETORO",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "TYC SPORT",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ LaLiga 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ LaLiga 4",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ LaLiga 5",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "LaLiga TV Hypermotion 3",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 4",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 5",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 6",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "M+ Deportes 7",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "UFC Fight HD",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Fútbol Replay",
+      "category": "Deportes",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nat Geo Wild",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC History",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "Canal Odisea",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Food",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "DKiss",
+      "category": "Documentales",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick Jr",
+      "category": "Infantil",
+      "type": "National"
+    },
+    {
+      "channel_name": "DreamWorks",
+      "category": "Infantil",
+      "type": "National"
+    },
+    {
+      "channel_name": "Boing",
+      "category": "Infantil",
+      "type": "National"
+    },
+    {
+      "channel_name": "Clan",
+      "category": "Infantil",
+      "type": "National"
+    },
+    {
+      "channel_name": "SX3",
+      "category": "Infantil",
+      "type": "National"
+    },
+    {
+      "channel_name": "Stingray Classica",
+      "category": "Música",
+      "type": "National"
+    },
+    {
+      "channel_name": "24 Horas",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC World",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNN Int",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "Al Jazeera English",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "France 24",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "1 + 1 International",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "CNBC Europa",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV5 Monde",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "Noticias",
+      "type": "National"
+    },
+    {
+      "channel_name": "CGTN Documentary",
+      "category": "Internacional",
+      "type": "National"
+    },
+    {
+      "channel_name": "Arirang TV",
+      "category": "Internacional",
+      "type": "National"
+    },
+    {
+      "channel_name": "EWTN",
+      "category": "Internacional",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cubavisión",
+      "category": "Internacional",
+      "type": "National"
+    },
+    {
+      "channel_name": "Daystar TV",
+      "category": "Internacional",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alquiler 1",
+      "category": "Eventos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alquiler 2",
+      "category": "Eventos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alquiler 3",
+      "category": "Eventos",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alquiler 4",
+      "category": "Eventos",
+      "type": "National"
     }
   ]
 }

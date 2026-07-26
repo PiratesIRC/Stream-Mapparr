@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+- **Channel databases refreshed for US, UK, CA, AU and ES.** Updated from the 2025-12-08 and
+  2025-11-10 sets to 2026-05-17: US 31,621 to 31,792 channels, UK 1,854 to 1,899, CA 3,244 to
+  3,351, AU 50 to 176, ES 546 to 669. No existing channel was removed. The 31 US entries that
+  carry East and West zone definitions keep them, so zone-aware routing is unaffected. DE, FR,
+  IN, MX, NL, NO and BR were already current and are unchanged.
+
 ### Fixed
 - **Restrict Matching To Same Country missed most real-world country markers (bug-158,
   bug-159).** The setting only recognized a country code sitting alone at the start of a

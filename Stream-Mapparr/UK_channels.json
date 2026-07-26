@@ -1,7 +1,7 @@
 {
   "country_code": "UK",
   "country_name": "United Kingdom",
-  "version": "2025-12-08",
+  "version": "2026-05-17",
   "channels": [
     {
       "channel_name": "1-2-3.tv",
@@ -9272,6 +9272,231 @@
       "channel_name": "ZenLIFE by Stingray",
       "category": "United Kingdom",
       "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bloomberg",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "DM News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NDTV World",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NHK World",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "NTD",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "DAZN PPV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "LFCTV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "MUTV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports +",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Sports Tennis",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Sports Box Office",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TNT Sports Ultimate (UHD)",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney+ Cinema",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "GREAT! Romance",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sky Cinema SciFi/Horror",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Boomerang",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cúla4",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Jr HD",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "RTÉ KIDSjr",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "5 USA",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5ACTION",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "5STAR",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "GTC Punjabi",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "More4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Really",
+      "category": "Reality & Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central Xtra",
+      "category": "Comedy",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nat Geo Wild",
+      "category": "Discovery",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime+Investigation",
+      "category": "Crime",
+      "type": "National"
+    },
+    {
+      "channel_name": "EWTN Catholic",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "GOD Channel",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "LoveWorld",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Revelation",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "SonLife",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Word Network",
+      "category": "Faith",
+      "type": "National"
+    },
+    {
+      "channel_name": "Clubland TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NOW 90s and 00s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Direct Store TV",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gemporia",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "High Street TV 1",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "MustHaveIdeas",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "TJC",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "HUM Masala",
+      "category": "Food & Travel",
+      "type": "National"
+    },
+    {
+      "channel_name": "Travelxp",
+      "category": "Food & Travel",
+      "type": "National"
     }
   ]
 }
