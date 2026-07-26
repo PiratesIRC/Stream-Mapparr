@@ -11,6 +11,15 @@ import sys
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent / "Stream-Mapparr"
+# A `type` containing this marker means an OTA channel, which must carry a
+# `callsign`. DORMANT RULE (measured 2026-07-26, bug-161): no shipped database in
+# this workspace uses the broadcast/callsign form - all twelve of Stream-Mapparr's
+# *_channels.json have zero callsign keys and zero broadcast types, and so do
+# EPG-Janitor's newer v2026-05-17 files. The rule is kept so the form stays valid
+# if a database ever adopts it, but it currently guards nothing. Real OTA matching
+# runs through _resolve_ota_callsign (FCC networks.json + a parenthesized callsign
+# in the channel name), which never consults these files, so do NOT read this rule
+# as evidence that `_is_ota_channel` works at runtime. It does not.
 BROADCAST_MARKER = "broadcast"
 
 
