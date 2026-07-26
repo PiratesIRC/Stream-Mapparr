@@ -656,6 +656,18 @@ class Plugin:
 
         static_fields = [
             {
+                "id": "_section_quickstart",
+                "label": "🚀 Quick Start",
+                "type": "info",
+                "description": "New here? Typical workflow: 1) ✅ Validate Settings, 2) choose a Channel Profile and Channel Groups below, 3) 👁️ Preview Changes, which is a dry run that changes nothing and writes a CSV report, 4) ✅ Match & Assign Streams. 🔄 Sort Alternate Streams reorders streams a channel already has, without rematching. Preview first, every time: with Overwrite Existing Streams on, Match & Assign REPLACES a channel's entire stream list. Most runs finish in the background, so use 📊 View Check Progress and 📋 View Last Results instead of waiting on the popup, which disappears after a few seconds and truncates long text. The CSV export in /data/exports is the full report.",
+            },
+            {
+                "id": "_section_help",
+                "label": "🐛 Report a Bug or Request a Feature",
+                "type": "info",
+                "description": "Found a bug, or want a feature? Open an issue at https://github.com/PiratesIRC/Stream-Mapparr/issues (copy the address into your browser). Please include the version shown below, which action you ran, and the CSV report from /data/exports if the problem is about matching. That CSV lists every channel, the streams matched to it and the settings used, which is usually enough to reproduce the problem.",
+            },
+            {
                 "id": "version_status",
                 "type": "info",
                 "label": version_info['message'],
@@ -992,6 +1004,11 @@ class Plugin:
             "button_color": "orange",
             "button_label": "🧹 Cleanup Tasks",
             "confirm": { "required": True, "title": "Cleanup Orphaned Tasks?", "message": "This will remove any old Celery Beat tasks created by previous versions of this plugin. Continue?" }
+        },
+        {
+            "id": "preview_changes",
+            "label": "👁️ Preview Changes (Dry Run)",
+            "description": "Dry run: show which channels would be updated and write a CSV report. Makes no changes.",
         },
         {
             "id": "add_streams_to_channels",

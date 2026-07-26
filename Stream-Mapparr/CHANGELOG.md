@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+- **Quick Start block at the top of the settings page.** Names the four steps in order, warns
+  that Match & Assign replaces a channel's entire stream list when Overwrite is on, and points
+  at View Check Progress, View Last Results and the CSV export rather than the popup, which
+  closes after a few seconds and truncates long text.
+- **Report a Bug or Request a Feature block**, carrying the GitHub issues address and asking for
+  the version, the action that was run, and the CSV report.
+
+### Fixed
+- **Preview Changes had no button (bug-162).** It was declared in plugin.json but missing from
+  the action list in plugin.py, and an enabled plugin serves only the latter, so the dry run the
+  documentation tells everyone to run first was unreachable in the UI. Confirmed against the
+  deployed 1.26.1992013 build, which served 14 actions with no Preview. plugin.json and plugin.py
+  now declare the same set with the same labels, and a test fails if they drift again.
+  Load/Process Channels stays internal on purpose: Preview and Match & Assign both run it first.
+
 ### Fixed
 - **Restrict Matching To Same Country missed most real-world country markers (bug-158,
   bug-159).** The setting only recognized a country code sitting alone at the start of a
