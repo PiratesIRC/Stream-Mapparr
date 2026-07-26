@@ -3216,7 +3216,7 @@ class Plugin:
                                   ignore_quality=True, ignore_regional=True, ignore_geographic=True,
                                   ignore_misc=True, channels_data=None, filter_dead=False,
                                   restrict_matching_to_country=False,
-                                  allow_same_name_streams=False):
+                                  allow_same_name_streams=False, country_stats=None):
         """Find matching streams for a channel using fuzzy matching when available."""
         if ignore_tags is None:
             ignore_tags = []
@@ -3251,6 +3251,10 @@ class Plugin:
                     kept.append(stream)
                     if verdict is country_detect.SAME:
                         same_ids.add(id(stream))
+                if country_stats is not None:
+                    country_stats["engaged"] += 1
+                    country_stats["foreign_dropped"] += len(working_streams) - len(kept)
+                    country_stats["unknown_kept"] += len(kept) - len(same_ids)
                 logger.debug(
                     f"[Stream-Mapparr] Country filter for '{channel_name}': "
                     f"{len(kept)}/{len(working_streams)} streams kept for "
@@ -3258,6 +3262,8 @@ class Plugin:
                 )
                 working_streams = kept
                 same_country_ids = same_ids
+            elif country_stats is not None:
+                country_stats["skipped_unknown_channel"] += 1
 
         channel_has_max = 'max' in channel_name.lower()
 
@@ -4792,6 +4798,16 @@ class Plugin:
             f"# Overwrite Streams: {settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)}",
             f"# Prioritize Quality: {settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
             f"# Restrict Matching To Same Country: {processed_data.get('restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
+        ]
+        if processed_data.get('restrict_matching_to_country'):
+            cs = processed_data.get('country_stats') or {}
+            header_lines.append(
+                f"#   - filter engaged on {cs.get('engaged', 0)} channel group(s); "
+                f"skipped on {cs.get('skipped_unknown_channel', 0)} (no country detected)")
+            header_lines.append(
+                f"#   - {cs.get('foreign_dropped', 0)} foreign stream match(es) excluded; "
+                f"{cs.get('unknown_kept', 0)} unmarked kept as alternates")
+        header_lines += [
             f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)}",
             "#",
             "# === Tag Filter Settings ===",
@@ -5109,6 +5125,8 @@ class Plugin:
             processed_groups = 0
             total_groups = len(channel_groups)
             group_stats = {}  # Track stats for each group
+            country_stats = {"engaged": 0, "skipped_unknown_channel": 0,
+                             "foreign_dropped": 0, "unknown_kept": 0}
 
             for group_key, group_channels in channel_groups.items():
                 # Update progress tracker (automatically sends updates every minute)
@@ -5120,7 +5138,7 @@ class Plugin:
                 matched_streams, cleaned_channel_name, cleaned_stream_names, match_reason, database_used = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
-                    allow_same_name_streams
+                    allow_same_name_streams, country_stats=country_stats
                 )
 
                 # Track group stats
@@ -5209,6 +5227,20 @@ class Plugin:
             if len(channel_groups) > 10:
                 logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
 
+            # bug-158: one aggregated log line for the country restriction filter,
+            # so an over-eager skip (channel country undetected) is diagnosable
+            # from the logs alone rather than only visible in the CSV.
+            if country_stats["skipped_unknown_channel"]:
+                logger.warning(
+                    f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
+                    f"group(s) but SKIPPED on {country_stats['skipped_unknown_channel']} "
+                    f"(no country detected) — check channel group names / channel database.")
+            elif restrict_matching_to_country:
+                logger.info(
+                    f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
+                    f"group(s); {country_stats['foreign_dropped']} foreign match(es) excluded.")
+            processed_data['country_stats'] = country_stats
+
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
@@ -5242,6 +5274,9 @@ class Plugin:
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
             if regex_rejected > 0:
                 message += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
+            if country_stats["skipped_unknown_channel"]:
+                message += (f" ⚠ country filter skipped on "
+                            f"{country_stats['skipped_unknown_channel']} group(s) — no country detected.")
             self._send_progress_update("preview_changes", 'success', 100, message, context)
             return {"status": "success", "message": message}
 
@@ -5391,6 +5426,8 @@ class Plugin:
             channels_updated = 0
             total_streams_added = 0
             channels_skipped = 0
+            country_stats = {"engaged": 0, "skipped_unknown_channel": 0,
+                             "foreign_dropped": 0, "unknown_kept": 0}
 
             self._send_progress_update("add_streams_to_channels", 'running', 20,
                                       f'Processing {len(channel_groups)} channel groups...', context)
@@ -5419,7 +5456,7 @@ class Plugin:
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
                     sorted_channels[0], streams, logger, ignore_tags, ignore_quality, ignore_regional,
                     ignore_geographic, ignore_misc, channels_data, filter_dead, restrict_matching_to_country,
-                    allow_same_name_streams
+                    allow_same_name_streams, country_stats=country_stats
                 )
 
                 # Track group stats
@@ -5507,6 +5544,20 @@ class Plugin:
             if len(channel_groups) > 10:
                 logger.info(f"[Stream-Mapparr]   ... and {len(channel_groups) - 10} more groups")
 
+            # bug-158: one aggregated log line for the country restriction filter,
+            # so an over-eager skip (channel country undetected) is diagnosable
+            # from the logs alone rather than only visible in the CSV.
+            if country_stats["skipped_unknown_channel"]:
+                logger.warning(
+                    f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
+                    f"group(s) but SKIPPED on {country_stats['skipped_unknown_channel']} "
+                    f"(no country detected) — check channel group names / channel database.")
+            elif restrict_matching_to_country:
+                logger.info(
+                    f"[Stream-Mapparr] Country restriction engaged on {country_stats['engaged']} "
+                    f"group(s); {country_stats['foreign_dropped']} foreign match(es) excluded.")
+            processed_data['country_stats'] = country_stats
+
             # CSV Export - create if dry run OR if setting is enabled
             create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
             if isinstance(create_csv, str):
@@ -5591,6 +5642,9 @@ class Plugin:
                 success_msg += f" Report: {os.path.basename(csv_created)}"
             if regex_rejected > 0:
                 success_msg += f" ⚠ {regex_rejected} regex rule(s) rejected — see logs."
+            if country_stats["skipped_unknown_channel"]:
+                success_msg += (f" ⚠ country filter skipped on "
+                                f"{country_stats['skipped_unknown_channel']} group(s) — no country detected.")
 
             logger.info(f"[Stream-Mapparr] {success_msg}")
             details = {
@@ -5600,6 +5654,8 @@ class Plugin:
                 'channels_skipped': channels_skipped,
                 'csv': os.path.basename(csv_created) if csv_created else None,
                 'regex_rules_rejected': regex_rejected,
+                'country_filter_skipped': country_stats["skipped_unknown_channel"],
+                'country_foreign_dropped': country_stats["foreign_dropped"],
             }
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context, details)
             self._fire_webhook(settings, logger, 'add_streams_to_channels', success_msg, 'success', details)

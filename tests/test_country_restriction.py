@@ -536,3 +536,104 @@ def test_group_key_agrees_with_filter_via_channel_info_matches(plugin_module):
     # so the key must be left unqualified rather than split on a first-match guess.
     assert inst._group_key_for_channel(
         "cnn", channel, naive_single_match, True, ambiguous_matches) == "cnn"
+
+
+# --- Task 7: observability counters -----------------------------------------
+
+
+def test_match_streams_to_channel_return_arity_unchanged(plugin_module):
+    """Guards the explicit constraint: adding country_stats must NOT change the
+    5-tuple return shape several other tests unpack. Mutation this catches: a
+    change to `return sorted_streams, ..., database_used, country_stats` (a
+    smuggled 6th element) — the star-unpack below would raise ValueError."""
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    result = inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=True, country_stats=stats)
+    a, b, c, d, e = result  # noqa: F841 -- fails with wrong arity, that's the point
+
+
+def test_country_stats_default_none_does_not_crash(plugin_module):
+    """country_stats must default to None and every write site must be guarded
+    -- omitting the parameter entirely (as every pre-Task-7 call site did, and
+    as _get_matches_at_thresholds still does) must not raise."""
+    inst = _matcher_inst(plugin_module)
+    matched, *_ = inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=True)
+    assert matched  # ran to completion with no stats dict supplied
+
+
+def test_country_stats_counts_engaged_and_dropped(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=True, country_stats=stats)
+    assert stats["engaged"] == 1
+    assert stats["skipped_unknown_channel"] == 0
+    assert stats["foreign_dropped"] > 0
+
+
+def test_country_stats_counts_skip_when_country_unknown(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=[],
+        restrict_matching_to_country=True, country_stats=stats)
+    assert stats["engaged"] == 0
+    assert stats["skipped_unknown_channel"] == 1
+
+
+def test_country_stats_untouched_when_restriction_disabled(plugin_module):
+    """With the setting OFF, the filter block never runs, so a supplied
+    country_stats dict must be left at its initial zeros -- proves the
+    "no new output when off" constraint at the counter-bump layer."""
+    inst = _matcher_inst(plugin_module)
+    stats = {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+    inst._match_streams_to_channel(
+        {"id": 1, "name": "CNN", "channel_group__name": "News"},
+        REPORTER_CNN_STREAMS, LOGGER, channels_data=US_CNN_DB,
+        restrict_matching_to_country=False, country_stats=stats)
+    assert stats == {"engaged": 0, "skipped_unknown_channel": 0, "foreign_dropped": 0, "unknown_kept": 0}
+
+
+def test_csv_header_reports_country_counts(plugin_module):
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    processed = {"restrict_matching_to_country": True,
+                 "country_stats": {"engaged": 418, "skipped_unknown_channel": 412,
+                                   "foreign_dropped": 1247, "unknown_kept": 388}}
+    header = inst._generate_csv_header_comment({}, processed, action_name="Preview")
+    assert "filter engaged on 418 channel group(s)" in header
+    assert "skipped on 412" in header
+    assert "1247" in header
+
+
+def test_csv_header_omits_country_counts_when_disabled(plugin_module):
+    """Mutation this catches: dropping the `if processed_data.get(
+    'restrict_matching_to_country')` guard so the sub-lines print unconditionally
+    -- setting off is the exact scenario that produced the original bug report
+    (header claimed the filter was on/relevant when it silently did nothing)."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment({}, {"restrict_matching_to_country": False},
+                                               action_name="Preview")
+    assert "filter engaged on" not in header
+
+
+def test_csv_header_country_counts_default_to_zero_when_stats_missing(plugin_module):
+    """restrict_matching_to_country True but no 'country_stats' key at all
+    (e.g. an old processed_data.json written before this feature) must not
+    raise and must render zeros, not crash the whole CSV header."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {}, {"restrict_matching_to_country": True}, action_name="Preview")
+    assert "filter engaged on 0 channel group(s)" in header
+    assert "skipped on 0" in header
