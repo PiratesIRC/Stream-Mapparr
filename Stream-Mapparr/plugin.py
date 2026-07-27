@@ -1690,7 +1690,8 @@ class Plugin:
             try:
                 from glob import glob as _glob
                 exports = sorted(
-                    _glob("/data/exports/*.csv"), key=os.path.getmtime, reverse=True
+                    _glob(os.path.join(PluginConfig.EXPORTS_DIR, "*.csv")),
+                    key=os.path.getmtime, reverse=True
                 )[:3]
             except Exception:
                 pass
@@ -5538,8 +5539,8 @@ class Plugin:
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
-            filepath = os.path.join("/data/exports", filename)
-            os.makedirs("/data/exports", exist_ok=True)
+            filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+            os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
 
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 header_comment = self._generate_csv_header_comment(settings, processed_data,
@@ -5885,8 +5886,8 @@ class Plugin:
                 try:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_{timestamp}.csv"
-                    filepath = os.path.join("/data/exports", filename)
-                    os.makedirs("/data/exports", exist_ok=True)
+                    filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+                    os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
 
                     # Build CSV rows from the cached match results — no re-matching.
                     # Threshold analysis is intentionally skipped here; it belongs in
@@ -6586,8 +6587,8 @@ class Plugin:
                 try:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_sorted_{timestamp}.csv" if not dry_run else f"stream_mapparr_preview_{timestamp}.csv"
-                    filepath = os.path.join("/data/exports", filename)
-                    os.makedirs("/data/exports", exist_ok=True)
+                    filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+                    os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
                     
                     # Build processed_data dict for header generator
                     selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()] if selected_groups_str else []
@@ -6951,7 +6952,7 @@ class Plugin:
     def clear_csv_exports_action(self, settings, logger):
         """Delete all CSV export files created by this plugin"""
         try:
-            export_dir = "/data/exports"
+            export_dir = PluginConfig.EXPORTS_DIR
             if not os.path.exists(export_dir):
                 return {"status": "success", "message": "No export directory found."}
 
