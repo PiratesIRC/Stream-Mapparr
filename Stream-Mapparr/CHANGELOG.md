@@ -1,6 +1,6 @@
 # Stream-Mapparr CHANGELOG
 
-## Unreleased
+## v1.26.2080011 (July 26, 2026)
 
 ### Changed
 - **Report a Bug or Request a Feature is now a button** instead of a block of text on the
