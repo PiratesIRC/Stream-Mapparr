@@ -125,6 +125,30 @@ def plugin_module():
     return load_plugin()
 
 
+@pytest.fixture(autouse=True)
+def _sandbox_plugin_data_paths(plugin_module, tmp_path, monkeypatch):
+    """Redirect every /data path in PluginConfig into the test's tmp dir.
+
+    Autouse and unconditional. Several tests drive real actions end to end
+    (sort_streams_action writes a CSV, actions take the operation lock, the
+    progress/last-results writers fire), and those wrote into a real /data on the
+    developer's machine: 107 stray CSVs had accumulated in C:/data/exports before
+    this was added. Nothing under test should touch a path outside tmp_path.
+    """
+    cfg = plugin_module.PluginConfig
+    sandbox = tmp_path / "data"
+    sandbox.mkdir(exist_ok=True)
+    for name in dir(cfg):
+        if name.startswith("_"):
+            continue
+        value = getattr(cfg, name)
+        if isinstance(value, str) and value.startswith("/data"):
+            monkeypatch.setattr(
+                cfg, name, str(sandbox / value[len("/data/"):].lstrip("/")), raising=False
+            )
+    yield
+
+
 @pytest.fixture
 def matcher(fuzzy_module, tmp_path):
     """A FuzzyMatcher with NO channel databases loaded (fast, deterministic).

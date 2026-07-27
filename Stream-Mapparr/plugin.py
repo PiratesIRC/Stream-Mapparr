@@ -329,13 +329,11 @@ class PluginConfig:
     SCHEDULER_STOP_TIMEOUT = 5                  # Seconds to wait for graceful shutdown
 
     # === CACHE SETTINGS ===
-    VERSION_CHECK_CACHE_HOURS = 24              # Hours to cache GitHub version check
 
     # === FILE PATHS ===
     DATA_DIR = "/data"
     EXPORTS_DIR = "/data/exports"
     PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
-    VERSION_CHECK_CACHE_FILE = "/data/stream_mapparr_version_check.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
@@ -638,12 +636,6 @@ class Plugin:
     @property
     def fields(self):
         """Dynamically generate settings fields including channel database selection."""
-        version_info = {'message': f"Current version: {self.version}", 'status': 'unknown'}
-        try:
-            version_info = self._check_version_update()
-        except Exception as e:
-            LOGGER.debug(f"[Stream-Mapparr] Error checking version update: {e}")
-
         # Discover channel profiles for dropdown
         profile_options = []
         try:
@@ -662,15 +654,9 @@ class Plugin:
                 "description": "New here? Typical workflow: 1) ✅ Validate Settings, 2) choose a Channel Profile and Channel Groups below, 3) 👁️ Preview Changes, which is a dry run that changes nothing and writes a CSV report, 4) ✅ Match & Assign Streams. 🔄 Sort Alternate Streams reorders streams a channel already has, without rematching. Preview first, every time: with Overwrite Existing Streams on, Match & Assign REPLACES a channel's entire stream list. Most runs finish in the background, so use 📊 View Check Progress and 📋 View Last Results instead of waiting on the popup, which disappears after a few seconds and truncates long text. The CSV export in /data/exports is the full report.",
             },
             {
-                "id": "_section_help",
-                "label": "🐛 Report a Bug or Request a Feature",
-                "type": "info",
-                "description": "Found a bug, or want a feature? Open an issue at https://github.com/PiratesIRC/Stream-Mapparr/issues (copy the address into your browser). Please include the version shown below, which action you ran, and the CSV report from /data/exports if the problem is about matching. That CSV lists every channel, the streams matched to it and the settings used, which is usually enough to reproduce the problem.",
-            },
-            {
                 "id": "version_status",
                 "type": "info",
-                "label": version_info['message'],
+                "label": f"Current version: {self.version}",
             },
             {
                 "id": "overwrite_streams",
@@ -1108,6 +1094,11 @@ class Plugin:
             }
         },
         {
+            "id": "report_a_bug",
+            "label": "🐛 Report a Bug or Request a Feature",
+            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+        },
+        {
             "id": "clear_operation_lock",
             "label": "🔓 Clear Operation Lock",
             "description": "Manually clear the operation lock file if it's stuck (e.g., after a container restart). Only use if no operation is actually running.",
@@ -1134,7 +1125,6 @@ class Plugin:
 
         # Use config values for file paths
         self.processed_data_file = PluginConfig.PROCESSED_DATA_FILE
-        self.version_check_cache_file = PluginConfig.VERSION_CHECK_CACHE_FILE
         self.settings_file = PluginConfig.SETTINGS_FILE
         self.loaded_channels = []
         self.loaded_streams = []
@@ -1663,66 +1653,90 @@ class Plugin:
             state.signature = None
             state.armed_live = False
 
-    def _check_version_update(self):
-        """Check if a new version is available on GitHub."""
-        current_version = self.version
-        github_owner = "PiratesIRC"
-        github_repo = "Stream-Mapparr"
-        result = {
-            'message': f"Current version: {current_version}",
-            'status': 'unknown'
-        }
-        try:
-            cache_data = {}
-            should_check = True
-            if os.path.exists(self.version_check_cache_file):
-                try:
-                    with open(self.version_check_cache_file, 'r', encoding='utf-8') as f:
-                        cache_data = json.load(f)
-                    cached_plugin_version = cache_data.get('plugin_version')
-                    last_check_str = cache_data.get('last_check')
-                    if cached_plugin_version == current_version and last_check_str:
-                        last_check = datetime.fromisoformat(last_check_str)
-                        time_diff = datetime.now() - last_check
-                        if time_diff < timedelta(hours=PluginConfig.VERSION_CHECK_CACHE_HOURS):
-                            should_check = False
-                            latest_version = cache_data.get('latest_version')
-                            if latest_version and latest_version != current_version:
-                                result = {'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}", 'status': 'update_available'}
-                            else:
-                                result = {'message': f"✅ You are up to date (v{current_version})", 'status': 'up_to_date'}
-                except Exception as e:
-                    LOGGER.debug(f"[Stream-Mapparr] Error reading version cache: {e}")
-                    should_check = True
-            if should_check:
-                latest_version = self._get_latest_version(github_owner, github_repo)
-                cache_data = {'plugin_version': current_version, 'latest_version': latest_version, 'last_check': datetime.now().isoformat()}
-                try:
-                    with open(self.version_check_cache_file, 'w', encoding='utf-8') as f:
-                        json.dump(cache_data, f, indent=2)
-                except Exception as e:
-                    LOGGER.debug(f"[Stream-Mapparr] Error writing version cache: {e}")
-                if latest_version and latest_version != current_version:
-                    result = {'message': f"🎉 Update available! Current: {current_version} → Latest: {latest_version}", 'status': 'update_available'}
-                elif latest_version:
-                    result = {'message': f"✅ You are up to date (v{current_version})", 'status': 'up_to_date'}
-                else:
-                    result = {'message': f"Current version: {current_version} (unable to check for updates)", 'status': 'error'}
-        except Exception as e:
-            LOGGER.debug(f"[Stream-Mapparr] Error in version check: {e}")
-            result = {'message': f"Current version: {current_version} (update check failed)", 'status': 'error'}
-        return result
+    ISSUES_URL = "https://github.com/PiratesIRC/Stream-Mapparr/issues"
+    BUG_REPORT_DIR = "/config/stream-mapparr"
+    _SECRET_SETTING_KEYS = ("webhook_url",)
 
-    def _get_latest_version(self, owner, repo):
-        """Helper to fetch latest version tag from GitHub"""
+    def _redact_settings_for_report(self, settings):
+        """Settings with secrets masked, for pasting into a public issue.
+
+        webhook_url carries a Discord or Slack token in its path, so it is masked
+        rather than omitted: the reporter still sees THAT one is configured.
+        """
+        out = {}
+        for k, v in sorted((settings or {}).items()):
+            if k in self._SECRET_SETTING_KEYS and v:
+                out[k] = "(set, redacted)"
+            else:
+                out[k] = v
+        return out
+
+    def report_a_bug_action(self, settings, logger, context=None):
+        """Write a ready-to-paste bug report and point the user at the issues page.
+
+        The toast clips at roughly 280 characters and closes after a few seconds,
+        so it carries only the address; everything the maintainer actually needs
+        goes in a file under /config, which is a normal folder on the host.
+        """
+        message = (
+            f"Open an issue at {self.ISSUES_URL} . A ready-to-paste report with your "
+            f"version, settings and latest CSV was written to the file below."
+        )
         try:
-            url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Dispatcharr-Plugin'})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                data = json.loads(response.read().decode())
-                return data.get('tag_name', '').lstrip('v')
-        except Exception:
-            return None
+            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+            path = os.path.join(self.BUG_REPORT_DIR, "report-a-bug.txt")
+
+            exports = []
+            try:
+                from glob import glob as _glob
+                exports = sorted(
+                    _glob(os.path.join(PluginConfig.EXPORTS_DIR, "*.csv")),
+                    key=os.path.getmtime, reverse=True
+                )[:3]
+            except Exception:
+                pass
+
+            lines = [
+                "Stream-Mapparr bug report",
+                "=========================",
+                "",
+                f"Open an issue at: {self.ISSUES_URL}",
+                "Paste everything below this line into the issue, then describe what you",
+                "expected to happen and what happened instead.",
+                "",
+                "-" * 70,
+                "",
+                f"Plugin version : {self.version}",
+                f"Report written : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "",
+                "Latest CSV reports (attach the relevant one, it lists every channel, the",
+                "streams matched to it and the settings used):",
+            ]
+            lines += [f"  {p}" for p in exports] or ["  (none found in /data/exports)"]
+            lines += [
+                "",
+                "Settings (secrets masked):",
+                json.dumps(self._redact_settings_for_report(settings), indent=2, ensure_ascii=False),
+                "",
+                "Which action did you run? ..........................................",
+                "What did you expect? ...............................................",
+                "What happened instead? .............................................",
+            ]
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+
+            logger.info(f"[Stream-Mapparr] Bug report template written to {path}")
+            return {"status": "success", "message": message, "file": path}
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Could not write the bug report template: {e}")
+            return {
+                "status": "error",
+                "error": (
+                    f"Could not write the bug report file ({e}). You can still open an "
+                    f"issue at {self.ISSUES_URL} ; please include the version {self.version}, "
+                    f"which action you ran, and your latest CSV from /data/exports."
+                ),
+            }
 
     def _get_channel_databases(self):
         """Scan for channel database files and return metadata for each."""
@@ -4515,6 +4529,7 @@ class Plugin:
                 "update_schedule": self.update_schedule_action,
                 "cleanup_periodic_tasks": self.cleanup_periodic_tasks_action,
                 "clear_csv_exports": self.clear_csv_exports_action,
+                "report_a_bug": self.report_a_bug_action,
                 "clear_operation_lock": self.clear_operation_lock_action,
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,
@@ -5524,8 +5539,8 @@ class Plugin:
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
-            filepath = os.path.join("/data/exports", filename)
-            os.makedirs("/data/exports", exist_ok=True)
+            filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+            os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
 
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 header_comment = self._generate_csv_header_comment(settings, processed_data,
@@ -5871,8 +5886,8 @@ class Plugin:
                 try:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_{timestamp}.csv"
-                    filepath = os.path.join("/data/exports", filename)
-                    os.makedirs("/data/exports", exist_ok=True)
+                    filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+                    os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
 
                     # Build CSV rows from the cached match results — no re-matching.
                     # Threshold analysis is intentionally skipped here; it belongs in
@@ -6572,8 +6587,8 @@ class Plugin:
                 try:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_sorted_{timestamp}.csv" if not dry_run else f"stream_mapparr_preview_{timestamp}.csv"
-                    filepath = os.path.join("/data/exports", filename)
-                    os.makedirs("/data/exports", exist_ok=True)
+                    filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
+                    os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
                     
                     # Build processed_data dict for header generator
                     selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()] if selected_groups_str else []
@@ -6937,7 +6952,7 @@ class Plugin:
     def clear_csv_exports_action(self, settings, logger):
         """Delete all CSV export files created by this plugin"""
         try:
-            export_dir = "/data/exports"
+            export_dir = PluginConfig.EXPORTS_DIR
             if not os.path.exists(export_dir):
                 return {"status": "success", "message": "No export directory found."}
 

@@ -91,24 +91,7 @@ def test_quick_start_is_the_first_field(plugin_module):
     assert ids[0] == "_section_quickstart"
 
 
-def test_help_block_follows_quick_start(plugin_module):
-    ids = [f.get("id") for f in _fields(plugin_module)]
-    assert ids[1] == "_section_help"
 
-
-def test_both_blocks_are_info_type_with_text(plugin_module):
-    """`info` is the only field type that renders persistently. An action would
-    show a toast that auto-closes in about 4 seconds and truncates."""
-    by = {f.get("id"): f for f in _fields(plugin_module)}
-    for fid in ("_section_quickstart", "_section_help"):
-        assert by[fid].get("type") == "info"
-        assert by[fid].get("label")
-        assert len(by[fid].get("description", "")) > 80
-
-
-def test_help_block_carries_the_issues_url(plugin_module):
-    by = {f.get("id"): f for f in _fields(plugin_module)}
-    assert "github.com/PiratesIRC/Stream-Mapparr/issues" in by["_section_help"]["description"]
 
 
 def test_quick_start_only_names_actions_that_exist(plugin_module):
@@ -129,9 +112,127 @@ def test_quick_start_only_names_actions_that_exist(plugin_module):
         assert name and name in text, f"Quick Start does not name {aid} ({name!r})"
 
 
-@pytest.mark.parametrize("fid", ["_section_quickstart", "_section_help"])
+@pytest.mark.parametrize("fid", ["_section_quickstart"])
 def test_no_em_dashes_in_user_facing_text(plugin_module, fid):
     """Project owner's standing style rule (2026-07-26)."""
     by = {f.get("id"): f for f in _fields(plugin_module)}
     text = by[fid]["label"] + by[fid]["description"]
     assert "—" not in text and "–" not in text
+
+
+# --------------------------------------------------------------------------- #
+# version checker removal
+# --------------------------------------------------------------------------- #
+
+def test_no_version_check_methods_remain(plugin_module):
+    """The GitHub update check is gone: no method, no cache path, no constant."""
+    P = plugin_module.Plugin
+    assert not hasattr(P, "_check_version_update")
+    assert not hasattr(P, "_get_latest_version")
+    cfg = plugin_module.PluginConfig
+    assert not hasattr(cfg, "VERSION_CHECK_CACHE_HOURS")
+    assert not hasattr(cfg, "VERSION_CHECK_CACHE_FILE")
+
+
+def test_fields_render_without_any_network_call(plugin_module, monkeypatch):
+    """Building the settings form must never touch the network.
+
+    `fields` is on Dispatcharr's per-request hot path, so a blocking call here
+    stalls a worker (the bug-117 family). Any urlopen attempt fails this test.
+    """
+    import urllib.request
+
+    def _boom(*a, **k):
+        raise AssertionError("fields performed a network call")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    fields = inst.fields
+    by = {f.get("id"): f for f in fields}
+    assert by["version_status"]["label"] == "Current version: 1.26.9999999"
+
+
+def test_version_line_is_static_text(plugin_module):
+    """It reports the running version and makes no claim about being up to date."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    by = {f.get("id"): f for f in inst.fields}
+    label = by["version_status"]["label"]
+    for gone in ("Update available", "up to date", "unable to check", "update check failed"):
+        assert gone.lower() not in label.lower()
+
+
+# --------------------------------------------------------------------------- #
+# Report a Bug button (was an info block; the owner asked for a button)
+# --------------------------------------------------------------------------- #
+
+def test_report_a_bug_is_an_action_not_a_field(plugin_module):
+    assert "report_a_bug" in _action_ids(plugin_module)
+    assert "_section_help" not in [f.get("id") for f in _fields(plugin_module)]
+
+
+def test_report_a_bug_writes_a_file_and_returns_its_path(plugin_module, tmp_path, monkeypatch):
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    monkeypatch.setattr(P, "BUG_REPORT_DIR", str(tmp_path), raising=False)
+
+    import logging
+    res = inst.report_a_bug_action({"profile_name": "a"}, logging.getLogger("t"))
+
+    assert res["status"] == "success"
+    assert "error" not in res
+    body = pathlib.Path(res["file"]).read_text(encoding="utf-8")
+    assert "github.com/PiratesIRC/Stream-Mapparr/issues" in body
+    assert "1.26.9999999" in body
+    assert "profile_name" in body
+
+
+def test_report_a_bug_masks_secrets(plugin_module, tmp_path, monkeypatch):
+    """webhook_url carries a Discord or Slack token; the file is meant to be
+    pasted into a PUBLIC issue."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    monkeypatch.setattr(P, "BUG_REPORT_DIR", str(tmp_path), raising=False)
+
+    import logging
+    secret = "https://discord.com/api/webhooks/123456/SUPERSECRETTOKEN"
+    res = inst.report_a_bug_action({"webhook_url": secret}, logging.getLogger("t"))
+    body = pathlib.Path(res["file"]).read_text(encoding="utf-8")
+    assert "SUPERSECRETTOKEN" not in body
+    assert "redacted" in body
+
+
+def test_report_a_bug_message_fits_the_toast(plugin_module, tmp_path, monkeypatch):
+    """Dispatcharr's toast shows roughly 280 characters, clips from the MIDDLE
+    with no ellipsis, and collapses newlines. The address must survive."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    monkeypatch.setattr(P, "BUG_REPORT_DIR", str(tmp_path), raising=False)
+
+    import logging
+    msg = inst.report_a_bug_action({}, logging.getLogger("t"))["message"]
+    assert len(msg) <= 280, f"toast message is {len(msg)} chars"
+    assert "\n" not in msg
+    assert "github.com/PiratesIRC/Stream-Mapparr/issues" in msg
+
+
+def test_report_a_bug_sets_error_when_it_cannot_write(plugin_module, monkeypatch):
+    """A failure must be visible. `status` renders nowhere and `message` is the
+    green success toast, so an unwritable path has to set `error`."""
+    P = plugin_module.Plugin
+    inst = P.__new__(P)
+    inst.version = "1.26.9999999"
+    monkeypatch.setattr(P, "BUG_REPORT_DIR", "/nonexistent\x00dir", raising=False)
+
+    import logging
+    res = inst.report_a_bug_action({}, logging.getLogger("t"))
+    assert res["status"] == "error"
+    assert res.get("error")
+    assert "github.com/PiratesIRC/Stream-Mapparr/issues" in res["error"]
+    assert "message" not in res
