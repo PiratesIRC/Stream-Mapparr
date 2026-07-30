@@ -336,7 +336,9 @@ class PluginConfig:
         r"^PPV EVENT \d+$" "\n"
         r"^LIVE EVENT \d+$" "\n"
         r"^PPV \d+ \|?$" "\n"
-        r"^HBO \d+$"
+        r"^HBO \d+$" "\n"
+        r"^MAX \d+$" "\n"
+        r"^Triller TV \| Event \d+$"
     )
     DEFAULT_EPG_TITLE_CLEANUP_RULES = (
         '[["^Next Event:\\\\s*", ""], '
