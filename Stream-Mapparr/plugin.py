@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2110101"
+    PLUGIN_VERSION = "1.26.2110111"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -317,7 +317,9 @@ class PluginConfig:
         r"^PPV EVENT \d+$" "\n"
         r"^LIVE EVENT \d+$" "\n"
         r"^PPV \d+ \|?$" "\n"
-        r"^HBO \d+$"
+        r"^HBO \d+$" "\n"
+        r"^MAX \d+$" "\n"
+        r"^Triller TV \| Event \d+$"
     )
     DEFAULT_EPG_TITLE_CLEANUP_RULES = (
         '[["^Next Event:\\\\s*", ""], '

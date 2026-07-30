@@ -1,5 +1,18 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2110111 (July 30, 2026)
+
+### Changed
+- **Default EPG placeholder name patterns now cover `MAX #` and `Triller TV | Event #`.**
+  A live census of one deployment's stream names found six numbered-placeholder families
+  sharing the same `Next Event: X at TIME on DATE` / `No Event Today` EPG format as the
+  already-covered `HBO #`/`PPV EVENT #`/`PPV # |`/`LIVE EVENT #` patterns — but two of them,
+  `MAX #` (128 streams, the single largest category) and `Triller TV | Event #` (14 streams),
+  had no matching pattern and so were silently never eligible for EPG resolution. Both use
+  the same `ProgramData` shape confirmed against live data before being added. Existing
+  saved `epg_placeholder_name_patterns` settings are not retroactively changed — add the two
+  new lines yourself if you already customized this setting.
+
 ## v1.26.2110101 (July 29, 2026)
 
 ### Fixed
