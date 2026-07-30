@@ -1,5 +1,21 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2110101 (July 29, 2026)
+
+### Fixed
+- **EPG-aware placeholder matching silently stopped matching schedule-suffixed channel
+  names.** Without provider-assigned channel numbers, a natural convention is to name event
+  channels with an inline schedule (e.g. `WWE Monday Night Raw | Monday @ 5`). That trailing
+  annotation was never stripped before matching, so it diluted the fuzzy-match score against
+  a resolved EPG title (`WWE MONDAY NIGHT RAW`) below threshold — confirmed live at 60%/40%
+  against a 70% threshold for two real channels — and its stray digit separately tripped the
+  channel-has-numbers-so-stream-must-too guard meant for cases like `BBC1` vs `CBBC`. New
+  setting `epg_channel_schedule_cleanup_rules` (same `[find, replace]` JSON shape as the
+  existing EPG/regex cleanup rules) strips this suffix from the channel name — matching
+  only, `Channel.name` is never modified — before it's compared against a resolved EPG
+  title. Only applies when EPG-based placeholder matching is enabled, so unrelated matching
+  is unaffected.
+
 ## v1.26.2072208 (July 26, 2026)
 
 ### Added
