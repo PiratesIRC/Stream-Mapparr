@@ -343,6 +343,9 @@ class PluginConfig:
         '["\\\\s+at \\\\d{1,2}:\\\\d{2}\\\\s*[AP]M on \\\\w+ \\\\d{1,2}$", ""]]'
     )
     DEFAULT_EPG_SKIP_TITLES = "Signing Off,No Event Today,No Game Today"  # Idle/no-signal placeholder titles to ignore
+    DEFAULT_EPG_CHANNEL_SCHEDULE_CLEANUP_RULES = (
+        '[["(?i)\\\\s*\\\\|\\\\s*\\\\w+\\\\s*@\\\\s*\\\\d{1,2}(?::\\\\d{2})?\\\\s*[AP]?M?\\\\s*$", ""]]'
+    )
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
     DEFAULT_RATE_LIMITING = "none"              # Options: none, low, medium, high
@@ -979,6 +982,23 @@ class Plugin:
                              "(case-insensitive), the channel/stream is left on its literal "
                              "placeholder name for this pass — there's no useful event "
                              "signal available (e.g. the slot is idle).",
+            },
+            {
+                "id": "epg_channel_schedule_cleanup_rules",
+                "label": "🗓️ Channel Schedule Suffix Cleanup Rules (JSON)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_EPG_CHANNEL_SCHEDULE_CLEANUP_RULES,
+                "placeholder": '[["(?i)\\\\s*\\\\|\\\\s*\\\\w+\\\\s*@\\\\s*\\\\d{1,2}(?::\\\\d{2})?\\\\s*[AP]?M?\\\\s*$", ""]]',
+                "help_text": "Same [find, replace] JSON format as the other regex rules above, "
+                             "applied to the CHANNEL name (not the stream) whenever EPG-based "
+                             "placeholder matching is enabled, before it's compared against a "
+                             "resolved EPG title. Without provider-assigned channel numbers, a "
+                             "natural convention is to name event channels with an inline "
+                             "schedule, e.g. 'WWE Monday Night Raw | Monday @ 5' — the default "
+                             "rule strips that trailing '| Weekday @ Time' annotation so the "
+                             "channel compares as 'WWE Monday Night Raw' against the real EPG "
+                             "title instead of losing the match to score dilution from the "
+                             "schedule text. Adjust or clear if your naming convention differs.",
             },
             {
                 "id": "prioritize_quality",
@@ -2588,11 +2608,18 @@ class Plugin:
         skip_titles = {t.strip().lower() for t in
                        settings.get("epg_skip_titles", PluginConfig.DEFAULT_EPG_SKIP_TITLES).split(",")
                        if t.strip()}
+        raw_channel_cleanup = settings.get("epg_channel_schedule_cleanup_rules")
+        if raw_channel_cleanup is None:
+            raw_channel_cleanup = PluginConfig.DEFAULT_EPG_CHANNEL_SCHEDULE_CLEANUP_RULES
+        channel_schedule_cleanup_rules, _ = self._resolve_stream_regex_rules(
+            {"epg_channel_schedule_cleanup_rules": raw_channel_cleanup},
+            setting_key="epg_channel_schedule_cleanup_rules")
         return {
             "enabled": enabled and bool(patterns),
             "patterns": patterns,
             "cleanup_rules": cleanup_rules,
             "skip_titles": skip_titles,
+            "channel_schedule_cleanup_rules": channel_schedule_cleanup_rules,
         }
 
     def _apply_epg_resolution_to_streams(self, streams, settings, logger=None):
@@ -4205,6 +4232,20 @@ class Plugin:
             working_streams = all_streams
 
         channel_name = channel['name']
+        if epg_settings and epg_settings.get('enabled'):
+            # Without provider-assigned channel numbers, a natural convention is to
+            # name event channels with an inline schedule (e.g. "WWE Monday Night
+            # Raw | Monday @ 5"). Left alone, that trailing annotation dilutes the
+            # fuzzy-match score against a resolved EPG title ("WWE MONDAY NIGHT
+            # RAW") enough to drop below threshold, and its stray digit ("5")
+            # trips the channel-has-numbers-so-stream-must-too guard further
+            # below. Stripping it here (matching only -- channel_name is a local,
+            # channel['name'] itself is never touched) fixes both at once.
+            for compiled, replacement in epg_settings.get('channel_schedule_cleanup_rules', []):
+                try:
+                    channel_name = compiled.sub(replacement, channel_name)
+                except Exception:
+                    continue
         if epg_settings and epg_settings.get('enabled') and self._is_epg_placeholder_name(
                 channel_name, epg_settings.get('patterns')):
             epg_title = self._resolve_current_epg_title_for_channel(
