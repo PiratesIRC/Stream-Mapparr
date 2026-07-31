@@ -1,5 +1,27 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2121751 (July 31, 2026)
+
+### Added
+- **EPG Event Watch: match a real, permanently-named stream by its current programme,
+  not just placeholder-named ones.** Some events never get their own dedicated
+  placeholder feed at all — a WWE PPV's only guide presence turned out to be
+  time-boxed pre-show coverage on ESPN/ESPN2/ESPN News, verified live: a "WWE
+  SummerSlam" channel had zero candidates because none of the placeholder-name
+  patterns apply to a channel that's genuinely, permanently named "ESPN". New
+  setting `epg_watch_source_streams` (comma-separated exact stream names, empty =
+  disabled) opts specific real channels into being considered as an EXTRA
+  alternate for any channel whose full cleaned name is contained in that stream's
+  current EPG title — deliberately a token-containment check, not the usual
+  whole-string similarity ratio, since a real programme title is typically the
+  event name plus promotional wrapping ("WWE SummerSlam Special") that dilutes a
+  string ratio below any reasonable threshold even for a correct hit (measured
+  60–63% live against a 70% threshold). A watched stream's own identity is never
+  touched — it keeps matching its own literally-named channel exactly as before;
+  this only adds it as a candidate elsewhere. First unit test coverage for any
+  part of the EPG-aware matching feature (7 tests), including a regression guard
+  for an unrelated-show false positive found while validating this live.
+
 ## v1.26.2110111 (July 30, 2026)
 
 ### Changed
