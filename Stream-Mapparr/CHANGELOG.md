@@ -292,6 +292,23 @@
   read (delete it if you want to tidy up; nothing reads it). The settings page still shows the
   running version, as plain text, with no claim about whether it is current. Building the settings
   form runs on Dispatcharr's per-request path, so it should never wait on the network.
+## v1.26.2121807 (July 31, 2026)
+
+### Fixed
+- **A "Next Event: X at TIME on DATE" placeholder could be reported as today's event
+  while actually days or weeks out.** The guide's "what's coming up" block stays the
+  CURRENTLY ACTIVE `ProgramData` row until the real event starts, however far off
+  that is — confirmed live: 84 such rows active at once, most dated a week-plus in
+  the future (e.g. `Next Event: AEW Dynamite: Grand Slam Mexico at 05:00PM on Aug 5`
+  live and "current" on Jul 31). Stripping the `at TIME on DATE` clause and matching
+  on the bare title (the existing cleanup-rules behavior) would have surfaced that
+  future event as though it aired today. `_resolve_current_epg_title_for_epg_data_id`
+  now checks the embedded date against today's date (via `timezone.localtime`, the
+  configured/active timezone) before resolving a "Next Event" placeholder at all —
+  a title with no such date clause (e.g. a live, unwrapped title once the provider
+  flips it) is unaffected. Applies to every EPG-aware matching path (placeholder
+  names and the new EPG Event Watch) since they share this one primitive.
+
 ## v1.26.2121751 (July 31, 2026)
 
 ### Added
