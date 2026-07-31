@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2121751"
+    PLUGIN_VERSION = "1.26.2121807"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2108,11 +2108,44 @@ class Plugin:
             return False
         return any(p.search(name) for p in patterns)
 
+    # Matches the trailing "at HH:MMAM/PM on Mon D" clause a provider appends to a
+    # still-WAITING placeholder title ("Next Event: X at 05:00PM on Aug 5") -- see
+    # _epg_next_event_date_is_today. Deliberately does NOT require a "Next Event:"
+    # prefix: the date clause itself is the signal, regardless of wrapper wording.
+    _EPG_NEXT_EVENT_DATE_RE = re.compile(
+        r'\bat\s+\d{1,2}:\d{2}\s*[AP]M\s+on\s+([A-Za-z]{3,9}\s+\d{1,2})\s*$', re.IGNORECASE)
+
+    def _epg_next_event_date_is_today(self, title):
+        """A "Next Event: X at TIME on DATE" placeholder can stay the CURRENTLY
+        ACTIVE ProgramData row for days -- the guide's own "what's coming up"
+        block just keeps pointing at whatever is next, however far off (live data:
+        84 such rows active at once, most dated a week or more out). Stripping the
+        "at TIME on DATE" clause and returning the bare title (the existing
+        cleanup-rules behavior) would report that future event as though it were
+        happening today. True when `title` carries no such date clause at all
+        (nothing to validate -- a live, unwrapped title like "WWE MONDAY NIGHT RAW
+        ᴺᵉʷ" is exactly what a real live event looks like once the
+        provider flips it from the waiting placeholder) or when the embedded date
+        is today's date; False only when a date IS embedded and it is not today.
+        """
+        m = self._EPG_NEXT_EVENT_DATE_RE.search(title or '')
+        if not m:
+            return True
+        try:
+            today = timezone.localtime(timezone.now())
+        except Exception:
+            return True  # degrade-don't-fail: can't verify, don't block on it
+        today_str = f"{today.strftime('%b')} {today.day}"
+        return m.group(1).strip().lower() == today_str.lower()
+
     def _resolve_current_epg_title_for_epg_data_id(self, epg_data_id, cleanup_rules, skip_titles):
         """Shared primitive: look up the programme currently airing on the given
         EPGData id (start_time <= now < end_time), clean its title, and return it
-        — or None if there's no current programme, the cleaned title is empty, or
-        it matches a configured skip title (idle/no-signal placeholder)."""
+        — or None if there's no current programme, the cleaned title is empty, it
+        matches a configured skip title (idle/no-signal placeholder), or it's a
+        "Next Event: X at TIME on DATE" placeholder whose date isn't today (bug:
+        such placeholders can stay "current" for days -- see
+        _epg_next_event_date_is_today)."""
         if not epg_data_id:
             return None
         try:
@@ -2127,6 +2160,8 @@ class Plugin:
             LOGGER.debug(f"[Stream-Mapparr] EPG lookup failed for epg_data_id={epg_data_id}: {e}")
             return None
         if not title:
+            return None
+        if not self._epg_next_event_date_is_today(title):
             return None
         cleaned = title
         for compiled, replacement in cleanup_rules:

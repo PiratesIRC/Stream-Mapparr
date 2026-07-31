@@ -51,6 +51,7 @@ def _install_runtime_stubs():
     django_utils = types.ModuleType("django.utils")
     django_tz = types.ModuleType("django.utils.timezone")
     django_tz.now = lambda: datetime.now(_stdlib_tz.utc)  # aware UTC, like Django USE_TZ
+    django_tz.localtime = lambda dt=None: dt if dt is not None else django_tz.now()  # no real tz conversion needed for tests
     django_utils.timezone = django_tz
     django_db = types.ModuleType("django.db")
     django_db.transaction = MagicMock(name="transaction")
