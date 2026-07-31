@@ -348,6 +348,7 @@ class PluginConfig:
     DEFAULT_EPG_CHANNEL_SCHEDULE_CLEANUP_RULES = (
         '[["(?i)\\\\s*\\\\|\\\\s*\\\\w+\\\\s*@\\\\s*\\\\d{1,2}(?::\\\\d{2})?\\\\s*[AP]?M?\\\\s*$", ""]]'
     )
+    DEFAULT_EPG_WATCH_SOURCE_STREAMS = ""       # Empty = feature disabled. Comma-separated exact stream names.
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
     DEFAULT_RATE_LIMITING = "none"              # Options: none, low, medium, high
@@ -1001,6 +1002,27 @@ class Plugin:
                              "channel compares as 'WWE Monday Night Raw' against the real EPG "
                              "title instead of losing the match to score dilution from the "
                              "schedule text. Adjust or clear if your naming convention differs.",
+            },
+            {
+                "id": "epg_watch_source_streams",
+                "label": "📡 EPG Event Watch — Source Streams (comma-separated exact names)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_EPG_WATCH_SOURCE_STREAMS,
+                "placeholder": "ESPN, ESPN 2, ESPN News",
+                "help_text": "Some events (e.g. a WWE PPV with ESPN pre-show coverage) never get "
+                             "their own dedicated placeholder stream — they only ever appear as "
+                             "time-boxed programming on a real, permanently-named channel like "
+                             "'ESPN'. List those channels' exact stream names here (case-"
+                             "insensitive, comma-separated) to make them eligible as an EXTRA "
+                             "alternate stream for any channel whose full cleaned name is "
+                             "contained in that stream's current EPG programme title (e.g. "
+                             "channel 'WWE SummerSlam' matches while ESPN's guide currently reads "
+                             "'WWE SummerSlam Special'). A watched stream's own identity is never "
+                             "touched — it keeps matching its own literally-named channel exactly "
+                             "as before; this only adds it as a candidate elsewhere, only while "
+                             "its current programme title actually contains the target channel's "
+                             "name. Empty disables this (default). Requires EPG-based placeholder "
+                             "matching to be enabled above.",
             },
             {
                 "id": "prioritize_quality",
@@ -2616,12 +2638,18 @@ class Plugin:
         channel_schedule_cleanup_rules, _ = self._resolve_stream_regex_rules(
             {"epg_channel_schedule_cleanup_rules": raw_channel_cleanup},
             setting_key="epg_channel_schedule_cleanup_rules")
+        watch_source_stream_names = {
+            n.strip().lower() for n in
+            settings.get("epg_watch_source_streams", PluginConfig.DEFAULT_EPG_WATCH_SOURCE_STREAMS).split(",")
+            if n.strip()
+        }
         return {
             "enabled": enabled and bool(patterns),
             "patterns": patterns,
             "cleanup_rules": cleanup_rules,
             "skip_titles": skip_titles,
             "channel_schedule_cleanup_rules": channel_schedule_cleanup_rules,
+            "watch_source_stream_names": watch_source_stream_names,
         }
 
     def _apply_epg_resolution_to_streams(self, streams, settings, logger=None):
@@ -2739,6 +2767,62 @@ class Plugin:
         if not hit_names:
             return []
         return [s for s in working_streams if _mname(s) in hit_names]
+
+    def _collect_epg_watch_streams(self, channel_name, working_streams, epg_settings,
+                                    ignore_tags, ignore_quality, ignore_regional,
+                                    ignore_geographic, ignore_misc):
+        """Force-include streams from `epg_settings['watch_source_stream_names']` whose
+        CURRENT EPG programme title contains the full target channel name — the
+        "ESPN airs a WWE SummerSlam pre-show" case, where the real event never gets
+        its own dedicated placeholder stream and only ever shows up as time-boxed
+        programming on a real, permanently-named channel.
+
+        Deliberately NOT handled via _apply_epg_resolution_to_streams / match_name:
+        that would overwrite the watched stream's own identity (ESPN's match_name
+        would stop being "ESPN"), breaking its own literal-name matching for
+        whatever channel is actually named "ESPN". This instead works exactly like
+        _collect_alias_streams -- an independent force-include list the caller
+        merges in -- so a watched stream keeps matching its own channel by name AND
+        can additionally surface here, without either use touching the other.
+
+        Full string similarity (calculate_similarity) is deliberately NOT the gate
+        here: a real programme title is typically the target name plus extra
+        promotional wrapping ("WWE SummerSlam Special", "Countdown to SummerSlam
+        Saturday 2026"), which dilutes a whole-string ratio below any reasonable
+        threshold even for a correct hit (measured as low as 63% against a 70%
+        threshold for a real, current match). Token CONTAINMENT -- every cleaned
+        channel-name token must appear in the cleaned programme title -- is the
+        right signal for "is this target's event airing on this real channel right
+        now": it correctly accepted "WWE SummerSlam Special" and rejected weaker
+        variants that dropped the "WWE" token, using the exact same cleaning path
+        (_clean_channel_name) as every other comparison in this file so tag/quality
+        handling stays consistent.
+        """
+        watch_names = epg_settings.get('watch_source_stream_names') if epg_settings else None
+        if not watch_names:
+            return []
+        channel_tokens = set(self._clean_channel_name(
+            channel_name, ignore_tags, ignore_quality, ignore_regional,
+            ignore_geographic, ignore_misc).lower().split())
+        if not channel_tokens:
+            return []
+        cleanup_rules = epg_settings.get('cleanup_rules', [])
+        skip_titles = epg_settings.get('skip_titles', set())
+        epg_data_id_cache = {}
+        hits = []
+        for stream in working_streams:
+            if (stream.get('name') or '').strip().lower() not in watch_names:
+                continue
+            title = self._resolve_current_epg_title_for_stream(
+                stream, cleanup_rules, skip_titles, epg_data_id_cache)
+            if not title:
+                continue
+            title_tokens = set(self._clean_channel_name(
+                title, ignore_tags, ignore_quality, ignore_regional,
+                ignore_geographic, ignore_misc).lower().split())
+            if channel_tokens.issubset(title_tokens):
+                hits.append(stream)
+        return hits
 
     def _ensure_matcher_and_aliases(self, settings):
         """Make the fuzzy matcher and alias map available regardless of entry path.
@@ -4370,10 +4454,22 @@ class Plugin:
             alias_streams = self._collect_alias_streams(
                 channel_name, working_streams, ignore_tags, ignore_quality,
                 ignore_regional, ignore_geographic, ignore_misc)
-            alias_ids = {id(s) for s in alias_streams}
 
-            if matched_stream_name or alias_streams:
-                matching_streams = list(alias_streams)
+            # EPG event watch: a real, permanently-named channel (e.g. "ESPN") whose
+            # CURRENT programme title contains the full target channel name -- for
+            # events that never get their own dedicated placeholder stream. Same
+            # force-include role as alias_streams; never touches the watched
+            # stream's own match_name/identity. See _collect_epg_watch_streams.
+            epg_watch_streams = (
+                self._collect_epg_watch_streams(
+                    channel_name, working_streams, epg_settings, ignore_tags,
+                    ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
+                if epg_settings and epg_settings.get('enabled') else []
+            )
+            alias_ids = {id(s) for s in alias_streams} | {id(s) for s in epg_watch_streams}
+
+            if matched_stream_name or alias_streams or epg_watch_streams:
+                matching_streams = list(alias_streams) + list(epg_watch_streams)
 
                 # Clean the channel name for comparison
                 cleaned_channel_for_matching = self._clean_channel_name(
