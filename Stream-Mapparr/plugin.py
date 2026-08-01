@@ -1663,6 +1663,22 @@ class Plugin:
                                         else:
                                             LOGGER.error(f"[Stream-Mapparr] Failed to add streams: {add_result.get('message', 'Unknown error')}")
                                     
+                                    # Record that the SCHEDULED path completed a
+                                    # run. Placed here, after both sub-steps and
+                                    # outside either branch, because do_sort and
+                                    # do_match are independent: a Sort-only
+                                    # schedule is a healthy schedule and must not
+                                    # report "never recorded" forever. Never
+                                    # written by an action or the button, which
+                                    # is the whole point of the signal.
+                                    try:
+                                        bridge = self._notify_bridge()
+                                        bridge.write_scheduled_run_ts(
+                                            bridge.SCHEDULED_RUN_FILE, time.time())
+                                    except Exception as stamp_err:
+                                        LOGGER.debug(f"[Stream-Mapparr] Could not record the "
+                                                     f"scheduled run timestamp: {stamp_err}")
+
                                     LOGGER.info("[Stream-Mapparr] Scheduled run completed successfully")
                                 else:
                                     LOGGER.error(f"[Stream-Mapparr] Failed to load channels: {load_result.get('message', 'Unknown error')}")
@@ -2082,6 +2098,76 @@ class Plugin:
         if rejected:
             return [f"❌ Regex rules: {len(rules)} ok, {len(rejected)} rejected (see logs)"]
         return [f"✅ Regex rules: {len(rules)} ok"]
+
+    # ── Newsflasharr notifications ─────────────────────────────────────────
+    # All three helper modules are imported lazily. A module-scope import would
+    # break Dispatcharr's loader the same way a top-level Django import does.
+    # Each is resolved through one accessor so a test can replace it in a single
+    # place. The relative import wins inside Dispatcharr; the plain import is
+    # the path the test suite takes, which puts the inner folder on sys.path.
+
+    @staticmethod
+    def _notify_client():
+        """The vendored Newsflasharr caller client."""
+        try:
+            from . import notify_client
+        except ImportError:
+            import notify_client
+        return notify_client
+
+    @staticmethod
+    def _notify_bridge():
+        """Stream-Mapparr's emit layer."""
+        try:
+            from . import notify_bridge
+        except ImportError:
+            import notify_bridge
+        return notify_bridge
+
+    @staticmethod
+    def _reports():
+        """The report model and renderers."""
+        try:
+            from . import reports
+        except ImportError:
+            import reports
+        return reports
+
+    def _build_and_emit_reports(self, settings, logger, report_channels,
+                                account_names, *, is_scheduled):
+        """Build both report files and emit one notification per file.
+
+        Never raises. Reporting is not the plugin's real work, and a failure
+        here must not be thrown into the run that produced the data. Returns the
+        emit result dict so a caller can surface it.
+
+        The report is emitted only after the files are confirmed written: a
+        green task result does not prove an artifact exists on disk.
+        """
+        try:
+            bridge = self._notify_bridge()
+            allowed, reason = bridge.should_emit(settings, is_scheduled)
+            if not allowed:
+                # Do not pay for building a report nobody will receive.
+                return {"sent": 0, "skipped_reason": reason}
+            reports = self._reports()
+            now = time.time()
+            written = reports.write_report(
+                reports.build_model(report_channels, account_names, settings, now),
+                reports.REPORT_DIR, now)
+            if written.get("error"):
+                logger.warning(f"[Stream-Mapparr] Report not written: {written['error']}")
+                return {"sent": 0, "skipped_reason": written["error"]}
+            outcome = bridge.emit_reports(
+                self._notify_client().notify, settings, written,
+                is_scheduled=is_scheduled)
+            logger.info(f"[Stream-Mapparr] Report: {outcome['sent']} notification(s) "
+                        f"queued for delivery")
+            return outcome
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Report emit suppressed: {e}")
+            return {"sent": 0,
+                    "skipped_reason": f"the report path raised and was contained: {e}"}
 
     def _initialize_fuzzy_matcher(self, match_threshold=85):
         """Initialize the fuzzy matcher with configured threshold."""
@@ -4849,6 +4935,36 @@ class Plugin:
             else:
                 validation_results.append("✅ Channel Groups (all)")
 
+            # Newsflasharr notification health. Two lines, both of which exist
+            # because nothing else answers the question they answer.
+            try:
+                bridge = self._notify_bridge()
+
+                # "Is the schedule actually running?" Newsflasharr's own absence
+                # detector cannot answer it: that timestamp is stamped by ANY
+                # attachment send, including a press of Email Report Now, so a
+                # button press would mask a dead schedule indefinitely.
+                last_run = bridge.read_scheduled_run_ts(bridge.SCHEDULED_RUN_FILE)
+                if last_run is None:
+                    validation_results.append("⚠️ Scheduled run: never recorded")
+                else:
+                    age_hours = (time.time() - last_run) / 3600.0
+                    validation_results.append(
+                        f"✅ Scheduled run: {age_hours:.1f} hours ago")
+
+                # An unknown stored value for a filter setting must reach a
+                # surface the operator actually reads. A promise in help text is
+                # not a surface.
+                raw_trigger = (settings.get("notify_report_on") or "").strip()
+                resolved_trigger = bridge.resolve_report_trigger(settings)
+                if raw_trigger and raw_trigger.lower() != resolved_trigger:
+                    validation_results.append(
+                        f"❌ Email A Report After: '{raw_trigger}' is not a known "
+                        f"value, using '{resolved_trigger}'")
+                    has_errors = True
+            except Exception as notify_err:
+                logger.debug(f"[Stream-Mapparr] Could not read notification health: {notify_err}")
+
             # 4. Validate timezone is not empty (sourced from Dispatcharr's global setting)
             logger.debug("[Stream-Mapparr] Validating timezone...")
             timezone_str = self._get_system_timezone(settings)
@@ -6011,6 +6127,34 @@ class Plugin:
             # single global constraint is "setting OFF -> byte-for-byte unaffected".
             if restrict_matching_to_country:
                 processed_data['country_stats'] = country_stats
+
+            # Newsflasharr report. Built from the cached match results and
+            # deliberately NOT from csv_data below: that variable exists only
+            # inside the CSV-export branch, so on an ordinary live run with the
+            # export switched off it is never defined, and its stream_names is
+            # one joined string rather than a list.
+            #
+            # RAW stream names are used on purpose. _label_streams is what
+            # appends the M3U account name, and on a real installation those
+            # account names are the provider's hostnames. The emailed files must
+            # never carry one, and Newsflasharr sends an attachment unredacted.
+            try:
+                report_channels = []
+                for _group_key, _cache_entry in group_match_cache.items():
+                    _matched = _cache_entry['matched_streams']
+                    for _channel in _cache_entry['channels_to_update']:
+                        report_channels.append({
+                            'channel_name': _channel['name'],
+                            'matched': len(_matched),
+                            'stream_names': [s['name'] for s in _matched],
+                        })
+                account_names = [m['name'] for m in self._get_all_m3u_accounts(logger)
+                                 if m.get('name')]
+                self._build_and_emit_reports(
+                    settings, logger, report_channels, account_names,
+                    is_scheduled=is_scheduled)
+            except Exception as report_err:
+                logger.warning(f"[Stream-Mapparr] Report step suppressed: {report_err}")
 
             # CSV Export - create if dry run OR if setting is enabled
             create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)
