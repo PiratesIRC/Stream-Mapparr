@@ -110,6 +110,7 @@ def test_a_missing_artifact_is_not_emitted(tmp_path):
     """Emit only after a CONFIRMED publish. A green task result does not prove
     the artifact exists on disk."""
     import os
+
     from notify_bridge import emit_reports
     spy = _Spy()
     w = _written(tmp_path)
@@ -225,6 +226,7 @@ def test_writing_the_stamp_never_raises_on_an_unwritable_path(tmp_path):
 def test_the_stamp_write_is_atomic_and_leaves_no_temporary(tmp_path):
     import json
     import os
+
     from notify_bridge import write_scheduled_run_ts
     p = tmp_path / "sched.json"
     write_scheduled_run_ts(str(p), 1.0)
