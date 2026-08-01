@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2131947"
+    PLUGIN_VERSION = "1.26.2132302"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -826,21 +826,6 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY,
                 "help_text": "When enabled, channels only match streams detected as the same country. Detection checks the channel database entry first, then the group name, then the channel name (bare, '|'-delimited or multi-token country markers all count). Streams with no recognizable country marker are not dropped; they are kept as lower-priority alternates behind same-country matches. Same-named channels for different countries (for example a CANADA and a UK channel both named CNN) are matched separately instead of being merged. OTA broadcast channels (matched by FCC callsign) are exempt from this filter. When disabled, legacy cross-country matching behavior is used. Works best with a single Channel Database selected: choosing 'All' means a channel name that appears in several databases with disagreeing countries (for example CNN, TNT or USA Network) is treated as ambiguous, and the filter is skipped for that channel rather than guessing.",
-            },
-            {
-                "id": "webhook_url",
-                "label": "🔗 Webhook URL",
-                "type": "string",
-                "default": "",
-                "placeholder": "http://localhost:9000/api/some/endpoint",
-                "help_text": "Optional HTTP(S) endpoint to POST a JSON summary to when a matching action completes. The request is sent server-side from Dispatcharr — only enter URLs you trust. Payload includes action, counts, CSV filename, and dry-run flag. Leave blank to disable.",
-            },
-            {
-                "id": "fire_webhook_on_completion",
-                "label": "🔔 Fire Webhook On Completion",
-                "type": "boolean",
-                "default": False,
-                "help_text": "When enabled, POST to the configured Webhook URL whenever Match & Assign, Match US OTA Only, or Sort Alternate Streams completes.",
             },
             {
                 "id": "ignore_tags",
@@ -1756,6 +1741,10 @@ class Plugin:
 
     ISSUES_URL = "https://github.com/PiratesIRC/Stream-Mapparr/issues"
     BUG_REPORT_DIR = "/config/stream-mapparr"
+    # The webhook FIELD is gone, but Dispatcharr never prunes a stored setting
+    # when its field is removed, so the old value survives in the database
+    # forever and a bug report must still mask it. It carried a Discord or
+    # Slack token in its path and that file is meant to be pasted in public.
     _SECRET_SETTING_KEYS = ("webhook_url",)
 
     def _redact_settings_for_report(self, settings):
@@ -4182,7 +4171,7 @@ class Plugin:
         When `details` is provided (e.g. {"channels": 4, "streams": 37,
         "duration_sec": 1.2, "csv": "..."}), the fields are merged into the
         WebSocket payload so richer UI consumers can render counts, and are
-        also used as the webhook payload body if webhook firing is enabled.
+        also used as the body of the completion notification.
         """
         try:
             from core.utils import send_websocket_update
@@ -4235,94 +4224,11 @@ class Plugin:
         except Exception as e:
             LOGGER.warning(f"[Stream-Mapparr] Failed to send notification: {e}")
 
-    # Keys reserved at the top level of the webhook payload. Caller-supplied
-    # `details` dicts must not collide with these or they'll be silently
-    # dropped during payload construction.
-    _WEBHOOK_RESERVED_KEYS = frozenset({
-        'plugin', 'event', 'action', 'status', 'message', 'timestamp',
-    })
-
     # Internal sub-steps that must NOT surface as their own "operation" in the
     # progress/last-results state (e.g. load_process_channels is called inside
     # preview/add actions — tracking it would double-fire the started toast and
     # overwrite the parent op's last-results summary).
     _INTERNAL_PROGRESS_ACTIONS = frozenset({'load_process_channels'})
-
-    def _fire_webhook(self, settings, logger, action_id, message, status, details=None):
-        """POST a JSON summary to the configured webhook URL in a daemon thread.
-
-        Fire-and-forget: the action's return path is never blocked on the HTTP
-        call. Failures are logged as warnings only — webhook delivery is a
-        side channel and a bad endpoint must not mask a successful matching
-        run in the primary UI / CSV / WebSocket paths.
-        """
-        if not settings.get('fire_webhook_on_completion', False):
-            return
-        url = (settings.get('webhook_url') or '').strip()
-        if not url:
-            return
-        if not url.startswith(('http://', 'https://')):
-            logger.warning(f"[Stream-Mapparr] Webhook URL must start with http:// or https://: {url!r}")
-            return
-
-        from datetime import datetime, timezone
-        payload_obj = {
-            'plugin': 'stream-mapparr',
-            'event': f'{action_id}.complete',
-            'action': action_id,
-            'status': status,
-            'message': message,
-            'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-        }
-        if details:
-            for k, v in details.items():
-                if k not in self._WEBHOOK_RESERVED_KEYS:
-                    payload_obj[k] = v
-        try:
-            payload = self._build_webhook_body(url, payload_obj)
-        except (TypeError, ValueError) as e:
-            logger.warning(f"[Stream-Mapparr] Webhook payload not JSON-serializable: {e}")
-            return
-
-        def _post():
-            req = urllib.request.Request(
-                url, data=payload,
-                headers={'Content-Type': 'application/json', 'User-Agent': 'Stream-Mapparr'},
-                method='POST',
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    logger.info(f"[Stream-Mapparr] Webhook POST {url} -> HTTP {resp.status}")
-            except urllib.error.HTTPError as e:
-                logger.warning(f"[Stream-Mapparr] Webhook POST {url} -> HTTP {e.code}")
-            except Exception as e:
-                logger.warning(f"[Stream-Mapparr] Webhook POST {url} failed: {e}")
-
-        threading.Thread(target=_post, daemon=True, name='stream-mapparr-webhook').start()
-
-    @staticmethod
-    def _build_webhook_body(url, payload_obj):
-        """Shape the webhook body for the target platform (issue #32).
-
-        Discord and Slack incoming webhooks REJECT (HTTP 400) any JSON body that
-        lacks their required top-level key, so a generic payload never delivers.
-        Detect them and send the native shape ({"content": ...} / {"text": ...},
-        truncated to each platform's limit). Every other URL keeps the full
-        generic JSON payload unchanged. Returns UTF-8 encoded bytes.
-        """
-        import urllib.parse
-        host = urllib.parse.urlsplit(url or '').netloc.lower()
-        u = (url or '').lower()
-        message = payload_obj.get('message') or payload_obj.get('event') or 'Stream-Mapparr'
-        # Host-anchored detection so a stray 'discord.com' in a query string of
-        # some other endpoint can't be misclassified (QA L1).
-        if host.endswith(('discord.com', 'discordapp.com')) and '/api/webhooks/' in u:
-            body = {'content': str(message)[:2000]}        # Discord hard limit 2000
-        elif host == 'hooks.slack.com':
-            body = {'text': str(message)[:3000]}           # Slack practical limit
-        else:
-            body = payload_obj
-        return json.dumps(body).encode('utf-8')
 
     # ----- Persisted progress + last-results state (View Check Progress / View Last Results) -----
     def _write_json_atomic(self, path, data):
@@ -4931,8 +4837,8 @@ class Plugin:
                             self._release_operation_lock(logger)
 
                 # Background path: long job, return "started" placeholder so
-                # the HTTP request doesn't time out. WebSocket/webhook carry
-                # the completion signal.
+                # the HTTP request does not time out. The WebSocket update
+                # carries the completion signal.
                 def background_runner():
                     lock_acquired = False
                     try:
@@ -5437,7 +5343,7 @@ class Plugin:
 
     def _country_filter_details(self, restrict_matching_to_country, country_stats):
         """bug-158: country-filter counters for the `details` dict (View Last
-        Results + webhook payload), gated exactly like the CSV header's
+        Results + the notification body), gated exactly like the CSV header's
         sub-lines. Suppressed entirely (returns {}) when the setting is off,
         so a user who never enabled restrict_matching_to_country sees no new
         keys anywhere -- byte-for-byte unaffected, per the plan's Global
@@ -6405,7 +6311,6 @@ class Plugin:
             }
             details.update(self._country_filter_details(restrict_matching_to_country, country_stats))
             self._send_progress_update("add_streams_to_channels", 'success', 100, success_msg, context, details)
-            self._fire_webhook(settings, logger, 'add_streams_to_channels', success_msg, 'success', details)
 
             return {"status": "success", "message": success_msg}
 
@@ -6754,7 +6659,6 @@ class Plugin:
                 'regex_rules_rejected': regex_rejected,
             }
             self._send_progress_update('match_us_ota_only', 'success', 100, msg, context, details)
-            self._fire_webhook(settings, logger, 'match_us_ota_only', msg, 'success', details)
             return {"status": "success", "message": msg}
             
         except Exception as e:
@@ -7096,7 +7000,6 @@ class Plugin:
                 'csv': os.path.basename(csv_created) if csv_created else None,
             }
             self._send_progress_update('sort_streams', 'success', 100, message, context, details)
-            self._fire_webhook(settings, logger, 'sort_streams', message, 'success', details)
 
             return {"status": "success", "message": message}
             

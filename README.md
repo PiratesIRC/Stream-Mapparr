@@ -34,7 +34,7 @@ Small jobs (estimated under ~25 seconds) run **synchronously** — the Dispatcha
 Larger jobs run in a **background thread**. The UI shows a "started in background" notification up front; completion is reported via:
 
 - Docker logs: `docker logs -f dispatcharr | grep Stream-Mapparr` (look for `COMPLETED`)
-- Optional **webhook** POST to an HTTP(S) endpoint of your choice (see settings) — Discord and Slack supported natively
+- Optional **emailed reports** through the Newsflasharr notification plugin, as an HTML page and a CSV
 - WebSocket event to the frontend
 
 While a long operation runs, the plugin also pushes a **"started" toast**, periodic **`% + ETA`** toasts (adaptive cadence), and a **completion** toast. You can check on a run at any time:
@@ -79,7 +79,7 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 - **Rate limiting**: Configurable throttling (None/Low/Medium/High)
 - **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
 - **Dry run mode**: Preview results with CSV export without making changes
-- **Webhook notifications**: POST a summary (action, counts, CSV filename, dry-run flag) to any HTTP(S) endpoint on completion. **Discord** and **Slack** webhook URLs are auto-detected and sent in their native message shape (`{"content"}` / `{"text"}`); any other endpoint receives the generic JSON payload — wire into Home Assistant, ntfy, etc.
+- **Emailed reports**: send an HTML report and a CSV through the Newsflasharr notification plugin, after every run, after scheduled runs only, or on demand from a button. Newsflasharr owns the email configuration and the routing.
 - **Live progress + last-results**: `📊 View Check Progress` and `📋 View Last Results` actions report the running operation's %/ETA and the last completed run's summary, backed by on-disk state so they work across UI sessions.
 
 ### Reporting
@@ -130,8 +130,8 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
 | **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group |
 | **Keep Same-Named Streams From One Source** | boolean | False | By default, streams sharing a name within one M3U source are treated as duplicates and only the first is assigned. Enable if your provider publishes several genuinely different feeds under one identical name (e.g. four streams all called `DAZN F1`) so they are all kept as failover alternates. Streams sharing a name across *different* sources are always kept; true duplicates (same name, source and URL) are always collapsed |
-| **Webhook URL** | string | (blank) | HTTP(S) endpoint to POST JSON summary on completion (see below) |
-| **Fire Webhook On Completion** | boolean | False | Enable webhook delivery for Match & Assign / Match OTA / Sort Streams |
+| **Send notifications to Newsflasharr** | boolean | False | Emit notifications through the Newsflasharr plugin |
+| **Email A Report After** | select | Scheduled runs only | Which runs email a report: never, scheduled only, or every run |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
 | **Auto-match after M3U refresh** | boolean | False | Run Match & Assign automatically after each M3U refresh completes (opt-in; requires a Channel Profile). Dispatcharr v0.27+ |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
@@ -222,32 +222,31 @@ Preview and scheduled exports are saved to `/data/exports/`. Reports include:
 - Per-channel match counts (shown by **Match & Assign Streams**)
 - Match type breakdown (exact, substring, fuzzy)
 
-## Webhooks
+## Notifications and emailed reports
 
-Set **Webhook URL** to any HTTP(S) endpoint and enable **Fire Webhook On Completion**. On each `add_streams_to_channels`, `match_us_ota_only`, or `sort_streams` completion, the plugin POSTs a JSON payload in a daemon thread (fire-and-forget, does not block the action):
+Stream-Mapparr sends notifications through **Newsflasharr**, the central notification
+plugin, rather than posting to a webhook of its own. Newsflasharr owns the email
+settings and decides what goes where, so one place configures notifications for
+every plugin that uses it.
 
-```json
-{
-  "plugin": "stream-mapparr",
-  "event": "add_streams_to_channels.complete",
-  "action": "add_streams_to_channels",
-  "status": "success",
-  "message": "Matched and assigned 82 streams across 18 channels. Report: ...csv",
-  "timestamp": "2026-04-18T21:34:23Z",
-  "dry_run": false,
-  "channels_updated": 18,
-  "streams_assigned": 82,
-  "channels_skipped": 0,
-  "csv": "stream_mapparr_20260418_213422.csv"
-}
-```
+Turn on **Send notifications to Newsflasharr**, then choose when a report is
+emailed with **Email A Report After**: never, scheduled runs only, or every run
+that produces one. **Email Report Now** builds and queues one on demand.
 
-**Discord and Slack** are auto-detected by URL and receive their native body shape instead of the payload above, so delivery actually succeeds (a generic body returns HTTP 400 from those platforms):
+Each run sends two files, an HTML page and a CSV. They arrive as two separate
+emails, because a notification carries one attachment.
 
-- Discord (`https://discord.com/api/webhooks/…`) → `{"content": "<message>"}` (truncated to 2000 chars)
-- Slack (`https://hooks.slack.com/…`) → `{"text": "<message>"}`
+Those two files are built specifically for sending and are not the CSV exports in
+`/data/exports`. The exports label every stream with its M3U source name, which on
+a real installation is your provider's hostname, and an attachment is sent
+verbatim and unredacted. The emailed files never contain a source name, a stream
+URL or a server address.
 
-Any other endpoint receives the full generic JSON payload above. The URL is fetched server-side from Dispatcharr — only enter endpoints you trust.
+Newsflasharr does not have to be installed. With it absent or disabled nothing is
+sent and nothing fails. If it is installed but cannot actually deliver, for
+example because no routing rule sends this plugin to email, **Validate Settings**
+says so and **Email Report Now** refuses rather than building a report nobody
+receives.
 
 ## Troubleshooting
 

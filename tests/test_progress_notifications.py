@@ -38,48 +38,6 @@ def test_format_eta_clamps_negative_and_none(plugin_module):
 
 
 # --------------------------------------------------------------------------- #
-# Discord/Slack webhook reshaping — issue #32
-# --------------------------------------------------------------------------- #
-PAYLOAD = {"plugin": "stream-mapparr", "event": "add_streams_to_channels.complete",
-           "action": "add_streams_to_channels", "status": "success",
-           "message": "Matched and assigned 132 streams across 23 channels.",
-           "timestamp": "2026-06-23T12:00:00Z"}
-
-
-def test_webhook_discord_uses_content_key(plugin_module):
-    body = json.loads(plugin_module.Plugin._build_webhook_body(
-        "https://discord.com/api/webhooks/123/abc", PAYLOAD))
-    assert set(body.keys()) == {"content"}
-    assert "132 streams" in body["content"]
-
-
-def test_webhook_discordapp_host_also_supported(plugin_module):
-    body = json.loads(plugin_module.Plugin._build_webhook_body(
-        "https://discordapp.com/api/webhooks/123/abc", PAYLOAD))
-    assert "content" in body
-
-
-def test_webhook_slack_uses_text_key(plugin_module):
-    body = json.loads(plugin_module.Plugin._build_webhook_body(
-        "https://hooks.slack.com/services/T/B/X", PAYLOAD))
-    assert set(body.keys()) == {"text"}
-    assert "132 streams" in body["text"]
-
-
-def test_webhook_generic_url_keeps_full_payload(plugin_module):
-    body = json.loads(plugin_module.Plugin._build_webhook_body(
-        "https://example.com/hook", PAYLOAD))
-    assert body == PAYLOAD
-
-
-def test_webhook_discord_content_truncated_to_2000(plugin_module):
-    big = dict(PAYLOAD, message="x" * 5000)
-    body = json.loads(plugin_module.Plugin._build_webhook_body(
-        "https://discord.com/api/webhooks/1/2", big))
-    assert len(body["content"]) == 2000
-
-
-# --------------------------------------------------------------------------- #
 # Persisted progress + last-results round-trip
 # --------------------------------------------------------------------------- #
 @pytest.fixture

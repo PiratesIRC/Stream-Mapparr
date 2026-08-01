@@ -1,5 +1,44 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2132302 (August 1, 2026)
+
+### Added
+- **Reports can now be emailed to you.** Stream-Mapparr sends notifications through
+  Newsflasharr, the central notification plugin, which owns the email settings and
+  decides what goes where. Turn on **Send notifications to Newsflasharr**, then pick
+  when with **Email A Report After**: never, scheduled runs only, or every run that
+  produces a report. **Email Report Now** builds and queues one on demand.
+
+  Each run sends two files, an HTML page styled to match Dustarr's report and a CSV.
+  They arrive as two separate emails, because a notification carries one attachment.
+
+  **Those two files are built specifically for sending and are not the CSV exports in
+  /data/exports.** The exports label every stream with its M3U source name, which on a
+  real installation is your provider's hostname, and an attachment is sent verbatim and
+  unredacted. The emailed files never contain a source name, a stream URL or a server
+  address. Market labels such as [WINSTON-SALEM] are kept, because for an over-the-air
+  station the market is its whole identity.
+
+  Newsflasharr does not have to be installed. With it absent or disabled nothing is
+  sent and nothing fails. If it is installed but cannot actually deliver, for example
+  because no routing rule sends this plugin to email, Validate Settings says so and
+  Email Report Now refuses rather than building a report nobody receives.
+
+- **Validate Settings reports when the schedule last actually ran.** Nothing else could
+  answer that question. Newsflasharr's own report-absence detector is stamped by any
+  email carrying an attachment, including one you triggered by hand, so it cannot tell
+  a working schedule from a dead one you happen to be pressing a button on.
+
+### Removed
+- **The plugin's own webhook is gone**, replaced by Newsflasharr routing. The settings
+  **Webhook URL** and **Fire Webhook On Completion** no longer appear, and no summary is
+  posted to an HTTP endpoint.
+
+  Note that Dispatcharr never removes a stored setting when its field is removed, so the
+  webhook address you previously entered still exists in the database. Nothing reads it,
+  and a bug report still masks it, because it carried a Discord or Slack token in its
+  path and that file is meant to be pasted in public.
+
 ## v1.26.2131947 (August 1, 2026)
 
 ### Added

@@ -949,7 +949,6 @@ def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypa
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
-    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
 
     fake_streams = {
         1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
@@ -1002,7 +1001,6 @@ def test_sort_action_order_unchanged_when_disabled(plugin_module, monkeypatch):
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {9: "DEFAULT"})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
-    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
 
     fake_streams = {
         1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},
@@ -1392,7 +1390,6 @@ def _sort_action_harness(plugin_module, monkeypatch, restrict_matching_to_countr
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
-    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
 
     group = _TrackingChannelGroup("US")
     fake_streams = {
@@ -1543,7 +1540,6 @@ def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, 
     monkeypatch.setattr(inst, "_zone_routed_map", lambda *a, **k: {})
     monkeypatch.setattr(inst, "_trigger_frontend_refresh", lambda *a, **k: None)
     monkeypatch.setattr(inst, "_send_progress_update", lambda *a, **k: None)
-    monkeypatch.setattr(inst, "_fire_webhook", lambda *a, **k: None)
 
     fake_streams = {
         1: types.SimpleNamespace(id=1, name="Encore Generic", stream_stats={},

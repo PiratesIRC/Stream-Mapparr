@@ -189,3 +189,29 @@ def test_the_handler_never_raises(plugin_module, monkeypatch):
     monkeypatch.setattr(inst, "_newsflasharr_readiness", _boom)
     result = inst.email_report_now_action({"notify_enabled": True}, _Logger())
     assert result.get("error")
+
+
+# --------------------------------------------------------------------------- #
+# Why the export cleaner needs no age guard
+# --------------------------------------------------------------------------- #
+
+def test_the_export_cleaner_cannot_reach_an_emailed_report(plugin_module):
+    """Newsflasharr re-reads an attachment path on every delivery retry across
+    about 35 minutes, so deleting a report inside that window would strip the
+    file from mail already queued.
+
+    Clear CSV Exports deletes from /data/exports. The emailed reports are
+    written to /data/stream_mapparr_reports. The two are disjoint, so no age
+    guard is needed in the cleaner and none was added: a guard that cannot fire
+    reads as protection while providing none.
+
+    This test exists so that stays true. Moving the reports into the exports
+    directory, or pointing the cleaner at the reports directory, must fail here
+    rather than silently reintroduce the problem.
+    """
+    reports = plugin_module.Plugin._reports()
+    exports_dir = plugin_module.PluginConfig.EXPORTS_DIR.rstrip("/")
+    report_dir = reports.REPORT_DIR.rstrip("/")
+    assert report_dir != exports_dir
+    assert not report_dir.startswith(exports_dir + "/")
+    assert not exports_dir.startswith(report_dir + "/")
