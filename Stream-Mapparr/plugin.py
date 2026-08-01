@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2080011"
+    PLUGIN_VERSION = "1.26.2131947"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -306,6 +306,14 @@ class PluginConfig:
     DEFAULT_SELECTED_GROUPS = ""                # Empty = all groups
     DEFAULT_SELECTED_STREAM_GROUPS = ""         # Empty = all stream groups
     DEFAULT_SELECTED_M3US = ""                  # Empty = all M3U sources
+    # Whether the group lists above name the groups to process or the groups to skip.
+    # "include" reproduces the original behavior, so an installation that never
+    # touches these settings is unaffected. There is deliberately no equivalent for
+    # DEFAULT_SELECTED_M3US: that list's ORDER carries source priority, and an
+    # exclusion list leaves no way to express an order for the sources that remain.
+    GROUP_FILTER_MODES = ("include", "exclude")
+    DEFAULT_GROUP_FILTER_MODE = "include"        # Channel groups: process only / skip
+    DEFAULT_STREAM_GROUP_FILTER_MODE = "include" # Stream groups: process only / skip
     DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
     DEFAULT_STREAM_NAME_REGEX_RULES = ""        # Empty = feature disabled
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
@@ -699,7 +707,18 @@ class Plugin:
                 "type": "string",
                 "default": PluginConfig.DEFAULT_SELECTED_GROUPS,
                 "placeholder": "Sports, News, Entertainment",
-                "help_text": "Specific channel groups to process, or leave empty for all groups.",
+                "help_text": "The channel groups this plugin should act on. Leave empty for all groups. How the list is read depends on the Channel Groups Mode setting directly below.",
+            },
+            {
+                "id": "group_filter_mode",
+                "label": "🔀 Channel Groups Mode",
+                "type": "select",
+                "default": PluginConfig.DEFAULT_GROUP_FILTER_MODE,
+                "options": [
+                    {"value": "include", "label": "Process only the groups listed above"},
+                    {"value": "exclude", "label": "Process all groups except those listed above"},
+                ],
+                "help_text": "Decides whether the Channel Groups list names the groups to process or the groups to skip. Use the second option when another tool owns a group and this plugin should leave it alone, for example a static group holding event channels created elsewhere. The second option also means a channel group you create later is processed automatically, whereas listing groups to process means a new group is skipped until you add it. Leaving the Channel Groups box empty processes every group either way. A group name that does not exist is reported as an error by Validate Settings in both modes, because a typo in the second mode would process the group you meant to skip.",
             },
             {
                 "id": "selected_stream_groups",
@@ -707,7 +726,18 @@ class Plugin:
                 "type": "string",
                 "default": PluginConfig.DEFAULT_SELECTED_STREAM_GROUPS,
                 "placeholder": "TVE, Cable, Satellite",
-                "help_text": "Specific stream groups to use when matching, or leave empty for all stream groups. Multiple groups can be specified separated by commas.",
+                "help_text": "The stream groups to draw candidate streams from when matching. Leave empty for all stream groups. Multiple groups can be specified separated by commas. How the list is read depends on the Stream Groups Mode setting directly below.",
+            },
+            {
+                "id": "stream_group_filter_mode",
+                "label": "🔀 Stream Groups Mode",
+                "type": "select",
+                "default": PluginConfig.DEFAULT_STREAM_GROUP_FILTER_MODE,
+                "options": [
+                    {"value": "include", "label": "Use only the stream groups listed above"},
+                    {"value": "exclude", "label": "Use all stream groups except those listed above"},
+                ],
+                "help_text": "Decides whether the Stream Groups list names the stream groups to draw from or the stream groups to skip. This is resolved separately from the Channel Groups Mode setting, so excluding a channel group does not also invert the stream group list. Leaving the Stream Groups box empty uses every stream group either way.",
             },
             {
                 "id": "selected_m3us",
@@ -1878,6 +1908,52 @@ class Plugin:
         if isinstance(value, str):
             value = value.lower() in ('true', 'yes', '1')
         return bool(value)
+
+    def _resolve_group_filter_mode(self, settings, key="group_filter_mode"):
+        """Resolve whether a group list names the groups to PROCESS or to SKIP.
+
+        Returns "include" or "exclude", never anything else. Resolve from the LIVE
+        settings dict passed to run(), never from self.saved_settings and never
+        cached on the instance: that is the bug-139 shape, where a value primed on
+        one entry path is read back with getattr on another and silently defaults.
+
+        Anything unrecognized resolves to "include" rather than raising or
+        guessing. Include is the pre-existing behavior, so a stored value this
+        build does not understand keeps a list of WANTED groups meaning wanted
+        instead of inverting it into a list of skipped ones. A key present with the
+        value None is the same case: dict.get cannot tell absent from
+        present-but-None, and Dispatcharr never prunes a stored setting.
+        """
+        value = (settings or {}).get(key, PluginConfig.DEFAULT_GROUP_FILTER_MODE)
+        if not isinstance(value, str):
+            return PluginConfig.DEFAULT_GROUP_FILTER_MODE
+        value = value.strip().lower()
+        if value not in PluginConfig.GROUP_FILTER_MODES:
+            return PluginConfig.DEFAULT_GROUP_FILTER_MODE
+        return value
+
+    def _resolve_stream_group_filter_mode(self, settings):
+        """Resolve the STREAM-group list's mode. Separate from the channel-group
+        mode so excluding a channel group does not also invert the stream-group
+        list the user typed."""
+        return self._resolve_group_filter_mode(settings, key="stream_group_filter_mode")
+
+    @staticmethod
+    def _filter_by_group_ids(items, group_ids, mode, id_key):
+        """Keep the items whose `id_key` is in `group_ids` (include mode) or the
+        items whose `id_key` is NOT in it (exclude mode). Input order is preserved.
+
+        `id_key` differs by item type: channels carry 'channel_group_id', streams
+        carry 'channel_group'.
+
+        An item with no group survives exclude mode and is dropped by include mode,
+        which is what each mode means: it is not one of the named groups either way.
+        An unrecognized mode filters as include, matching _resolve_group_filter_mode.
+        """
+        wanted = set(group_ids or ())
+        if mode == "exclude":
+            return [item for item in items if item.get(id_key) not in wanted]
+        return [item for item in items if item.get(id_key) in wanted]
 
     def _resolve_enabled_databases(self, settings):
         """Resolve which channel databases are enabled from new channel_database select or legacy db_enabled_XX booleans.
@@ -4720,11 +4796,19 @@ class Plugin:
                     else:
                         missing_groups.append(group_name)
 
+                # A misspelled name stays a hard error in BOTH modes, and it matters
+                # more in exclude mode: the group the operator meant to skip would
+                # be processed instead, silently. Match and Assign replaces a
+                # channel's entire stream list rather than appending to it, so that
+                # rewrites assignments that were meant to be left alone.
+                group_mode = self._resolve_group_filter_mode(settings)
+                mode_label = "only" if group_mode == "include" else "all except"
                 if missing_groups:
                     validation_results.append(f"❌ Channel Groups: '{', '.join(missing_groups)}' not found")
                     has_errors = True
                 else:
-                    validation_results.append(f"✅ Channel Groups ({len(found_groups)})")
+                    validation_results.append(
+                        f"✅ Channel Groups ({mode_label} {len(found_groups)})")
             else:
                 validation_results.append("✅ Channel Groups (all)")
 
@@ -4890,9 +4974,15 @@ class Plugin:
                 if not valid_group_ids:
                     return {"status": "error", "message": "None of the specified groups were found."}
 
-                filtered_channels = [ch for ch in channels_in_profile if ch.get('channel_group_id') in valid_group_ids]
-                channels_in_profile = filtered_channels
-                group_filter_info = f" in groups: {', '.join(selected_groups)}"
+                group_mode = self._resolve_group_filter_mode(settings)
+                channels_in_profile = self._filter_by_group_ids(
+                    channels_in_profile, valid_group_ids, group_mode, 'channel_group_id')
+                if group_mode == "exclude":
+                    group_filter_info = f" excluding groups: {', '.join(selected_groups)}"
+                else:
+                    group_filter_info = f" in groups: {', '.join(selected_groups)}"
+                logger.info(f"[Stream-Mapparr] Channel group filter mode: {group_mode} "
+                            f"({len(channels_in_profile)} channel(s) in scope)")
             else:
                 selected_groups = []
                 group_filter_info = " (all groups)"
@@ -4916,11 +5006,21 @@ class Plugin:
                     selected_stream_groups = []
                     stream_group_filter_info = " (all stream groups - specified groups not found)"
                 else:
-                    # Filter streams by channel_group (which is the group ID)
-                    filtered_streams = [s for s in all_streams_data if s.get('channel_group') in valid_stream_group_ids]
-                    logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on stream groups: {', '.join(selected_stream_groups)}")
+                    # Streams carry their group id under 'channel_group', not
+                    # 'channel_group_id' as channels do. The stream-group list has
+                    # its own mode so excluding a CHANNEL group does not also
+                    # invert the stream-group list the operator typed.
+                    stream_group_mode = self._resolve_stream_group_filter_mode(settings)
+                    filtered_streams = self._filter_by_group_ids(
+                        all_streams_data, valid_stream_group_ids, stream_group_mode, 'channel_group')
+                    logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to "
+                                f"{len(filtered_streams)} ({stream_group_mode} mode) based on stream "
+                                f"groups: {', '.join(selected_stream_groups)}")
                     all_streams_data = filtered_streams
-                    stream_group_filter_info = f" in stream groups: {', '.join(selected_stream_groups)}"
+                    if stream_group_mode == "exclude":
+                        stream_group_filter_info = f" excluding stream groups: {', '.join(selected_stream_groups)}"
+                    else:
+                        stream_group_filter_info = f" in stream groups: {', '.join(selected_stream_groups)}"
             else:
                 selected_stream_groups = []
                 stream_group_filter_info = " (all stream groups)"
@@ -6069,9 +6169,12 @@ class Plugin:
                 if not valid_group_ids:
                     return {"status": "error", "message": "None of the specified groups were found."}
 
-                filtered_channels = [ch for ch in channels_in_profile if ch.get('channel_group_id') in valid_group_ids]
-                channels = filtered_channels
-                logger.info(f"[Stream-Mapparr] Filtered to {len(channels)} channels in groups: {', '.join(selected_groups)}")
+                group_mode = self._resolve_group_filter_mode(settings)
+                channels = self._filter_by_group_ids(
+                    channels_in_profile, valid_group_ids, group_mode, 'channel_group_id')
+                scope_word = "excluding" if group_mode == "exclude" else "in"
+                logger.info(f"[Stream-Mapparr] Filtered to {len(channels)} channels "
+                            f"{scope_word} groups: {', '.join(selected_groups)}")
             else:
                 channels = channels_in_profile
                 logger.info(f"[Stream-Mapparr] Using all channels from profile (no group filter)")
@@ -6409,10 +6512,17 @@ class Plugin:
                 if not valid_group_ids:
                     return {"status": "error", "message": f"None of the specified channel groups were found: {selected_groups_str}"}
                 
-                # Filter channels by group
-                filtered_channels = [ch for ch in channels_in_profile if ch.get('channel_group_id') in valid_group_ids]
-                channels_in_profile = filtered_channels
-                logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels in groups: {', '.join(selected_groups)}")
+                # Filter channels by group. Sort must read the mode from the LIVE
+                # settings dict for the same reason it resolves prioritize_quality
+                # itself (bug-139): it never calls load_process_channels_action, so
+                # anything primed there never reaches it, and a scheduled Sort would
+                # reorder streams on the very group Match and Assign was told to skip.
+                group_mode = self._resolve_group_filter_mode(settings)
+                channels_in_profile = self._filter_by_group_ids(
+                    channels_in_profile, valid_group_ids, group_mode, 'channel_group_id')
+                scope_word = "excluding" if group_mode == "exclude" else "in"
+                logger.info(f"[Stream-Mapparr] Filtered to {len(channels_in_profile)} channels "
+                            f"{scope_word} groups: {', '.join(selected_groups)}")
             
             # bug-068: zone-aware ordering so Sort keeps West feeds on West channels
             # instead of reverting to pure quality (which would undo Match & Assign).
@@ -6816,11 +6926,27 @@ class Plugin:
             selected_groups_str = (settings.get('selected_groups') or '').strip()
             if selected_groups_str:
                 wanted = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
-                channel_ids = list(
-                    Channel.objects.filter(id__in=channel_ids, channel_group__name__in=wanted)
-                    .values_list('id', flat=True)
-                )
-                logger.info(f"[Stream-Mapparr] Throughput probe scoped to groups: {', '.join(wanted)} ({len(channel_ids)} channels)")
+                # This site narrows through a database query rather than a Python
+                # list, so it cannot use _filter_by_group_ids. Exclude mode must
+                # keep channels that have NO group at all, which .exclude() does
+                # not do on its own: a NULL channel_group makes the comparison
+                # NULL rather than false, so those rows are dropped. The explicit
+                # isnull branch puts them back, matching _filter_by_group_ids.
+                group_mode = self._resolve_group_filter_mode(settings)
+                query = Channel.objects.filter(id__in=channel_ids)
+                if group_mode == "exclude":
+                    query = query.exclude(channel_group__name__in=wanted)
+                    ungrouped = list(
+                        Channel.objects.filter(id__in=channel_ids, channel_group__isnull=True)
+                        .values_list('id', flat=True)
+                    )
+                else:
+                    query = query.filter(channel_group__name__in=wanted)
+                    ungrouped = []
+                channel_ids = list(dict.fromkeys(list(query.values_list('id', flat=True)) + ungrouped))
+                scope_word = "excluding" if group_mode == "exclude" else "scoped to"
+                logger.info(f"[Stream-Mapparr] Throughput probe {scope_word} groups: "
+                            f"{', '.join(wanted)} ({len(channel_ids)} channels)")
                 if not channel_ids:
                     return {"status": "success", "message": "No enabled channels match selected groups."}
 

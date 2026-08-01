@@ -1,5 +1,34 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2131947 (August 1, 2026)
+
+### Added
+- **Channel Groups and Stream Groups can now name the groups to SKIP instead of the groups to
+  process.** Each list gets a mode dropdown directly beneath it with two options: process only
+  the groups listed, or process all groups except the ones listed. The default is the first
+  option, so an existing installation behaves exactly as it did before.
+
+  This is for the case where another tool owns a group and this plugin should leave it alone.
+  Previously the only way to express that was to list every other group by hand, which quietly
+  stops processing any group created afterwards. Choosing to skip a group instead means a new
+  group is processed automatically.
+
+  The mode reaches every action that filters by group: Match and Assign, Preview Changes,
+  Match US OTA Only, Sort Alternate Streams, and Probe Stream Throughput. Each one logs which
+  mode it applied. Leaving a group box empty still means all groups in either mode, and a group
+  name that does not exist is still reported as an error by Validate Settings in both modes,
+  because a typo in skip mode would process the group you meant to leave alone.
+
+  The channel group list and the stream group list have separate mode settings, so skipping a
+  channel group does not also invert the stream group list. Channels that belong to no group at
+  all are processed in skip mode and left out in process-only mode, which is what each mode
+  means.
+
+  There is deliberately no equivalent for the M3U Sources list. The order of that list sets
+  source priority, and a list of sources to skip leaves no way to express an order for the
+  sources that remain, so every one of them would tie and the source priority sort would stop
+  having any effect.
+
 ## v1.26.2080011 (July 26, 2026)
 
 ### Changed
