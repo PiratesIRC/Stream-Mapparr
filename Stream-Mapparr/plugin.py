@@ -317,6 +317,14 @@ class PluginConfig:
     DEFAULT_CUSTOM_ALIASES = ""                 # Empty = built-in aliases only
     DEFAULT_STREAM_NAME_REGEX_RULES = ""        # Empty = feature disabled
     DEFAULT_PRIORITIZE_QUALITY = False          # When true, sort quality before M3U source priority
+
+    # === NEWSFLASHARR NOTIFICATIONS ===
+    # DEFAULT_NOTIFY_ENABLED must stay False. It is an integration-template
+    # invariant, not a style choice: a released plugin must never start writing
+    # into another plugin's spool directory the moment it upgrades.
+    DEFAULT_NOTIFY_ENABLED = False              # Opt-in: emit to the Newsflasharr service
+    NOTIFY_REPORT_TRIGGERS = ("never", "scheduled", "every_run")
+    DEFAULT_NOTIFY_REPORT_ON = "scheduled"      # Which runs email a report
     DEFAULT_ALLOW_SAME_NAME_STREAMS = False     # Opt-in: keep distinct same-named streams from one source (bug-140)
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
@@ -768,6 +776,35 @@ class Plugin:
                              "sorting, zone routing, country restriction and duplicate "
                              "detection still read the original name. Use the Test Regex "
                              "Rules action to preview the effect.",
+            },
+            {
+                "id": "notify_enabled",
+                "label": "Send notifications to Newsflasharr",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_NOTIFY_ENABLED,
+                "help_text": "Requires the Newsflasharr plugin. What routes where is "
+                             "configured in Newsflasharr's routing rules, keyed on this "
+                             "plugin's name. Stream-Mapparr does not require Newsflasharr "
+                             "to be installed: with it absent or disabled, nothing is sent "
+                             "and nothing fails.",
+            },
+            {
+                "id": "notify_report_on",
+                "label": "📧 Email A Report After",
+                "type": "select",
+                "default": PluginConfig.DEFAULT_NOTIFY_REPORT_ON,
+                "options": [
+                    {"value": "never", "label": "Never, do not email reports"},
+                    {"value": "scheduled", "label": "Scheduled runs only"},
+                    {"value": "every_run", "label": "Every run that produces a report"},
+                ],
+                "help_text": "Which runs send the report by email. Two files are sent per "
+                             "run, an HTML page and a CSV, which arrive as two separate "
+                             "emails because a notification carries one attachment. Both "
+                             "files are built specifically for sending: they never contain "
+                             "your M3U source names, stream URLs or server addresses, which "
+                             "the CSV exports in /data/exports do contain. This setting does "
+                             "nothing unless Send notifications to Newsflasharr is on above.",
             },
             {
                 "id": "prioritize_quality",
