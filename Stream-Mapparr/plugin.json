@@ -123,6 +123,11 @@
       "button_label": "🧠 Test Rules"
     },
     {
+      "id": "email_report_now",
+      "label": "📧 Email Report Now",
+      "description": "Build the report now and queue it for email as two attachments, an HTML page and a CSV. Checks that Newsflasharr can actually deliver it first."
+    },
+    {
       "id": "clear_csv_exports",
       "label": "🗑️ Clear CSV Exports",
       "description": "Delete all CSV export files created by this plugin.",

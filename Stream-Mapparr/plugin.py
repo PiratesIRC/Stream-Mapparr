@@ -1149,6 +1149,24 @@ class Plugin:
             "button_label": "🧪 Test Rules",
         },
         {
+            "id": "email_report_now",
+            "label": "📧 Email Report Now",
+            "button_label": "📧 Email Now",
+            "button_color": "cyan",
+            "description": "Build the report now and queue it for email as two "
+                           "attachments, an HTML page and a CSV. Requires the "
+                           "Newsflasharr plugin installed and enabled, its email "
+                           "settings configured, and a routing rule sending this "
+                           "plugin to email. This button checks all of that first "
+                           "and refuses rather than building a report nobody "
+                           "receives. It changes nothing: the run is a dry run. It "
+                           "does NOT prove your schedule works, because it runs here "
+                           "in the web worker using the settings currently on screen "
+                           "while the schedule runs on a background worker using "
+                           "stored settings. Validate Settings reports when the "
+                           "schedule last actually ran.",
+        },
+        {
             "id": "clear_csv_exports",
             "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
@@ -2132,6 +2150,74 @@ class Plugin:
         except ImportError:
             import reports
         return reports
+
+    def email_report_now_action(self, settings, logger, context=None):
+        """Build the report now and queue both files for email, on demand.
+
+        Two deliberate properties:
+
+        It NEVER writes the scheduled-run timestamp. That signal answers whether
+        the SCHEDULE is alive, and Newsflasharr's own absence detector cannot
+        tell a button press from a scheduled run, so a button able to set it
+        would mask a dead scheduler indefinitely.
+
+        It refuses BEFORE doing any work when the mail could not arrive.
+        Building a report costs a full matching pass, and a missing routing rule
+        is otherwise invisible: the queue write succeeds and the mail is simply
+        delivered somewhere else.
+
+        The work runs in a background thread. The plugin runs under gevent,
+        where a matching pass inside the request would freeze the whole worker
+        rather than just this request.
+        """
+        try:
+            bridge = self._notify_bridge()
+            if not bridge.is_enabled(settings):
+                return {"status": "error",
+                        "error": "Send notifications to Newsflasharr is switched off, "
+                                 "so there is nothing to email with."}
+
+            problems = self._newsflasharr_readiness()
+            if problems:
+                return {"status": "error",
+                        "error": "Report not queued. " + " ".join(problems)}
+
+            # Force a send regardless of the Email A Report After setting:
+            # pressing the button IS the request. dry_run_mode is forced on so
+            # the button reports on the current state without changing any
+            # stream assignment. is_scheduled stays False throughout, so the
+            # scheduled-run timestamp is never touched.
+            forced = dict(settings)
+            forced["dry_run_mode"] = True
+            forced["notify_report_on"] = "every_run"
+
+            def _runner():
+                lock_acquired = False
+                try:
+                    # Take the same operation lock the dispatcher would, so this
+                    # cannot run alongside a Match and Assign pass.
+                    if not self._acquire_operation_lock("email_report_now", logger):
+                        logger.error("[Stream-Mapparr] Email Report Now: another "
+                                     "operation is already running")
+                        return
+                    lock_acquired = True
+                    self.add_streams_to_channels_action(forced, logger)
+                except Exception as e:
+                    logger.error(f"[Stream-Mapparr] Email Report Now failed: {e}")
+                finally:
+                    if lock_acquired:
+                        self._release_operation_lock(logger)
+
+            threading.Thread(target=_runner, name="stream-mapparr-email-report",
+                             daemon=True).start()
+            return {"status": "success",
+                    "message": "Building the report now. Both files will be queued "
+                               "for email when it finishes. Queued means written to "
+                               "Newsflasharr's queue, not yet in your inbox. Watch "
+                               "the Docker logs for the result."}
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Email Report Now failed: {e}")
+            return {"status": "error", "error": f"Email Report Now failed: {e}"}
 
     def _newsflasharr_readiness(self):
         """Everything that must be true for an emailed report to actually arrive.
@@ -4770,6 +4856,7 @@ class Plugin:
                 "validate_settings": self.validate_settings_action,
                 "update_schedule": self.update_schedule_action,
                 "cleanup_periodic_tasks": self.cleanup_periodic_tasks_action,
+                "email_report_now": self.email_report_now_action,
                 "clear_csv_exports": self.clear_csv_exports_action,
                 "report_a_bug": self.report_a_bug_action,
                 "clear_operation_lock": self.clear_operation_lock_action,
