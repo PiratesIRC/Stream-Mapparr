@@ -2133,6 +2133,49 @@ class Plugin:
             import reports
         return reports
 
+    def _newsflasharr_readiness(self):
+        """Everything that must be true for an emailed report to actually arrive.
+
+        Read-only on another plugin's configuration row, which is allowed;
+        nothing here writes. Returns a list of blocking problems, empty when the
+        path is clear.
+
+        This exists because every one of these failures is otherwise invisible
+        from this side. A missing routing rule in particular: the spool write
+        succeeds, Newsflasharr records a delivery, and the mail is simply sent
+        somewhere other than the inbox.
+
+        Never echo a settings VALUE here. smtp_password is one of the keys being
+        checked and only its presence is ever reported.
+        """
+        bridge = self._notify_bridge()
+        try:
+            from apps.plugins.models import PluginConfig as StoredPluginConfig
+        except Exception:
+            return ["Cannot reach Dispatcharr's plugin registry to check Newsflasharr."]
+        try:
+            row = StoredPluginConfig.objects.filter(key="newsflasharr").first()
+        except Exception as e:
+            return [f"Could not read Newsflasharr's configuration: {e}"]
+        if row is None:
+            return ["Newsflasharr is not installed, and it is what actually sends the mail."]
+
+        problems = []
+        if not getattr(row, "enabled", False):
+            problems.append("Newsflasharr is installed but not enabled.")
+        nf_settings = row.settings if isinstance(getattr(row, "settings", None), dict) else {}
+        missing = [k for k in bridge.SMTP_REQUIRED
+                   if not str(nf_settings.get(k) or "").strip()]
+        if missing:
+            problems.append("Newsflasharr's SMTP is not fully configured (missing: "
+                            + ", ".join(missing) + ").")
+        elif not bridge.routes_to_smtp(nf_settings):
+            problems.append(
+                f"Newsflasharr has no routing rule sending {bridge.SOURCE}'s "
+                f"{bridge.EVENT} to smtp, and smtp is not among its default "
+                "channels, so the report would be delivered somewhere else.")
+        return problems
+
     def _build_and_emit_reports(self, settings, logger, report_channels,
                                 account_names, *, is_scheduled):
         """Build both report files and emit one notification per file.
@@ -4962,6 +5005,18 @@ class Plugin:
                         f"❌ Email A Report After: '{raw_trigger}' is not a known "
                         f"value, using '{resolved_trigger}'")
                     has_errors = True
+
+                # Would an emailed report actually arrive? Only worth saying
+                # when the operator has switched notifications on: these are
+                # not problems for someone who does not use the feature.
+                if bridge.is_enabled(settings) and resolved_trigger != "never":
+                    problems = self._newsflasharr_readiness()
+                    if problems:
+                        for problem in problems:
+                            validation_results.append(f"❌ Email delivery: {problem}")
+                        has_errors = True
+                    else:
+                        validation_results.append("✅ Email delivery: reports route to email")
             except Exception as notify_err:
                 logger.debug(f"[Stream-Mapparr] Could not read notification health: {notify_err}")
 

@@ -26,6 +26,48 @@ _DEFAULT_TRIGGER = "scheduled"
 # must stay stable.
 SOURCE = "stream-mapparr"
 
+# The event name every report notification carries. Newsflasharr routing rules
+# match on it, so it must stay stable too.
+EVENT = "report"
+
+# Everything Newsflasharr needs configured before it can send mail at all. Only
+# the PRESENCE of each is ever checked or reported: smtp_password is one of
+# them and its value must never reach a log line or a toast.
+SMTP_REQUIRED = ("smtp_server", "smtp_username", "smtp_password", "smtp_to")
+
+
+def routes_to_smtp(nf_settings, source=SOURCE, event=EVENT):
+    """Would a report from this plugin actually reach the email channel?
+
+    Newsflasharr sends an event to `default_channels` when no rule matches it,
+    so a missing routing rule is invisible from this side: the spool write
+    succeeds, a delivery is recorded, and the mail goes somewhere other than
+    the inbox. This is the check that makes that visible.
+
+    `routing_rules` is stored as a JSON string, not a list, so it is parsed
+    defensively; a list is accepted too in case that ever changes. A rule with
+    no source or no event is a wildcard and matches. Never raises.
+    """
+    nf_settings = nf_settings if isinstance(nf_settings, dict) else {}
+    raw = nf_settings.get("routing_rules")
+    rules = raw if isinstance(raw, list) else []
+    if isinstance(raw, str):
+        try:
+            rules = json.loads(raw)
+        except (ValueError, TypeError):
+            rules = []
+    for rule in rules if isinstance(rules, list) else []:
+        if not isinstance(rule, dict):
+            continue
+        match = rule.get("match") if isinstance(rule.get("match"), dict) else {}
+        if match.get("source") not in (None, source):
+            continue
+        if match.get("event") not in (None, event):
+            continue
+        if any("smtp" in str(c).lower() for c in (rule.get("channels") or [])):
+            return True
+    return "smtp" in str(nf_settings.get("default_channels") or "").lower()
+
 
 def is_enabled(settings):
     """Is the Newsflasharr master toggle on?
