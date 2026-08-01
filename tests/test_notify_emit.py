@@ -97,7 +97,7 @@ def test_every_event_uses_the_report_conventions(tmp_path):
     assert len(spy.calls) == 2
     for call in spy.calls:
         assert call["source"] == "stream-mapparr"
-        assert call["event"] == "report"
+        assert call["event"] == "usage_report"
         assert call["severity"] == "info"
         assert call["dedup_key"] is None
 

@@ -27,8 +27,11 @@ _DEFAULT_TRIGGER = "scheduled"
 SOURCE = "stream-mapparr"
 
 # The event name every report notification carries. Newsflasharr routing rules
-# match on it, so it must stay stable too.
-EVENT = "report"
+# match on it, so it must stay stable. "usage_report" matches the naming the
+# other report callers on this installation already use (dustarr and
+# metricsarr both emit usage_report), so an operator reading the routing rules
+# sees one convention rather than three.
+EVENT = "usage_report"
 
 # Everything Newsflasharr needs configured before it can send mail at all. Only
 # the PRESENCE of each is ever checked or reported: smtp_password is one of
@@ -142,7 +145,7 @@ def emit_reports(notify_fn, settings, written, *, is_scheduled):
                 source=SOURCE,
                 title=f"Stream-Mapparr {label} ready",
                 body=f"Attached: {os.path.basename(path)}",
-                event="report",
+                event=EVENT,
                 severity="info",
                 kind="event",
                 dedup_key=None,
