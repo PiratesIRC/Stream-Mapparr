@@ -145,3 +145,68 @@ def test_an_empty_input_produces_an_empty_model():
     model = build_model([], ACCOUNTS, {}, 0)
     assert model["channel_count"] == 0
     assert model["entries"] == []
+
+
+# --------------------------------------------------------------------------- #
+# Gaps found by a security review of the written code, 2026-08-01
+# --------------------------------------------------------------------------- #
+
+def test_a_BARE_account_name_is_stripped_not_only_the_bracketed_form():
+    """The account names are literal provider hostnames, so an occurrence
+    outside brackets leaks exactly as much as one inside them. An operator
+    naming a channel "ESPN backup streamq.tv" is enough."""
+    from reports import sanitise_stream_label
+    assert "streamq.tv" not in sanitise_stream_label("ESPN backup streamq.tv", ACCOUNTS)
+    assert "streamq.tv" not in sanitise_stream_label("ESPN (streamq.tv)", ACCOUNTS)
+
+
+def test_account_name_matching_ignores_case():
+    """[STREAMQ.TV] is the same hostname and the same leak."""
+    from reports import sanitise_stream_label
+    assert "STREAMQ" not in sanitise_stream_label("SKY [STREAMQ.TV]", ACCOUNTS).upper()
+    assert "STREAMQ" not in sanitise_stream_label("SKY StreamQ.TV feed", ACCOUNTS).upper()
+
+
+def test_stripping_a_bare_account_name_leaves_readable_text():
+    from reports import sanitise_stream_label
+    assert sanitise_stream_label("ESPN backup streamq.tv HD", ACCOUNTS) == "ESPN backup HD"
+
+
+def test_an_ipv6_address_is_scrubbed():
+    """The IPv4 pattern does not match an IPv6 address, so an edge server
+    address in that form would have shipped unredacted."""
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "Feed 2001:db8::1",
+          "stream_names": ["Backup fe80::1ff:fe23:4567:890a"]}],
+        ACCOUNTS, {}, 0)
+    blob = repr(model)
+    assert "2001:db8::1" not in blob
+    assert "fe80::1ff:fe23:4567:890a" not in blob
+
+
+def test_scrubbing_an_address_does_not_leave_a_double_space():
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "Backup 192.168.1.5 Feed", "stream_names": []}],
+        ACCOUNTS, {}, 0)
+    assert model["entries"][0]["channel_name"] == "Backup Feed"
+
+
+def test_a_channel_name_that_merely_looks_like_a_version_is_untouched():
+    """Do not over-scrub. 1.2.3.4 is an address shape, but 4.5 or v1.2 is not."""
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "Channel 4.5 HD", "stream_names": ["Sky v1.2"]}],
+        ACCOUNTS, {}, 0)
+    assert model["entries"][0]["channel_name"] == "Channel 4.5 HD"
+    assert model["entries"][0]["stream_names"] == ["Sky v1.2"]
+
+
+def test_an_uppercase_bracketed_account_leaves_no_empty_brackets():
+    """Found by mutation testing: with case-sensitive bracket matching, the
+    bare-name fallback still removes the hostname but leaves "[]" behind, so the
+    leak is closed and the output is ugly. Both matter."""
+    from reports import sanitise_stream_label
+    assert sanitise_stream_label("SKY [STREAMQ.TV]", ACCOUNTS) == "SKY"
+    assert sanitise_stream_label("SKY (StreamQ.TV)", ACCOUNTS) == "SKY"

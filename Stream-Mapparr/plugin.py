@@ -6194,20 +6194,28 @@ class Plugin:
             # account names are the provider's hostnames. The emailed files must
             # never carry one, and Newsflasharr sends an attachment unredacted.
             try:
-                report_channels = []
-                for _group_key, _cache_entry in group_match_cache.items():
-                    _matched = _cache_entry['matched_streams']
-                    for _channel in _cache_entry['channels_to_update']:
-                        report_channels.append({
-                            'channel_name': _channel['name'],
-                            'matched': len(_matched),
-                            'stream_names': [s['name'] for s in _matched],
-                        })
-                account_names = [m['name'] for m in self._get_all_m3u_accounts(logger)
-                                 if m.get('name')]
-                self._build_and_emit_reports(
-                    settings, logger, report_channels, account_names,
-                    is_scheduled=is_scheduled)
+                # Check the gates BEFORE building anything. Collecting the input
+                # costs a second ORM query for the M3U accounts plus a loop over
+                # every matched channel, and an operator who does not use
+                # notifications should pay neither. An earlier version ran both
+                # unconditionally while a comment claimed otherwise.
+                _bridge = self._notify_bridge()
+                _allowed, _skip_reason = _bridge.should_emit(settings, is_scheduled)
+                if _allowed:
+                    report_channels = []
+                    for _group_key, _cache_entry in group_match_cache.items():
+                        _matched = _cache_entry['matched_streams']
+                        for _channel in _cache_entry['channels_to_update']:
+                            report_channels.append({
+                                'channel_name': _channel['name'],
+                                'matched': len(_matched),
+                                'stream_names': [s['name'] for s in _matched],
+                            })
+                    account_names = [m['name'] for m in self._get_all_m3u_accounts(logger)
+                                     if m.get('name')]
+                    self._build_and_emit_reports(
+                        settings, logger, report_channels, account_names,
+                        is_scheduled=is_scheduled)
             except Exception as report_err:
                 logger.warning(f"[Stream-Mapparr] Report step suppressed: {report_err}")
 

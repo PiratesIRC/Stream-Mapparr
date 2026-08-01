@@ -157,3 +157,16 @@ def test_build_and_emit_writes_nothing_when_the_toggle_is_off(plugin_module, tmp
     produced = [p for p in tmp_path.iterdir()
                 if p.name.startswith("stream_mapparr_report_")]
     assert produced == [], "no report file may be written when notifications are off"
+
+
+def test_the_caller_checks_the_gates_before_collecting_report_input(plugin_module):
+    """Collecting the input costs a second ORM query for the M3U accounts plus a
+    loop over every matched channel. An operator who does not use notifications
+    should pay neither. An earlier version ran both unconditionally while a
+    comment claimed it did not."""
+    src = inspect.getsource(plugin_module.Plugin.add_streams_to_channels_action)
+    gate_at = src.index("should_emit")
+    query_at = src.index("_get_all_m3u_accounts")
+    assert gate_at < query_at, (
+        "the notification gate must be evaluated before the M3U account query"
+    )

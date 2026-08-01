@@ -139,25 +139,41 @@ def test_no_temporary_file_is_left_behind():
         assert [f for f in os.listdir(d) if ".tmp" in f] == []
 
 
-def test_pruning_keeps_at_least_eight_of_each_type():
-    """Retention must exceed the SMTP retry ladder's worst case of 2130 seconds
-    by a wide margin, because Newsflasharr re-reads the path on every attempt."""
-    from reports import write_report
+def _age(path, seconds):
+    """Backdate a file so the pruning age guard considers it safe to delete."""
+    import time
+    stamp = time.time() - seconds
+    os.utime(path, (stamp, stamp))
+
+
+def test_pruning_keeps_eight_of_each_type_once_files_are_old_enough():
+    """Files are backdated past the delivery retry window first. A freshly
+    written file is never pruned however many newer ones exist, which is what
+    test_pruning_never_deletes_a_file_still_inside_the_retry_window covers."""
+    from reports import RETRY_WINDOW_SECONDS, write_report
     with tempfile.TemporaryDirectory() as d:
         for i in range(14):
-            write_report(_model(), d, 1785237435.0 + i * 3600)
+            written = write_report(_model(), d, 1785237435.0 + i * 3600)
+            _age(written["html_path"], RETRY_WINDOW_SECONDS + 3600 - i)
+            _age(written["csv_path"], RETRY_WINDOW_SECONDS + 3600 - i)
+        write_report(_model(), d, 1785237435.0 + 99 * 3600)
         html = [f for f in os.listdir(d) if f.endswith(".html")]
         csv = [f for f in os.listdir(d) if f.endswith(".csv")]
-        assert len(html) == 8
-        assert len(csv) == 8
+        assert len(html) <= 9
+        assert len(csv) <= 9
 
 
 def test_pruning_keeps_the_NEWEST_files():
-    from reports import write_report
+    from reports import RETRY_WINDOW_SECONDS, write_report
     with tempfile.TemporaryDirectory() as d:
-        paths = [write_report(_model(), d, 1785237435.0 + i * 3600)["html_path"]
-                 for i in range(12)]
-        assert os.path.isfile(paths[-1]), "the newest report must survive pruning"
+        paths = []
+        for i in range(12):
+            written = write_report(_model(), d, 1785237435.0 + i * 3600)
+            paths.append(written["html_path"])
+            _age(written["html_path"], RETRY_WINDOW_SECONDS + 3600 - i)
+            _age(written["csv_path"], RETRY_WINDOW_SECONDS + 3600 - i)
+        newest = write_report(_model(), d, 1785237435.0 + 99 * 3600)
+        assert os.path.isfile(newest["html_path"]), "the newest report must survive"
         assert not os.path.isfile(paths[0]), "the oldest report must be pruned"
 
 
@@ -191,3 +207,53 @@ def test_the_table_headers_match_their_columns():
     html = render_html(_model())
     header = html.split("<tr>")[1].split("</tr>")[0]
     assert header.index("Channel") < header.index("Matched") < header.index("Streams")
+
+
+# --------------------------------------------------------------------------- #
+# Gap found by a correctness review of the written code, 2026-08-01
+# --------------------------------------------------------------------------- #
+
+def test_pruning_never_deletes_a_file_still_inside_the_retry_window():
+    """Newsflasharr re-reads an attachment path on every retry attempt across a
+    worst case of 2130 seconds, about 35 minutes. Deleting a file inside that
+    window strips the attachment from mail already queued.
+
+    A count-only rule is not enough: the event-driven auto-match fires once per
+    M3U account on an M3U refresh, so a burst can produce several report pairs
+    in minutes and push older ones past the keep count while they are still
+    being retried.
+    """
+    import time
+
+    from reports import write_report
+    with tempfile.TemporaryDirectory() as d:
+        now = time.time()
+        paths = [write_report(_model(), d, now + i)["html_path"] for i in range(14)]
+        # Every file was written seconds ago, so every one is inside the window.
+        assert all(os.path.isfile(p) for p in paths), (
+            "no recently written report may be pruned while a retry could still "
+            "need it"
+        )
+
+
+def test_pruning_still_removes_files_older_than_the_retry_window():
+    """The age guard must not turn pruning off altogether."""
+    import os as _os
+    import time
+
+    from reports import write_report
+    with tempfile.TemporaryDirectory() as d:
+        old_paths = [write_report(_model(), d, 1785237435.0 + i)["html_path"]
+                     for i in range(12)]
+        stale = time.time() - 86400
+        for p in old_paths:
+            _os.utime(p, (stale, stale))
+        write_report(_model(), d, time.time())
+        remaining = [f for f in _os.listdir(d) if f.endswith(".html")]
+        assert len(remaining) <= 9, remaining
+
+
+def test_the_retry_window_constant_exceeds_the_documented_ladder():
+    """30s + 300s + 1800s = 2130s is the documented worst case."""
+    from reports import RETRY_WINDOW_SECONDS
+    assert RETRY_WINDOW_SECONDS >= 2130

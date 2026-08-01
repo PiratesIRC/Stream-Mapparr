@@ -14,8 +14,9 @@ Two measured facts about this installation drive the design:
    whole identity.
 
 So the primary defence is that build_model is fed RAW stream names, which never
-carried an account label, and sanitise_stream_label removes an EXACT account
-name only, as a backstop.
+carried an account label. sanitise_stream_label is the backstop: it removes an
+account name wherever it appears, case-insensitively, bracketed or bare, and
+leaves every other bracketed value alone because those hold the market.
 """
 import csv
 import datetime
@@ -23,6 +24,7 @@ import html
 import io
 import os
 import re
+import time
 
 # Reports are written here, deliberately NOT under /data/logos: Dispatcharr's
 # nginx serves that tree unauthenticated to the entire local network.
@@ -34,34 +36,69 @@ REPORT_DIR = "/data/stream_mapparr_reports"
 # is days of headroom.
 KEEP_REPORTS = 8
 
+# Newsflasharr re-reads an attachment path on every delivery retry, across a
+# documented worst case of 30 + 300 + 1800 seconds. A report file younger than
+# this is never pruned, however many newer ones exist, because deleting it
+# would strip the attachment from mail already queued.
+RETRY_WINDOW_SECONDS = 2400
+
 # Matches a bare IPv4 address. The Sort export carries provider edge server
 # addresses in a column of its own; this catches one reaching a name field by
 # any other route.
 _IPV4_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 
+# Matches an IPv6 address, including the compressed "::" forms. Added after a
+# security review of the written code: the IPv4 pattern above does not match
+# one, so an edge server address given in that form shipped unredacted.
+# Deliberately requires either a "::" or at least three colon-separated groups,
+# so an ordinary time like "20:30" is not mistaken for an address.
+_IPV6_RE = re.compile(
+    r"\b(?:[0-9A-Fa-f]{1,4}:){2,7}[0-9A-Fa-f]{1,4}\b"
+    r"|(?:[0-9A-Fa-f]{1,4}:)+:(?:[0-9A-Fa-f]{1,4})?"
+    r"|::(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{1,4}"
+)
+
+# Collapses the run of spaces left behind when an address is removed from the
+# middle of a name.
+_MULTISPACE_RE = re.compile(r"\s{2,}")
+
 
 def sanitise_stream_label(label, account_names):
-    """Remove an M3U account name in brackets, and nothing else.
+    """Remove an M3U account name wherever it appears, and nothing else.
 
     An unknown bracketed value is left alone, because on this installation those
     hold the market rather than a source label. Removing every bracketed group
     would strip nothing that leaks and would collapse dozens of distinct
     over-the-air stations into one indistinguishable name.
 
+    Matching is case-insensitive and is NOT limited to the bracketed form. The
+    account names on a real installation are literal provider hostnames, so
+    "ESPN backup streamq.tv" leaks exactly as much as "ESPN [streamq.tv]", and
+    "[STREAMQ.TV]" leaks the same hostname in different case. An earlier version
+    matched only the exact-case bracketed form, which a security review of the
+    written code found to be a narrower guarantee than the docstring claimed.
+
     Account names are matched longest first: "streamq.tv" is a prefix of
     "streamq.tv-bk15", and matching the shorter one first would leave a
-    "-bk15]" fragment behind.
+    "-bk15" fragment behind.
     """
     text = str(label or "")
     for account in sorted([a for a in (account_names or []) if a], key=len, reverse=True):
-        text = re.sub(r"\s*\[" + re.escape(account) + r"\]", "", text)
-    return text.strip()
+        escaped = re.escape(account)
+        # The bracketed form first, so the brackets go with it rather than
+        # being left behind as an empty pair.
+        text = re.sub(r"\s*\[" + escaped + r"\]", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*\(" + escaped + r"\)", "", text, flags=re.IGNORECASE)
+        text = re.sub(escaped, "", text, flags=re.IGNORECASE)
+    return _MULTISPACE_RE.sub(" ", text).strip()
 
 
 def _scrub(value, account_names):
     """Apply every content rule to one free-text value."""
     cleaned = sanitise_stream_label(value, account_names)
-    return _IPV4_RE.sub("", cleaned).strip()
+    cleaned = _IPV4_RE.sub("", cleaned)
+    cleaned = _IPV6_RE.sub("", cleaned)
+    return _MULTISPACE_RE.sub(" ", cleaned).strip()
 
 
 def build_model(channels, account_names, settings, now):
@@ -236,18 +273,31 @@ def _atomic_write(path, text):
         raise
 
 
-def _prune(dirpath, suffix, keep=KEEP_REPORTS):
-    """Keep the newest `keep` files with this suffix, delete the rest.
+def _prune(dirpath, suffix, keep=KEEP_REPORTS, now=None):
+    """Keep the newest `keep` files with this suffix, delete the rest, EXCEPT
+    any file still young enough that a delivery retry could need it.
+
+    The age guard is not belt-and-braces, it is required. Newsflasharr copies
+    nothing: it re-reads the attachment path on every retry attempt across a
+    worst case of 2130 seconds. A count-only rule is not enough on this plugin
+    because the event-driven auto-match fires once per M3U account when an M3U
+    source refreshes, so a burst can produce several report pairs within
+    minutes and push earlier ones past the keep count while their mail is still
+    being retried. The result would be an email arriving with its attachment
+    missing, which Newsflasharr records as a degrade rather than an error.
 
     Never raises: losing an old report must not fail the run that produced a
     new one.
     """
     try:
+        moment = time.time() if now is None else now
         entries = [os.path.join(dirpath, n) for n in os.listdir(dirpath)
                    if n.startswith("stream_mapparr_report_") and n.endswith(suffix)]
         entries.sort(key=lambda p: os.path.getmtime(p), reverse=True)
         for stale in entries[keep:]:
             try:
+                if moment - os.path.getmtime(stale) < RETRY_WINDOW_SECONDS:
+                    continue  # a queued delivery may still re-read this path
                 os.unlink(stale)
             except Exception:
                 pass
