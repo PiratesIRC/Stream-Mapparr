@@ -210,3 +210,47 @@ def test_an_uppercase_bracketed_account_leaves_no_empty_brackets():
     from reports import sanitise_stream_label
     assert sanitise_stream_label("SKY [STREAMQ.TV]", ACCOUNTS) == "SKY"
     assert sanitise_stream_label("SKY (StreamQ.TV)", ACCOUNTS) == "SKY"
+
+
+def test_repeated_names_are_collapsed_with_a_count():
+    """Found on the first real report. The same stream name legitimately exists
+    in several M3U accounts, and all of them are matched, so removing the source
+    label leaves the report showing what looks like the same entry three times
+    with nothing to tell them apart.
+
+    Collapsing to one line with a count keeps the information the label carried,
+    which is HOW MANY sources, without naming them.
+    """
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "CBS", "stream_names": [
+            "US: CBS 4 HD", "CITY: CBS COLUMBUS",
+            "US: CBS 4 HD", "CITY: CBS COLUMBUS",
+            "US: CBS 4 HD", "CITY: CBS COLUMBUS"]}],
+        ACCOUNTS, {}, 0)
+    names = model["entries"][0]["stream_names"]
+    assert names == ["US: CBS 4 HD (x3)", "CITY: CBS COLUMBUS (x3)"]
+
+
+def test_the_matched_count_still_reports_every_stream():
+    """The count is what was actually assigned, not the number of distinct
+    names, so collapsing the display must not change it."""
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "CBS", "stream_names": ["A", "B", "A", "B", "A", "B"]}],
+        ACCOUNTS, {}, 0)
+    assert model["entries"][0]["matched"] == 6
+
+
+def test_a_single_occurrence_carries_no_count():
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "CBS", "stream_names": ["A", "B"]}], ACCOUNTS, {}, 0)
+    assert model["entries"][0]["stream_names"] == ["A", "B"]
+
+
+def test_first_appearance_order_is_kept():
+    from reports import build_model
+    model = build_model(
+        [{"channel_name": "CBS", "stream_names": ["Z", "A", "Z"]}], ACCOUNTS, {}, 0)
+    assert model["entries"][0]["stream_names"] == ["Z (x2)", "A"]

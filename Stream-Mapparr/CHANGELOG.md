@@ -1,8 +1,16 @@
 # Stream-Mapparr CHANGELOG
 
-## v1.26.2132302 (August 1, 2026)
+## v1.26.2132346 (August 1, 2026)
 
 ### Added
+- **Repeated stream names in the emailed report are collapsed to one line with a
+  count**, for example `US: CBS 4 (KMOV) ST. LOUIS HD (x3)`. The same stream name
+  legitimately exists in several of your M3U sources and all of them get matched,
+  so the report was showing the same entry three times with nothing to tell them
+  apart. The source label used to distinguish them, and that label is removed on
+  purpose because it is your provider's hostname. The count keeps what the label
+  was actually telling you, which is how many sources, without naming them. The
+  matched total still counts every stream.
 - **Reports can now be emailed to you.** Stream-Mapparr sends notifications through
   Newsflasharr, the central notification plugin, which owns the email settings and
   decides what goes where. Turn on **Send notifications to Newsflasharr**, then pick

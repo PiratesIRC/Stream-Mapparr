@@ -101,6 +101,30 @@ def _scrub(value, account_names):
     return _MULTISPACE_RE.sub(" ", cleaned).strip()
 
 
+def _collapse_repeats(names):
+    """Collapse repeated names to one line each, annotated with a count.
+
+    The same stream name legitimately exists in several M3U accounts, and all
+    of them get matched, so a channel really does receive three streams called
+    the same thing from three different sources. The source label is what told
+    them apart, and removing it is deliberate because that label is a provider
+    hostname. Without this, the first real report showed the same entry three
+    times with nothing to distinguish them.
+
+    A count keeps the information the label carried, which is HOW MANY sources,
+    without naming them. First-appearance order is preserved.
+    """
+    counts = {}
+    order = []
+    for name in names:
+        if name not in counts:
+            counts[name] = 0
+            order.append(name)
+        counts[name] += 1
+    return [f"{name} (x{counts[name]})" if counts[name] > 1 else name
+            for name in order]
+
+
 def build_model(channels, account_names, settings, now):
     """Build the report model from a list of per-channel result dicts.
 
@@ -122,8 +146,10 @@ def build_model(channels, account_names, settings, now):
         names = [_scrub(s, account_names) for s in raw]
         entries.append({
             "channel_name": _scrub(row.get("channel_name"), account_names),
+            # The count is what was actually assigned, so it counts every
+            # stream, before the display below collapses repeated names.
             "matched": int(row.get("matched") or len(names)),
-            "stream_names": names,
+            "stream_names": _collapse_repeats(names),
         })
     return {
         "generated_ts": float(now or 0),
