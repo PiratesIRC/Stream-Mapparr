@@ -611,6 +611,40 @@ class FuzzyMatcher(FuzzyMatcherCore):
         
         return None, 0
     
+    @staticmethod
+    def _fold_alias_key(name):
+        """Case and whitespace insensitive form of an alias map key.
+
+        casefold rather than lower, because channel names carry non-ASCII text
+        and casefold is the correct comparison for it. Surrounding whitespace is
+        stripped because a user editing the JSON by hand leaves stray spaces,
+        and an entry ignored for that reason fails exactly as silently as one
+        ignored for its capitalisation.
+        """
+        return (name or "").strip().casefold()
+
+    def _folded_alias_index(self, alias_map):
+        """Case-folded view of an alias map, built once per map.
+
+        Alias lookup runs once per channel, so folding the whole map on every
+        call would put a full scan on the matching path. The index is cached
+        against the map's identity and size, which is enough here because the
+        map is rebuilt rather than mutated in place.
+
+        Duplicate folded keys resolve first-wins, following the map's insertion
+        order, so the result is deterministic when a user files two entries
+        whose names differ only in capitalisation.
+        """
+        cached = getattr(self, "_alias_fold_cache", None)
+        if (cached is not None and cached[0] is alias_map
+                and cached[1] == len(alias_map)):
+            return cached[2]
+        index = {}
+        for key, variants in alias_map.items():
+            index.setdefault(self._fold_alias_key(key), variants)
+        self._alias_fold_cache = (alias_map, len(alias_map), index)
+        return index
+
     def alias_lookup(self, query_name, candidate_names, alias_map,
                      user_ignored_tags=None, ignore_quality=True, ignore_regional=True,
                      ignore_geographic=True, ignore_misc=True):
@@ -623,7 +657,12 @@ class FuzzyMatcher(FuzzyMatcherCore):
         """
         if not alias_map or not candidate_names:
             return []
+        # Exact first, so the common case costs nothing and behaves exactly as
+        # it did. The case-folded lookup is the fallback, not the primary.
         variants = alias_map.get(query_name)
+        if not variants:
+            variants = self._folded_alias_index(alias_map).get(
+                self._fold_alias_key(query_name))
         if not variants:
             return []
 

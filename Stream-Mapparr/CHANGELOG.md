@@ -3,6 +3,38 @@
 ## v1.26.2141815 (August 2, 2026)
 
 ### Added
+- **`GB` is accepted for the United Kingdom and `DR` for the Dominican Republic.**
+  Reported by a user: providers disagree about which code a country gets. Some
+  prefix United Kingdom channels with the official ISO code `GB` and others with
+  the common but unofficial `UK`, and the same split exists for the Dominican
+  Republic between `DO` and `DR`. Previously `UK:` and `GBR:` resolved while
+  `GB:` did not, and `DO:` and `DOM:` resolved while `DR:` did not.
+
+  Both variants fold onto the code the shipped channel databases already use, so
+  `UK_channels.json` serves `GB`-prefixed feeds and no database needs
+  duplicating. A channel database is chosen by the operator and never by the
+  provider's prefix, which is the answer to the other half of that report.
+
+  The new codes are recognised only in the explicit prefix form, `GB:` and
+  `DR:`. This is deliberate. `DR` is also the name of Denmark's public
+  broadcaster, whose channels are DR1, DR2 and DR3, and a bare `DR` in a name
+  must never be read as a country. Tests lock that limit in place.
+
+  This changes nothing for anyone not using Restrict Matching To Same Country,
+  and it can only ever add a match: an unrecognised prefix was already treated
+  as unknown and kept rather than dropped.
+
+### Fixed
+- **A Custom Aliases entry now works whichever way its channel name is
+  capitalised.** The alias values were already compared case-insensitively, but
+  the channel name the entry is filed under had to match the Dispatcharr channel
+  exactly, including capitalisation. An entry filed under `sky sports main event`
+  was silently ignored for a channel named `Sky Sports Main Event`. Silently is
+  the problem: there was no error and no log line, so it looked identical to an
+  alias that simply did not help. Surrounding whitespace on the channel name is
+  now ignored too, for the same reason.
+
+### Added
 - **Placeholder streams that claim HD but carry almost no video are now ranked
   last.** Providers serve looping slates, black screens and static cards that
   report 1080p in their stats while carrying roughly 190 kbps of actual picture.

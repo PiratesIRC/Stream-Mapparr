@@ -68,8 +68,11 @@ def test_country_from_name_detects(name, expected):
     "IN PROGRESS: Something",
     "NO LIMIT TV: Something",
     "IT SPORTS: Something",
-    # unrecognized, ambiguous
-    "DR: TNT",
+    # unrecognized, ambiguous. DR used to sit here; it is now a
+    # recognised synonym for the Dominican Republic, so a prefix that is
+    # genuinely not a country is used instead. See
+    # tests/test_country_code_variants.py.
+    "ZQ: TNT",
     "",
     None,
 ])

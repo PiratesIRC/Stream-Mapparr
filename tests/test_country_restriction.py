@@ -241,14 +241,19 @@ def test_reporter_row_one_domestic_and_unmarked_kept(plugin_module):
 
 
 def test_unrecognized_prefixes_are_kept_not_dropped(plugin_module):
-    """bug-159 regression lock: GO:/RK:/LBW:/DR: are NOT countries. Treating an
+    """bug-159 regression lock: GO:/RK:/LBW:/ZQ: are NOT countries. Treating an
     unrecognized country-shaped prefix as FOREIGN dropped 924/2439 real matches
-    and zeroed 121 channels. This test is the guard against reintroducing it."""
+    and zeroed 121 channels. This test is the guard against reintroducing it.
+
+    DR used to be the fourth example here. It is now a recognised synonym for
+    the Dominican Republic, so it is no longer an unrecognised prefix and would
+    not test what this is for. ZQ replaces it. The guard itself is unchanged:
+    a prefix this build does not recognise must still be KEPT, never dropped."""
     streams = [
         {"id": 1, "name": "GO: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u1"},
         {"id": 2, "name": "RK: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u2"},
         {"id": 3, "name": "LBW: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u3"},
-        {"id": 4, "name": "DR: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u4"},
+        {"id": 4, "name": "ZQ: CNN", "channel_group__name": None, "m3u_account": 1, "url": "u4"},
     ]
     got = _match(plugin_module, {"id": 1, "name": "CNN", "channel_group__name": "News"},
                  streams, US_CNN_DB)

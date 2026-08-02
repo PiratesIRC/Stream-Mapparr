@@ -47,6 +47,28 @@ ISO3_TO_ISO2 = {
     "ARG": "AR", "DOM": "DO", "NZL": "NZ", "JPN": "JP", "KOR": "KR",
 }
 
+# Two-letter forms that mean the same country as a code already in use, folded
+# onto the code the shipped channel databases are keyed by.
+#
+# Reported by a user: providers disagree about which code a country gets. Some
+# prefix United Kingdom channels with the official ISO code GB and others with
+# the common but unofficial UK, and the same split exists for the Dominican
+# Republic between the official DO and the widely used DR. Before this, UK and
+# GBR resolved while GB did not, and DO and DOM resolved while DR did not.
+#
+# The target is the DATABASE code, not the official one. UK_channels.json is
+# keyed "UK", so GB has to fold onto UK rather than introduce a third code that
+# the country filter and the channel database would then disagree about. This
+# is also why no database needs duplicating: a database is chosen by the
+# operator, never by the provider's prefix.
+#
+# Applied AFTER the non-country prefix list, so a platform or quality tag can
+# never be captured here.
+ISO2_SYNONYMS = {
+    "GB": "UK",
+    "DR": "DO",
+}
+
 # Tokens that occupy the country slot but are NOT countries. Consulted BEFORE the
 # whitelist, so a future collision (CH = Switzerland vs "Channel") resolves the
 # safe way. Under the fail-open rule this list is belt-and-braces rather than
@@ -111,6 +133,12 @@ def _normalize_token(token):
     token = token.upper()
     if token in NON_COUNTRY_PREFIXES:
         return None
+    # Checked after the non-country list, so a platform or quality tag can never
+    # be folded onto a country, and before the whitelist, so the synonym decides
+    # the answer rather than the raw token.
+    synonym = ISO2_SYNONYMS.get(token)
+    if synonym:
+        return synonym
     if token in KNOWN_COUNTRY_CODES:
         return token
     mapped = ISO3_TO_ISO2.get(token)

@@ -122,7 +122,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Stream Groups** | string | (all) | Specific stream groups to draw candidate streams from, comma-separated |
 | **Stream Groups Mode** | select | Only the groups listed | Same choice for the stream-group list, resolved separately, so excluding a channel group does not invert the stream-group list |
 | **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
-| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table |
+| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table. Both the channel name and the aliases are matched case-insensitively, and surrounding whitespace on the channel name is ignored, so an entry filed under `sky sports main event` still applies to a channel named `Sky Sports Main Event` |
 | **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\\s*▎\\s*", " "], ["\\bVIP\\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
@@ -130,11 +130,11 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **IPTV Checker Max Wait (hours)** | number | 2 | How long to wait before giving up and running anyway |
 | **Enable CSV Export** | boolean | True | Write a CSV report on a scheduled Match and Assign run. A dry run always writes one regardless |
 | **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
-| **Channel Database** | select | US | Channel database for callsign and name matching |
+| **Channel Database** | select | US | Channel database for callsign and name matching. A database is chosen here by you, never by the country code your provider puts on a stream name, so one database per country serves every provider you have and none needs duplicating |
 | **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams |
 | **Rate Limiting** | select | None | None / Low / Medium / High |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
-| **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group |
+| **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group. Country codes are read from the stream name prefix. Providers disagree about some of them, so `GB:` is accepted as well as `UK:`, and `DR:` as well as `DO:`. A prefix this plugin does not recognise is treated as unknown and the stream is kept, never dropped |
 | **Keep Same-Named Streams From One Source** | boolean | False | By default, streams sharing a name within one M3U source are treated as duplicates and only the first is assigned. Enable if your provider publishes several genuinely different feeds under one identical name (e.g. four streams all called `DAZN F1`) so they are all kept as failover alternates. Streams sharing a name across *different* sources are always kept; true duplicates (same name, source and URL) are always collapsed |
 | **Send notifications to Newsflasharr** | boolean | False | Emit notifications through the Newsflasharr plugin |
 | **Email A Report After** | select | Scheduled runs only | Which runs email a report: never, scheduled only, or every run |
