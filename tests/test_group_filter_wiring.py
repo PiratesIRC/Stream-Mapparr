@@ -151,3 +151,72 @@ def test_sort_exclude_mode_takes_the_named_group_out_of_scope(plugin_module, mon
     only group present, so nothing is left for Sort to touch."""
     result, _ = _sort_action_harness(plugin_module, monkeypatch, "exclude")
     assert "No channels found with multiple streams" in (result.get("message") or "")
+
+
+# --------------------------------------------------------------------------- #
+# A BLANK Channel Groups box, with either mode selected
+# --------------------------------------------------------------------------- #
+
+def _blank_list_harness(plugin_module, monkeypatch, mode):
+    """Drive Sort Alternate Streams with the Channel Groups box EMPTY and the
+    given mode. One grouped channel exists with two streams. If the blank box is
+    honoured as "all groups", the channel is in scope and Sort reports work.
+    """
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = None
+
+    class _Logger:
+        def _record(self, msg, *a, **k):
+            pass
+        info = debug = warning = error = _record
+
+    monkeypatch.setattr(p, "_initialize_fuzzy_matcher", lambda *a, **k: None)
+    monkeypatch.setattr(p, "_build_alias_map", lambda *a, **k: {})
+    monkeypatch.setattr(p, "_send_progress_update", lambda *a, **k: None)
+    monkeypatch.setattr(p, "_get_all_profiles", lambda log: [{"id": 7, "name": "a"}])
+    monkeypatch.setattr(p, "_get_all_groups", lambda log: [{"id": 30, "name": "Teamarr"}])
+    monkeypatch.setattr(p, "_get_all_channels",
+                        lambda log: [{"id": 1, "name": "Ch", "channel_group_id": 30}])
+    monkeypatch.setattr(p, "_load_channels_data", lambda log, s: [])
+    monkeypatch.setattr(p, "_zone_routed_map", lambda *a, **k: {})
+    monkeypatch.setattr(p, "_same_country_ids_for", lambda *a, **k: None)
+    monkeypatch.setattr(p, "_streams_for_channel", lambda streams, *a, **k: streams)
+    monkeypatch.setattr(p, "_sort_streams_by_quality", lambda s: list(reversed(s)))
+
+    plugin_module.ChannelProfileMembership.objects.filter.return_value.values_list.return_value = [1]
+    plugin_module.ChannelStream.objects.filter.return_value.order_by.return_value.values_list.return_value = [101, 102]
+
+    class _Stream:
+        def __init__(self, sid):
+            self.id, self.name = sid, f"Feed {sid}"
+            self.stream_stats, self.m3u_account_id, self.channel_group_id = {}, 1, None
+
+    plugin_module.Stream.objects.get.side_effect = lambda id: _Stream(id)
+    plugin_module.Stream.DoesNotExist = type("DoesNotExist", (Exception,), {})
+
+    return p.sort_streams_action(
+        {"profile_name": "a", "selected_groups": "", "group_filter_mode": mode,
+         "dry_run_mode": True}, _Logger())
+
+
+def test_a_blank_group_box_means_ALL_groups_in_include_mode(plugin_module, monkeypatch):
+    result = _blank_list_harness(plugin_module, monkeypatch, "include")
+    assert "No channels found with multiple streams" not in (result.get("message") or ""), (
+        "a blank Channel Groups box must mean every group, not no groups"
+    )
+
+
+def test_a_blank_group_box_means_ALL_groups_in_exclude_mode(plugin_module, monkeypatch):
+    """Exclude mode with nothing listed excludes nothing, so the result must be
+    identical to include mode with nothing listed."""
+    result = _blank_list_harness(plugin_module, monkeypatch, "exclude")
+    assert "No channels found with multiple streams" not in (result.get("message") or "")
+
+
+def test_both_modes_agree_when_the_box_is_blank(plugin_module, monkeypatch):
+    """The mode must make no difference at all when there is nothing to apply it
+    to. Comparing the two results is what pins that."""
+    inc = _blank_list_harness(plugin_module, monkeypatch, "include")
+    exc = _blank_list_harness(plugin_module, monkeypatch, "exclude")
+    assert inc.get("status") == exc.get("status")
+    assert ("No channels found" in (inc.get("message") or "")) ==            ("No channels found" in (exc.get("message") or ""))

@@ -136,3 +136,29 @@ def test_unrecognized_mode_falls_back_to_include_when_filtering(plugin_module):
     p = _bare(plugin_module)
     kept = p._filter_by_group_ids(_channels(), [30], "invert", "channel_group_id")
     assert [c["id"] for c in kept] == [3]
+
+
+# --------------------------------------------------------------------------- #
+# A BLANK group list, with either mode selected
+# --------------------------------------------------------------------------- #
+
+def test_an_empty_id_list_in_include_mode_would_keep_NOTHING(plugin_module):
+    """This is the dangerous half, and the reason every call site guards the
+    filter behind `if selected_groups_str:`.
+
+    Include mode means "only these", so an empty list means only nothing. If the
+    guard were ever removed, a blank Channel Groups box would process zero
+    channels instead of all of them, and the run would look like a no-op with no
+    error anywhere.
+    """
+    p = _bare(plugin_module)
+    assert p._filter_by_group_ids(_channels(), [], "include", "channel_group_id") == []
+
+
+def test_an_empty_id_list_in_exclude_mode_keeps_everything(plugin_module):
+    """Exclude mode means "all except these", so an empty list excludes nothing.
+    This half is safe either way, which is exactly why the include half needs
+    the guard."""
+    p = _bare(plugin_module)
+    kept = p._filter_by_group_ids(_channels(), [], "exclude", "channel_group_id")
+    assert [c["id"] for c in kept] == [1, 2, 3, 4]
