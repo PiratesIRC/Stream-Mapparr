@@ -1,6 +1,6 @@
 # Stream-Mapparr CHANGELOG
 
-## v1.26.2141815 (August 2, 2026)
+## v1.26.2141957 (August 2, 2026)
 
 ### Added
 - **`GB` is accepted for the United Kingdom and `DR` for the Dominican Republic.**
