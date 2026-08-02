@@ -17,75 +17,17 @@
 ![Last Commit](https://img.shields.io/github/last-commit/PiratesIRC/Stream-Mapparr)
 ![License](https://img.shields.io/github/license/PiratesIRC/Stream-Mapparr)
 
-A Dispatcharr plugin that automatically matches and assigns streams to channels using fuzzy matching, quality prioritization, and OTA callsign recognition.
+A Dispatcharr plugin that automatically matches and assigns streams to channels
+using fuzzy matching, quality prioritization, and OTA callsign recognition.
 
 ## Backup Your Database
 
-Before installing or using this plugin, create a backup of your Dispatcharr database. This plugin modifies channel and stream assignments.
+Before installing or using this plugin, create a backup of your Dispatcharr
+database. This plugin modifies channel and stream assignments.
 
 **[Backup instructions](https://dispatcharr.github.io/Dispatcharr-Docs/user-guide/?h=backup#backup-restore)**
 
 ---
-
-## Completion Notifications
-
-Small jobs (estimated under ~25 seconds) run **synchronously** — the Dispatcharr UI shows the completion notification with the real result (channel/stream counts + CSV filename). Typical 18-channel match runs finish in ~15 seconds.
-
-Larger jobs run in a **background thread**. The UI shows a "started in background" notification up front; completion is reported via:
-
-- Docker logs: `docker logs -f dispatcharr | grep Stream-Mapparr` (look for `COMPLETED`)
-- Optional **emailed reports** through the Newsflasharr notification plugin, as an HTML page and a CSV
-- WebSocket event to the frontend
-
-While a long operation runs, the plugin also pushes a **"started" toast**, periodic **`% + ETA`** toasts (adaptive cadence), and a **completion** toast. You can check on a run at any time:
-
-- **📊 View Check Progress** — current action, percentage, and ETA of the running operation
-- **📋 View Last Results** — summary (counts, CSV filename, duration) of the last completed run
-
-Buttons re-enable instantly. Do not click again while an operation is in flight — an operation lock prevents concurrent runs and auto-expires after 10 minutes.
-
----
-
-## Features
-
-### Matching
-- **Multi-stage fuzzy matching**: Exact, substring, and token-sort matching with configurable sensitivity (Relaxed/Normal/Strict/Exact)
-- **Channel-name aliases**: A built-in US alias table plus a user-editable **Custom Aliases** JSON setting force-include known aliases into a channel's matches, independent of the fuzzy threshold
-- **Regex pre-processing** (opt-in, issue #36): User-supplied `[find, replace]` regex rules run on stream names before normalization and aliases — a general escape hatch for provider junk (decorative glyphs, invisible padding, bouquet prefixes) that doesn't fit an existing built-in fix. Matching only; see [Regex pre-processing](#regex-pre-processing) below
-- **Stylized-name normalization**: Matches streams whose names use stylized-Unicode markers (superscript/small-caps such as `ᴿᴬᵂ`/`ꜰʜᴅ`), emoji-as-letters (`beIN SP⚽RTS` → SPORTS), or numeric resolution tags (`3840P`/`1080p`) — these are stripped or normalized before matching, collision-safe and non-Latin-safe
-- **Box-bar tag/delimiter stripping**: Provider and country tags built from box-bar characters `┃` (U+2503) and `│` (U+2502) are stripped before matching — a leading bouquet tag (`┃CANAL+┃ NPO 1` → `NPO 1`), a box bar used as a colon after a country code (`NL┃ NPO 1` → `NPO 1`), and matched pairs (`┃US┃` / `│US│`). A stray single bar is left alone
-- **Invisible zero-width character stripping**: Some providers pad stream names with invisible Unicode format characters (zero-width space `U+200B`, zero-width joiners, word joiner `U+2060`, BOM `U+FEFF`, soft hyphen, bidi marks) — often wrapped around a decorative block glyph like `▎` (`UK ␣▎␣BBC 1 FHD`). These are matched by neither a normal space nor the visible-symbol strip, so they used to survive and silently wreck matching for the whole provider; they are now removed up front, so `UK ▎BBC 1 FHD` matches `BBC 1`
-- **Non-Latin name preservation**: Cyrillic, CJK, and Arabic channel names are kept through normalization (alphanumerics of any script survive) instead of being erased, so they match on their actual characters rather than colliding as empty strings
-- **US OTA callsign matching**: US broadcast affiliates (e.g. `ABC - TX Dallas (WFAA)`) are matched by their FCC callsign — automatically during **Match & Assign** and via the dedicated **Match US OTA Only** action — using the bundled FCC station table (`networks.json`, ~1,900 stations)
-- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX, NL, NO
-- **Zone-based channel variants**: East/West feeds for 33 major cable networks (FX, FXX, USA, Syfy, Disney Channel, etc.) via JSON `"zones"` array expansion
-- **Zone-aware East/West matching**: a channel is given its own zone and unmarked feeds only. An unmarked channel like `Cinemax` is treated as the East or national feed and receives East and unmarked streams; a West channel such as `STARZ Encore (W)` receives West and unmarked streams. **Opposite-zone streams are not attached at all**, rather than attached as a last resort: a West feed is three hours behind, so on a movie channel a failover to it plays a different film rather than showing a glitch. If excluding would leave a channel with no streams the streams are kept and a warning is logged, because Match & Assign replaces a channel's whole stream list and emptying it would take the channel off the air. A `Pacific` / `(Pacific)` / `(PT)` marker counts as West. Applies in Match & Assign, Sort, and Preview.
-- **Zone markers must stand alone, and only count where time zones exist**: `West` or `East` is read as a feed zone only when it is in brackets, is the last word, or is followed only by a quality tag. `US: ABC 25 (WPBF) West Palm Beach HD` is a place, not a West feed. And the word is ignored entirely for countries with a single time zone, so `UK: BBC ONE WEST` stays attached to BBC One as the English region it is.
-- **Country-restricted matching** (opt-in): Only match streams from the same detected country/group — e.g. `CANADA/CA` channels match only `CANADA/CA` streams
-- **Normalization cache**: Pre-normalizes stream names once for batch matching performance
-- **rapidfuzz acceleration**: Uses C-accelerated Levenshtein when available (20-50x faster), with pure Python early-termination fallback
-- **Bulk ORM writes**: Stream assignments go through `bulk_create`, collapsing per-row DB round-trips to one query per channel
-
-### Quality & Streams
-- **Quality-based stream sorting**: 4K > UHD > FHD > HD > SD, using probed resolution (from IPTV Checker) or name-based detection
-- **Throughput-based stream sorting** (v1.26.1171629+): Measure each source's sustained throughput against its nominal bitrate, then rank `healthy → marginal → unknown → insufficient`. Catches under-delivering sources that share the same advertised resolution as healthy peers. Probes are serialized per M3U account, globally rate-limited, and cached on disk with a configurable TTL — sort never blocks on the network.
-- **Audio priority sorting** (v1.26.1362122+): Optionally rank streams by audio channel layout and codec. Two opt-in comma-separated lists (most-preferred first, e.g. `7.1, 5.1, stereo` and `eac3, ac3, aac`) using case-insensitive substring match against `stream_stats` audio info (from IPTV Checker, no probing). Applied after the video resolution/FPS tier; channel layout ranked before codec; unlisted/missing sorts last. Blank = disabled (no behavior change on upgrade).
-- **M3U source prioritization**: Prefer streams from specific M3U providers
-- **Dead stream filtering**: Skip streams with 0x0 resolution (requires IPTV Checker)
-- **Auto-deduplication**: Removes duplicate stream names during assignment
-
-### Automation
-- **Built-in scheduler**: Configure daily runs at one or more HHMM times. The timezone follows Dispatcharr's global setting. Scheduled runs are multi-worker safe, so the job runs once per slot even when Dispatcharr is running several worker processes.
-- **Auto-match after M3U refresh** (opt-in): Run Match & Assign automatically as soon as an M3U refresh completes, so new streams get matched without waiting for the next scheduled slot. Requires a Channel Profile to be selected. Concurrent per-account refreshes are coalesced under a cross-worker lock, and accounts that finish mid-match trigger a follow-up pass so nothing is missed. Inert on Dispatcharr < 0.27 (the scheduler remains the trigger there).
-- **Rate limiting**: Configurable throttling (None/Low/Medium/High)
-- **Operation lock**: Prevents concurrent tasks; auto-expires after 10 minutes
-- **Dry run mode**: Preview results with CSV export without making changes
-- **Emailed reports**: send an HTML report and a CSV through the Newsflasharr notification plugin, after every run, after scheduled runs only, or on demand from a button. Newsflasharr owns the email configuration and the routing.
-- **Live progress + last-results**: `📊 View Check Progress` and `📋 View Last Results` actions report the running operation's %/ETA and the last completed run's summary, backed by on-disk state so they work across UI sessions.
-
-### Reporting
-- **CSV exports**: Detailed reports with threshold recommendations and token mismatch analysis
-- **Channel visibility management**: Auto-enable channels with streams, disable those without
 
 ## Requirements
 
@@ -106,189 +48,260 @@ Buttons re-enable instantly. Do not click again while an operation is in flight 
 2. In Dispatcharr, go to **Plugins → Import Plugin** and upload the zip
 3. Enable the plugin
 
-## Versioning
+## Further reading
 
-This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — matching the Lineuparr / Channel-Mapparr / EPG-Janitor / IPTV Checker cohort. Run `python3 Stream-Mapparr/bump_version.py` to bump both `plugin.json` and `plugin.py` in sync.
+| Guide | What it covers |
+|:---|:---|
+| [Regex pre-processing](docs/regex-preprocessing.md) | Writing find and replace rules for provider junk in stream names |
+| [Notifications and emailed reports](docs/notifications.md) | Sending HTML and CSV reports through Newsflasharr |
+| [Troubleshooting](docs/troubleshooting.md) | Stuck operations, no matches, slates, useful commands |
+
+---
+
+## Features
+
+### Matching
+
+- **Multi-stage fuzzy matching**: exact, substring and token-sort, with
+  configurable sensitivity (Relaxed, Normal, Strict, Exact)
+- **Channel-name aliases**: a built-in US alias table plus a user-editable
+  **Custom Aliases** setting. Aliases are force-included regardless of the fuzzy
+  threshold, and are matched case-insensitively
+- **Regex pre-processing** (opt-in): your own find and replace rules run on
+  stream names before anything else. See
+  [Regex pre-processing](docs/regex-preprocessing.md)
+- **Stylized-name normalization**: handles superscript and small-caps markers
+  such as `ᴿᴬᵂ`, emoji used as letters (`beIN SP⚽RTS`), and numeric resolution
+  tags like `3840P`
+- **Box-bar tag stripping**: removes provider and country tags built from `┃`
+  and `│`, such as `┃CANAL+┃ NPO 1` or `NL┃ NPO 1`. A stray single bar is left
+  alone
+- **Invisible character stripping**: removes zero-width spaces, joiners, word
+  joiners, byte order marks, soft hyphens and bidi marks. Providers use these as
+  padding, often around a decorative glyph, and they used to wreck matching for
+  a whole provider without being visible to anyone
+- **Non-Latin name preservation**: Cyrillic, CJK and Arabic names survive
+  normalization and match on their own characters instead of collapsing to empty
+  strings
+- **US OTA callsign matching**: US broadcast affiliates such as
+  `ABC - TX Dallas (WFAA)` are matched by FCC callsign, using a bundled station
+  table of around 1,900 stations
+- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX,
+  NL, NO
+- **Country-restricted matching** (opt-in): only match streams whose detected
+  country matches the channel's
+- **Performance**: a normalization cache, C-accelerated Levenshtein through
+  rapidfuzz where available, and bulk database writes
+
+### East and West feeds
+
+- A channel receives its own zone and unmarked feeds only. An unmarked channel
+  such as `Cinemax` is treated as the East or national feed
+- **Opposite-zone streams are not attached at all.** A West feed is three hours
+  behind, so a failover to it on a movie channel plays a different film
+- If excluding would leave a channel with no streams, the streams are kept and a
+  warning is logged, because emptying a channel takes it off the air
+- `Pacific`, `(Pacific)` and `(PT)` all count as West
+- A marker only counts when it stands alone, meaning bracketed, last word, or
+  followed only by a quality tag. `US: ABC 25 (WPBF) West Palm Beach HD` is a
+  place, not a West feed
+- The word is ignored entirely for countries with one time zone, so
+  `UK: BBC ONE WEST` stays attached to BBC One as the English region it is
+
+### Quality and streams
+
+- **Quality-based sorting**: 4K, UHD, FHD, HD, SD, using probed resolution where
+  available or the name otherwise
+- **Throughput-based sorting**: measures each source's sustained throughput
+  against its nominal bitrate and ranks it healthy, marginal, unknown or
+  insufficient. Probes are serialized per M3U account, rate-limited, and cached
+  on disk, so sorting never blocks on the network
+- **Placeholder demotion**: a stream claiming 720p or more while carrying almost
+  no video is ranked last. This catches looping slates and static cards, which
+  throughput measurement cannot, because a tiny payload arrives quickly
+- **Audio priority sorting** (opt-in): rank by audio channel layout and codec,
+  using two comma-separated preference lists. Applied after the video tier, with
+  layout ranked before codec
+- **M3U source prioritization**: prefer streams from specific providers
+- **Dead stream filtering**: skip streams with 0x0 resolution
+- **Auto-deduplication**: collapse duplicate stream names during assignment
+
+### Automation
+
+- **Built-in scheduler**: daily runs at one or more times, in Dispatcharr's
+  global timezone. Safe across multiple worker processes, so a job runs once per
+  slot rather than once per worker
+- **Auto-match after M3U refresh** (opt-in, Dispatcharr v0.27+): run Match and
+  Assign as soon as a refresh completes. Requires a Channel Profile
+- **Rate limiting**: None, Low, Medium or High
+- **Operation lock**: prevents concurrent tasks, auto-expiring after 10 minutes
+- **Dry run mode**: preview results with a CSV export and no changes
+- **Emailed reports**: an HTML report and a CSV through Newsflasharr. See
+  [Notifications](docs/notifications.md)
+- **Live progress**: **View Check Progress** and **View Last Results** report
+  the running operation and the last completed one, backed by on-disk state so
+  they survive a UI reload
+
+## How a run reports back
+
+Small jobs run synchronously and the Dispatcharr interface shows the real
+result, including channel and stream counts and the CSV filename.
+
+Larger jobs run in a background thread. The interface shows a "started in
+background" notification, and completion arrives by:
+
+- Docker logs: `docker logs -f dispatcharr | grep Stream-Mapparr`, looking for
+  `COMPLETED`
+- An optional emailed report through Newsflasharr
+- A WebSocket event to the frontend
+
+While a long operation runs, the plugin pushes a started notification, periodic
+percentage and estimated-time notifications, and a completion notification.
+
+Buttons re-enable immediately. Do not click again while an operation is running:
+the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 
 ## Settings
 
 | Setting | Type | Default | Description |
 |:---|:---|:---|:---|
-| **Overwrite Existing Streams** | boolean | True | Replace existing streams vs append-only. A run that matches **0** streams never clears a channel's existing streams |
+| **Overwrite Existing Streams** | boolean | True | Replace existing streams rather than appending. A run matching 0 streams never clears a channel |
 | **Match Sensitivity** | select | Normal (80) | Relaxed (70), Normal (80), Strict (90), Exact (95) |
-| **Channel Profile** | select | - | Profile to process channels from (dropdown from DB) |
-| **Channel Groups** | string | (all) | Specific groups to process, comma-separated. Empty means all groups |
-| **Channel Groups Mode** | select | Only the groups listed | Whether the list above names the groups to PROCESS or the groups to SKIP. Choose *All groups except those listed* when another tool owns a group and this plugin should leave it alone. That option also means a group you create later is processed automatically, whereas listing groups to process skips a new group until you add it. Empty list means all groups either way |
-| **Stream Groups** | string | (all) | Specific stream groups to draw candidate streams from, comma-separated |
-| **Stream Groups Mode** | select | Only the groups listed | Same choice for the stream-group list, resolved separately, so excluding a channel group does not invert the stream-group list |
-| **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
-| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table. Both the channel name and the aliases are matched case-insensitively, and surrounding whitespace on the channel name is ignored, so an entry filed under `sky sports main event` still applies to a channel named `Sky Sports Main Event` |
-| **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\\s*▎\\s*", " "], ["\\bVIP\\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
-| **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
-| **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
-| **Wait for IPTV Checker Completion** | boolean | False | Hold a scheduled run until the IPTV Checker plugin has finished, so matching sees fresh stream stats |
-| **IPTV Checker Max Wait (hours)** | number | 2 | How long to wait before giving up and running anyway |
-| **Enable CSV Export** | boolean | True | Write a CSV report on a scheduled Match and Assign run. A dry run always writes one regardless |
-| **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
-| **Channel Database** | select | US | Channel database for callsign and name matching. A database is chosen here by you, never by the country code your provider puts on a stream name, so one database per country serves every provider you have and none needs duplicating |
-| **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams |
-| **Rate Limiting** | select | None | None / Low / Medium / High |
-| **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams (requires IPTV Checker) |
-| **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's country/group. Country codes are read from the stream name prefix. Providers disagree about some of them, so `GB:` is accepted as well as `UK:`, and `DR:` as well as `DO:`. A prefix this plugin does not recognise is treated as unknown and the stream is kept, never dropped |
-| **Keep Same-Named Streams From One Source** | boolean | False | By default, streams sharing a name within one M3U source are treated as duplicates and only the first is assigned. Enable if your provider publishes several genuinely different feeds under one identical name (e.g. four streams all called `DAZN F1`) so they are all kept as failover alternates. Streams sharing a name across *different* sources are always kept; true duplicates (same name, source and URL) are always collapsed |
+| **Channel Profile** | select | - | Profile to process channels from |
+| **Channel Groups** | string | (all) | Groups to process, comma-separated. Empty means all groups |
+| **Channel Groups Mode** | select | Only the groups listed | Whether the list names the groups to process or the groups to skip. Choosing to skip means a group you create later is processed automatically. Empty list means all groups either way |
+| **Stream Groups** | string | (all) | Stream groups to draw candidate streams from, comma-separated |
+| **Stream Groups Mode** | select | Only the groups listed | The same choice for stream groups, resolved separately from the channel-group list |
+| **M3U Sources** | string | (all) | M3U sources to use, comma-separated. Order sets priority |
+| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings. Channel names and aliases are both matched case-insensitively, and whitespace around a channel name is ignored |
+| **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` pairs applied to stream names before matching. See [Regex pre-processing](docs/regex-preprocessing.md) |
+| **Prioritize Quality** | boolean | False | Sort by quality first, then by M3U source priority |
+| **Custom Ignore Tags** | string | (none) | Tags to strip before matching, for example `[Dead], (Backup)` |
+| **Wait for IPTV Checker Completion** | boolean | False | Hold a scheduled run until IPTV Checker has finished, so matching sees fresh stats |
+| **IPTV Checker Max Wait (hours)** | number | 2 | How long to wait before running anyway |
+| **Enable CSV Export** | boolean | True | Write a CSV on a scheduled Match and Assign run. A dry run always writes one |
+| **Tag Handling** | select | Strip All | Strip All, Keep Regional, or Keep All |
+| **Channel Database** | select | US | Which channel database to use. You choose this, never your provider's country prefix, so one database per country serves every provider and none needs duplicating |
+| **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams to |
+| **Rate Limiting** | select | None | None, Low, Medium or High |
+| **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams. Requires IPTV Checker |
+| **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's. `GB:` is accepted as well as `UK:`, and `DR:` as well as `DO:`. An unrecognised prefix is treated as unknown and the stream is kept, never dropped |
+| **Keep Same-Named Streams From One Source** | boolean | False | Enable if your provider publishes several genuinely different feeds under one identical name. By default those are treated as duplicates |
 | **Send notifications to Newsflasharr** | boolean | False | Emit notifications through the Newsflasharr plugin |
 | **Email A Report After** | select | Scheduled runs only | Which runs email a report: never, scheduled only, or every run |
-| **Email Report Format** | select | Both | Which files to email: HTML only, CSV only, or both (two emails) |
-| **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
-| **Auto-match after M3U refresh** | boolean | False | Run Match & Assign automatically after each M3U refresh completes (opt-in; requires a Channel Profile). Dispatcharr v0.27+ |
+| **Email Report Format** | select | Both | HTML only, CSV only, or both. Both means two emails |
+| **Scheduled Run Times** | string | (none) | Times in HHMM, comma-separated, for example `0400,1600` |
+| **Auto-match after M3U refresh** | boolean | False | Run Match and Assign after each M3U refresh. Requires a Channel Profile. Dispatcharr v0.27+ |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
-| **Enable Throughput-Based Sorting** | boolean | True | Prepend a measured-throughput tier to alternate-stream sorting. Falls back to resolution/FPS when no probe data is available. |
-| **Probe Duration (seconds)** | number | 8 | Length of each throughput probe — long enough to clear TCP slow-start, short enough to bound the run. |
-| **Probe Cache TTL (minutes)** | number | 30 | How long a measurement is considered fresh. Stale entries are re-probed on the next run; sort treats stale entries as unknown. |
-| **Probe Rate (probes / minute)** | number | 6 | Global cap on probes initiated per minute. Probes are also serialized per M3U account with a 1-second gap. |
-| **Bitrate Safety Margin** | string | 1.10 | Multiplier on nominal bitrate. Throughput < nominal × margin → `insufficient`; < nominal × 1.5 → `marginal`; otherwise `healthy`. |
-| **Demote Placeholder Streams** | boolean | True | Rank a stream last when it claims 720p or higher but carries less video than the floor below. Providers serve looping slates and static cards that report a high resolution while carrying almost no picture. The Bitrate Safety Margin cannot catch these, because it measures download speed and a tiny payload arrives quickly. Streams are moved down the order, never removed, and a stream with no measured bitrate is never affected. |
-| **Placeholder Bitrate Floor (kbps)** | number | 300 | A stream claiming 720p or higher while carrying less than this many kbps of video is treated as a placeholder and ranked last. Standard definition streams are never checked. Where a stream records two bitrate figures, the higher is used, so a disagreement keeps the stream. Flagged streams show as `placeholder` in the CSV export's `tiers` column and are marked in the emailed report. |
-| **Audio Channels Priority** | string | "" | Comma-separated audio channel layouts, most preferred first (e.g. `7.1, 5.1, stereo, mono`). Case-insensitive substring match; unlisted/missing sorts last. Ranked before codec. Blank = disabled. |
-| **Audio Codec Priority** | string | "" | Comma-separated audio codecs, most preferred first (e.g. `eac3, ac3, aac, mp2`). Case-insensitive substring match; unlisted/missing sorts last. Ranked after channels. Blank = disabled. |
+| **Enable Throughput-Based Sorting** | boolean | True | Add a measured-throughput tier to alternate-stream sorting, falling back to resolution when no probe data exists |
+| **Probe Duration (seconds)** | number | 8 | Length of each throughput probe |
+| **Probe Cache TTL (minutes)** | number | 30 | How long a measurement stays fresh. Stale entries sort as unknown |
+| **Probe Rate (probes / minute)** | number | 6 | Global cap on probes per minute. Also serialized per M3U account |
+| **Bitrate Safety Margin** | string | 1.10 | Multiplier on nominal bitrate. Below nominal times this is `insufficient`, below nominal times 1.5 is `marginal` |
+| **Demote Placeholder Streams** | boolean | True | Rank a stream last when it claims 720p or higher but carries less video than the floor below. Streams are moved down the order, never removed, and one with no measured bitrate is never affected |
+| **Placeholder Bitrate Floor (kbps)** | number | 300 | The floor for the setting above. Standard definition is never checked. Where two bitrate figures disagree the higher is used, so a disagreement keeps the stream |
+| **Audio Channels Priority** | string | "" | Audio layouts, most preferred first, for example `7.1, 5.1, stereo`. Ranked before codec. Blank disables it |
+| **Audio Codec Priority** | string | "" | Audio codecs, most preferred first, for example `eac3, ac3, aac`. Ranked after layout. Blank disables it |
 
 ## Actions
 
 | Action | Description |
 |:---|:---|
-| **Validate Settings** | Check configuration, profiles, groups, databases |
-| **Test Regex Rules** | Preview what Stream Name Regex Rules would change, against every stream currently loaded (ignores Selected Groups / M3U scoping) — per-rule status, an N-of-M changed count, and up to 20 before → after samples with invisible characters escaped so they're actually visible |
-| **Load/Process Channels** | Load channel and stream data from database |
-| **Preview Changes** | Dry-run with CSV export |
+| **Validate Settings** | Check configuration, profiles, groups and databases |
+| **Test Regex Rules** | Preview what your regex rules would change, with before and after samples and invisible characters made visible |
+| **Load/Process Channels** | Load channel and stream data from the database |
+| **Preview Changes** | Dry run with a CSV export |
 | **Match & Assign Streams** | Fuzzy match and assign streams to channels |
 | **Match US OTA Only** | Match US broadcast channels by callsign |
-| **Sort Alternate Streams** | Re-sort existing streams by quality (and throughput tier, when probe data is available). CSV gains `tiers`, `throughput_mbps`, and `edge_ips` columns aligned with `stream_names`. |
-| **Probe Stream Throughput** | Measure sustained throughput for streams currently assigned to channels in the selected profile + groups. Updates `/data/stream_mapparr_throughput_cache.json`. Run before *Sort Alternate Streams* to feed measured Mbps into the sort. |
-| **Manage Channel Visibility** | Enable/disable channels based on stream count |
-| **View Check Progress** | Show the current operation's progress (%) and ETA |
+| **Sort Alternate Streams** | Re-sort existing streams by quality, and by throughput tier where probe data exists |
+| **Probe Stream Throughput** | Measure sustained throughput for assigned streams. Run this before Sort Alternate Streams |
+| **Manage Channel Visibility** | Enable or disable channels based on stream count |
+| **View Check Progress** | Show the running operation's percentage and estimated time |
 | **View Last Results** | Show a summary of the last completed operation |
-| **Clear CSV Exports** | Delete all plugin CSV files. Skips any file written in the last 40 minutes, because a queued email re-reads its attachment for that long |
-| **Cleanup Orphaned Tasks** | Remove scheduled task entries left behind by an older version or a renamed schedule |
-| **Report a Bug or Request a Feature** | Write a ready-to-paste report to /config/stream-mapparr/report-a-bug.txt containing the plugin version, your settings with secrets masked, and the paths of your three most recent CSV exports, then show the issues address |
-
-## Regex pre-processing
-
-Some providers pad or decorate stream names in ways that defeat fuzzy matching — decorative
-glyphs, invisible padding, bouquet prefixes, badges. **Stream Name Regex Rules** is a general
-escape hatch: user-supplied regex find/replace rules run on stream names before anything else
-touches them, so novel provider junk doesn't need a plugin release to fix.
-
-**Example (issue #36):** a provider padded stream names with an invisible zero-width space
-wrapped around a decorative block glyph — `UK ▎BBC 1 FHD`, where `▎` (U+258E) is flanked by
-invisible characters a normal eyeball never sees. A rule like `[["\\s*▎\\s*", " "]]` collapses
-that back to `UK BBC 1 FHD`, which then normalizes and matches `BBC 1` normally.
-
-Pipeline order:
-
-```
-raw stream name → [regex rules] → normalization / ignore tags → aliases → fuzzy match
-```
-
-Rules run **before** normalization/ignore-tag stripping and **before** Custom Aliases, matching
-the order requested in the issue. Rules apply in the order given in the JSON list — later rules
-see earlier rules' output.
-
-Two scope notes:
-
-- **Quality sorting, zone routing, country restriction and duplicate detection read the
-  original name — rules affect matching only.** Stream names in Dispatcharr are never
-  modified, and identity/ordering logic (duplicate detection's stream key, country-restriction's
-  country detection, zone routing, quality sort) all key on the untouched name, so a rule that,
-  say, strips a country prefix for matching purposes can't also blind country detection or
-  collapse two genuinely distinct failover streams into one.
-- **Group labels are out of scope.** Selected Groups and country restriction read *group* names
-  literally — rules only ever touch stream *names*, never group labels or channel names.
-
-Feedback loop: **Validate Settings** reports a one-line summary (`N ok, M rejected`) with full
-per-rule detail in the logs; the **🧪 Test Regex Rules** action (see Actions above) shows real
-before → after samples — with invisible characters escaped so they're actually visible — against
-every currently-loaded stream, without changing anything.
-
-Guardrails: a rule is statically rejected up front if it contains a nested unbounded quantifier
-or alternation shape known to backtrack exponentially (e.g. `(a+)+`). At runtime, names over 500
-characters skip regex pre-processing, a rule chain that grows a name past 4x its original length
-is reverted and stopped, and an entire regex pass is capped at 5 seconds cumulative — so a bad
-rule degrades gracefully (and is reported) instead of freezing a worker.
+| **Clear CSV Exports** | Delete plugin CSV files, skipping any written in the last 40 minutes |
+| **Cleanup Orphaned Tasks** | Remove scheduled task entries left by an older version |
+| **Report a Bug or Request a Feature** | Write a ready-to-paste report with your settings, secrets masked |
 
 ## Scheduling
 
-1. Set **Scheduled Run Times** in 24-hour format (e.g., `0400,1600` for 4 AM and 4 PM) — times are interpreted in Dispatcharr's **global timezone** (no plugin timezone setting)
-2. Choose which steps the scheduled run performs: **Schedule: Match & Assign Streams** (on by default) and **Schedule: Sort Streams** (off by default). They are independent, so a schedule can sort only, match only, or both
-3. Enable **CSV Export** if desired
+1. Set **Scheduled Run Times** in 24-hour format, for example `0400,1600`. Times
+   use Dispatcharr's global timezone; there is no plugin timezone setting
+2. Choose which steps run: **Schedule: Match & Assign Streams**, on by default,
+   and **Schedule: Sort Streams**, off by default. They are independent, so a
+   schedule can sort only, match only, or both
+3. Enable **CSV Export** if you want one
 4. Click **Update Schedule**
 
-The scheduler runs in a background thread and re-arms automatically when the container restarts. When Dispatcharr runs several worker processes, a shared on-disk claim makes sure the scheduled job runs once per slot rather than once per worker.
+The scheduler runs in a background thread and re-arms when the container
+restarts. Across multiple worker processes, a shared on-disk claim makes sure
+the job runs once per slot rather than once per worker.
 
-**Event-driven alternative (Dispatcharr v0.27+):** enable **Auto-match after M3U refresh** to run Match & Assign the moment an M3U refresh finishes, instead of (or in addition to) fixed times. It subscribes to Dispatcharr's `m3u_refresh` event; because that event fires once per M3U account, the runs are coalesced under a cross-worker lock and a follow-up pass captures any account that finishes mid-match, so a multi-account "Refresh All" produces one effective match rather than one per account.
+**Event-driven alternative** (Dispatcharr v0.27+): **Auto-match after M3U
+refresh** runs Match and Assign the moment a refresh finishes, instead of or as
+well as fixed times. Because Dispatcharr fires that event once per M3U account,
+runs are coalesced under a lock and a follow-up pass catches any account that
+finishes mid-match. A multi-account refresh therefore produces one effective
+match rather than one per account.
 
 ## CSV Reports
 
-Preview and scheduled exports are saved to `/data/exports/`. Reports include:
-- Threshold recommendations ("3 additional streams available at lower thresholds") — shown by **Preview Changes**
-- Token mismatch analysis ("Add 'UK' to Ignore Tags") — shown by **Preview Changes**
-- Per-channel match counts (shown by **Match & Assign Streams**)
-- Match type breakdown (exact, substring, fuzzy)
+Preview and scheduled exports are saved to `/data/exports/` and include:
 
-## Notifications and emailed reports
+- Threshold recommendations, from **Preview Changes**
+- Token mismatch analysis, from **Preview Changes**
+- Per-channel match counts, from **Match & Assign Streams**
+- A match type breakdown: exact, substring, fuzzy
 
-Stream-Mapparr sends notifications through **Newsflasharr**, the central notification
-plugin, rather than posting to a webhook of its own. Newsflasharr owns the email
-settings and decides what goes where, so one place configures notifications for
-every plugin that uses it.
+These are not the files that get emailed. See
+[Notifications](docs/notifications.md) for that distinction, which matters
+because the exports contain your M3U source names.
 
-Turn on **Send notifications to Newsflasharr**, then choose when a report is
-emailed with **Email A Report After**: never, scheduled runs only, or every run
-that produces one. **Email Report Now** builds and queues one on demand.
+## Versioning
 
-**Email Report Format** chooses which files are sent: the HTML page, the CSV, or
-both. A notification carries one attachment, so choosing both sends two separate
-emails per run. Both files are written to /data/stream_mapparr_reports either
-way; the setting only decides which are emailed.
-
-Those two files are built specifically for sending and are not the CSV exports in
-`/data/exports`. The exports label every stream with its M3U source name, which on
-a real installation is your provider's hostname, and an attachment is sent
-verbatim and unredacted. The emailed files never contain a source name, a stream
-URL or a server address.
-
-Newsflasharr does not have to be installed. With it absent or disabled nothing is
-sent and nothing fails. If it is installed but cannot actually deliver, for
-example because no routing rule sends this plugin to email, **Validate Settings**
-says so and **Email Report Now** refuses rather than building a report nobody
-receives.
-
-## Troubleshooting
-
-**Operation seems stuck?**
-Check Docker logs. If another operation is running, wait for completion (lock auto-expires after 10 min) or click **Clear Operation Lock**.
-
-**No matches found?**
-- Lower Match Sensitivity from Strict to Normal or Relaxed
-- For US OTA channels, use **Match US OTA Only** instead of fuzzy matching
-- Check that the correct Channel Database is selected
-
-**System slow during scanning?**
-Set Rate Limiting to Medium or High.
-
-```bash
-# Monitor plugin activity
-docker logs -f dispatcharr | grep Stream-Mapparr
-
-# Check CSV exports
-docker exec dispatcharr ls -lh /data/exports/
-
-# Check plugin files
-docker exec dispatcharr ls -la /data/plugins/stream-mapparr/
-```
+This plugin uses calver, `1.MAJOR.DDDHHMM`, being the UTC day of year plus the
+UTC time. Run `python3 Stream-Mapparr/bump_version.py` to bump `plugin.json` and
+`plugin.py` together.
 
 ## Changelog
 
 See [CHANGELOG.md](Stream-Mapparr/CHANGELOG.md) for full version history.
+
+## Disclaimer
+
+**Stream-Mapparr provides no television content of any kind.** It supplies no channels, no
+playlists, no streams, no electronic programme guide data and no provider accounts, and it
+contains no list of where to obtain any of those. It matches and orders stream entries that
+already exist in **your** Dispatcharr installation, using bundled reference data: curated
+per-country channel name lists, and a table of United States broadcast station callsigns
+published by the Federal Communications Commission.
+
+Almost everything the plugin does reads stream *names*, never the streams themselves. There is
+one exception, and it is opt-in. **Probe Stream Throughput** connects to stream URLs already
+configured in your Dispatcharr installation and reads a few seconds of data from each, in order
+to measure how fast that source delivers. It measures only the volume and timing of the bytes.
+It does not decode, record, store, restream or redistribute anything, and the data it reads is
+discarded. Nothing is fetched unless you run that action or enable throughput sorting.
+
+Emailed reports, if you enable them, are handed to the Newsflasharr plugin, which sends them to
+destinations **you** configured.
+
+**You are responsible for what you connect Dispatcharr to.** Whether a particular provider,
+subscription, playlist or stream is lawful for you to use depends on your agreement with that
+provider and on the law where you live. Use only sources you are authorised to use. Nothing in
+this project is intended to enable, encourage or assist access to content you have no right to
+access.
+
+All product names, channel names, network names, callsigns, trademarks and registered trademarks
+mentioned in this project, or appearing in its examples or bundled reference data, are the
+property of their respective owners. This project is an independent, community-built plugin. It
+is not affiliated with, endorsed by, or sponsored by any television network, broadcaster,
+streaming service or IPTV provider, and it is not affiliated with the Dispatcharr project beyond
+being a plugin written for it.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not include provider
+credentials, stream URLs or M3U account names in a public issue.
 
 ## License
 
