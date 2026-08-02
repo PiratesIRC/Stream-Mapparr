@@ -14,5 +14,5 @@
 # exercise BOTH code paths and assert they agree.
 
 pytest>=9.1.1
-rapidfuzz>=3.0
+rapidfuzz>=3.14.5
 pytz>=2026.3.post1
