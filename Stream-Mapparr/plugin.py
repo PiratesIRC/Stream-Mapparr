@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2140004"
+    PLUGIN_VERSION = "1.26.2141526"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1032,12 +1032,6 @@ class Plugin:
 
     actions = [
         {
-            "id": "on_m3u_refresh",
-            "label": "Auto-match after M3U refresh",
-            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
-            "events": ["m3u_refresh"],
-        },
-        {
             "id": "validate_settings",
             "label": "✅ Validate Settings",
             "description": "Validate all plugin settings (profiles, groups, API connection, etc.)",
@@ -1046,24 +1040,9 @@ class Plugin:
             "button_label": "✅ Validate",
         },
         {
-            "id": "update_schedule",
-            "label": "💾 Update Schedule",
-            "description": "Save settings and update the scheduled run times. Use this after changing any settings.",
-            "button_variant": "filled",
-            "button_color": "green",
-            "button_label": "💾 Save Schedule",
-        },
-        {
-            "id": "cleanup_periodic_tasks",
-            "label": "🧹 Cleanup Orphaned Tasks",
-            "description": "Remove any orphaned Celery periodic tasks from old plugin versions",
-            "button_color": "orange",
-            "button_label": "🧹 Cleanup Tasks",
-            "confirm": { "required": True, "title": "Cleanup Orphaned Tasks?", "message": "This will remove any old Celery Beat tasks created by previous versions of this plugin. Continue?" }
-        },
-        {
             "id": "preview_changes",
             "label": "👁️ Preview Changes (Dry Run)",
+            "button_label": "👁️ Preview",
             "description": "Dry run: show which channels would be updated and write a CSV report. Makes no changes.",
         },
         {
@@ -1077,6 +1056,18 @@ class Plugin:
                 "required": True,
                 "title": "Match & Assign Streams?",
                 "message": "This will match and assign (or preview if dry run enabled) streams to channels. Continue?"
+            }
+        },
+        {
+            "id": "probe_throughput",
+            "label": "🚀 Probe Stream Throughput",
+            "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting. Probes are serialized per M3U account and capped by 'Probe Rate'. Monitor Docker logs for progress.",
+            "button_color": "blue",
+            "button_label": "🚀 Probe Throughput",
+            "confirm": {
+                "required": True,
+                "title": "Probe Stream Throughput?",
+                "message": "This will open short HTTP connections to streams currently assigned to channels in the selected profile (one at a time per M3U account). Continue?"
             }
         },
         {
@@ -1101,18 +1092,6 @@ class Plugin:
                 "required": True,
                 "title": "Match US OTA Only?",
                 "message": "This will match and assign (or preview if dry run enabled) streams to US OTA channels using callsign matching only. Channels without valid US callsigns will be skipped. Continue?"
-            }
-        },
-        {
-            "id": "probe_throughput",
-            "label": "🚀 Probe Stream Throughput",
-            "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting. Probes are serialized per M3U account and capped by 'Probe Rate'. Monitor Docker logs for progress.",
-            "button_color": "blue",
-            "button_label": "🚀 Probe Throughput",
-            "confirm": {
-                "required": True,
-                "title": "Probe Stream Throughput?",
-                "message": "This will open short HTTP connections to streams currently assigned to channels in the selected profile (one at a time per M3U account). Continue?"
             }
         },
         {
@@ -1144,14 +1123,6 @@ class Plugin:
             "button_label": "📋 View Last Results",
         },
         {
-            "id": "test_regex_rules",
-            "label": "🧪 Test Regex Rules",
-            "description": "Preview what Stream Name Regex Rules would change (matching only; does not modify anything)",
-            "button_variant": "outline",
-            "button_color": "blue",
-            "button_label": "🧪 Test Rules",
-        },
-        {
             "id": "email_report_now",
             "label": "📧 Email Report Now",
             "button_label": "📧 Email Now",
@@ -1170,6 +1141,30 @@ class Plugin:
                            "schedule last actually ran.",
         },
         {
+            "id": "update_schedule",
+            "label": "💾 Update Schedule",
+            "description": "Save settings and update the scheduled run times. Use this after changing any settings.",
+            "button_variant": "filled",
+            "button_color": "green",
+            "button_label": "💾 Save Schedule",
+        },
+        {
+            "id": "cleanup_periodic_tasks",
+            "label": "🧹 Cleanup Orphaned Tasks",
+            "description": "Remove any orphaned Celery periodic tasks from old plugin versions",
+            "button_color": "orange",
+            "button_label": "🧹 Cleanup Tasks",
+            "confirm": { "required": True, "title": "Cleanup Orphaned Tasks?", "message": "This will remove any old Celery Beat tasks created by previous versions of this plugin. Continue?" }
+        },
+        {
+            "id": "test_regex_rules",
+            "label": "🧪 Test Regex Rules",
+            "description": "Preview what Stream Name Regex Rules would change (matching only; does not modify anything)",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "🧪 Test Rules",
+        },
+        {
             "id": "clear_csv_exports",
             "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
@@ -1182,11 +1177,6 @@ class Plugin:
             }
         },
         {
-            "id": "report_a_bug",
-            "label": "🐛 Report a Bug or Request a Feature",
-            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
-        },
-        {
             "id": "clear_operation_lock",
             "label": "🔓 Clear Operation Lock",
             "description": "Manually clear the operation lock file if it's stuck (e.g., after a container restart). Only use if no operation is actually running.",
@@ -1197,6 +1187,18 @@ class Plugin:
                 "title": "Clear Operation Lock?",
                 "message": "This will clear the operation lock. Only do this if you're certain no operation is currently running. Continue?"
             }
+        },
+        {
+            "id": "report_a_bug",
+            "label": "🐛 Report a Bug or Request a Feature",
+            "button_label": "🐛 Report a Bug",
+            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+        },
+        {
+            "id": "on_m3u_refresh",
+            "label": "Auto-match after M3U refresh",
+            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+            "events": ["m3u_refresh"],
         },
     ]
 

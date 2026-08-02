@@ -1,5 +1,22 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141526 (August 2, 2026)
+
+### Changed
+- **The action buttons are in a working order rather than the order they were added.**
+  Validate and Preview first, then the main run in the sequence the buttons are actually
+  pressed: Match and Assign, then Probe Stream Throughput, then Sort Alternate Streams.
+  Then the other matching actions, then the ones that show you what happened, then
+  scheduling, then tools and recovery.
+
+  The previous order listed Sort Alternate Streams BEFORE Probe Stream Throughput. The
+  probe measures download speed into a cache and the sort reads that cache, so sorting
+  first sorts against nothing. Scheduling and task cleanup also sat between Validate and
+  Preview, splitting the two buttons the quick start tells you to press in order.
+
+- **Preview Changes and Report a Bug now have short button labels**, so they render the
+  same width and style as every other button instead of falling back to their full name.
+
 ## v1.26.2140004 (August 1, 2026)
 
 ### Added
