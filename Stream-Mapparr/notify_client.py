@@ -81,7 +81,7 @@ def _redact_media_url(match):
     segments[-1] = "<redacted>" + ext
     # The query string on a media URL is where a session token lives, so it is
     # dropped rather than kept. On a non-media URL it is left untouched above.
-    return "%s://<redacted>%s" % (match.group("scheme"), "/".join(segments))
+    return f'{match.group("scheme")}://<redacted>{"/".join(segments)}'
 
 
 def redact(text):

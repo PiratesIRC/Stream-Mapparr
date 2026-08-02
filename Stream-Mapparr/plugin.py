@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2141627"
+    PLUGIN_VERSION = "1.26.2141815"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -424,6 +424,18 @@ class PluginConfig:
     DEFAULT_PROBE_USER_AGENT = "VLC/3.0.20 LibVLC/3.0.20"
     THROUGHPUT_CACHE_FILE = "/data/stream_mapparr_throughput_cache.json"
     PROBE_HEALTHY_MARGIN_MULTIPLIER = 1.5      # > nominal*1.5 -> healthy; between 1.10..1.5 -> marginal
+
+    # === CONTENT BITRATE SANITY (issue 40) ===
+    # A placeholder stream, a looping slate or a static card, reports a high
+    # resolution while carrying almost no video. The throughput probe cannot
+    # catch it: the probe measures DELIVERY SPEED against the nominal bitrate
+    # for the claimed resolution, and a tiny payload arrives many times faster
+    # than realtime, so a slate is tiered healthy. This compares the CONTENT
+    # bitrate already recorded in the stream stats against a floor keyed to the
+    # claimed resolution, so it needs no probing of its own.
+    DEFAULT_DEMOTE_CONTENT_STARVED = True
+    DEFAULT_CONTENT_BITRATE_FLOOR_KBPS = 300   # Below this while claiming >= 720p
+    CONTENT_STARVED_MIN_HEIGHT = 720           # Floor only applies at 720p and above
 
     # Nominal bitrate (Mbps) heuristics keyed by (height_bucket, fps_band).
     # These are coarse — only used to decide if a measured throughput is "enough".
@@ -1061,6 +1073,20 @@ class Plugin:
                 "default": str(PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN),
                 "placeholder": "1.10",
                 "help_text": "Multiplier applied to the stream's nominal bitrate. Streams below nominal × this value are tagged 'insufficient' and ranked last.",
+            },
+            {
+                "id": "demote_content_starved",
+                "label": "🩻 Demote Placeholder Streams",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_DEMOTE_CONTENT_STARVED,
+                "help_text": "Rank a stream last when it claims 720p or higher but carries less video than the floor below. Providers serve looping slates and static cards that report a high resolution while carrying almost no picture, and the Bitrate Safety Margin cannot catch them because it measures download speed rather than picture data. Streams are only moved down the order, never removed, and a stream with no measured bitrate is never affected.",
+            },
+            {
+                "id": "content_bitrate_floor_kbps",
+                "label": "🩻 Placeholder Bitrate Floor (kbps)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS,
+                "help_text": "A stream claiming 720p or higher while carrying less than this many kbps of video is treated as a placeholder and ranked last. The default of 300 is deliberately generous so an efficient encode is not demoted, and standard definition streams are never checked at all. Raise it only if genuine placeholder streams are getting through.",
             },
         ]
 
@@ -2969,6 +2995,12 @@ class Plugin:
             )
         except (TypeError, ValueError):
             self._probe_cache_ttl_minutes = PluginConfig.DEFAULT_PROBE_CACHE_TTL_MINUTES
+        # Issue 40. Primed here rather than read straight off the instance at
+        # sort time, because an attribute set on only one entry path fails
+        # silently on every other one: no crash, no log, just a different sort
+        # order (bug-139).
+        self._content_starved_enabled = self._resolve_demote_content_starved(settings)
+        self._content_starved_floor_kbps = self._resolve_content_starved_floor(settings)
         self._load_throughput_cache()
         self._throughput_state_primed = True
 
@@ -3016,6 +3048,16 @@ class Plugin:
         settings = getattr(self, 'saved_settings', {}) or {}
         channels_priority = self._parse_priority_list(settings.get('audio_channels_priority'))
         codec_priority = self._parse_priority_list(settings.get('audio_codec_priority'))
+        # Issue 40. Prefixed ahead of every other dimension so a stream proven
+        # to carry almost no video ranks behind everything not proven starved,
+        # including unprobed streams carrying no evidence either way. Demotion
+        # and never removal: Match and Assign replaces a channel's whole stream
+        # list, so dropping a stream can take the channel off air, which is the
+        # same reasoning the opposite-zone rule uses.
+        starved_enabled = bool(getattr(self, '_content_starved_enabled',
+                                       PluginConfig.DEFAULT_DEMOTE_CONTENT_STARVED))
+        starved_floor = getattr(self, '_content_starved_floor_kbps',
+                                PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS)
 
         def get_stream_quality_score(stream):
             m3u_priority = stream.get('_m3u_priority', 999)
@@ -3061,7 +3103,83 @@ class Plugin:
             mbps = float(entry.get('throughput_mbps') or 0.0) if entry else 0.0
             return (throughput_tier,) + base + (-mbps,)
 
-        return sorted(streams, key=get_stream_quality_score)
+        def scored(stream):
+            starved = 0
+            if starved_enabled and self._is_content_starved(stream, starved_floor):
+                starved = 1
+            score = get_stream_quality_score(stream)
+            if not isinstance(score, tuple):
+                score = (score,)
+            return (starved,) + score
+
+        return sorted(streams, key=scored)
+
+    @staticmethod
+    def _resolve_content_starved_floor(settings):
+        """Content bitrate floor in kbps, from the LIVE settings dict.
+
+        Anything unusable, absent, blank, non-numeric or not positive, falls
+        back to the default rather than disabling the rule. Returning zero here
+        would silently switch the whole check off, which is the failure mode
+        where a setting looks configured and does nothing.
+        """
+        raw = (settings or {}).get('content_bitrate_floor_kbps')
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS
+        if value <= 0:
+            return PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS
+        return value
+
+    @staticmethod
+    def _resolve_demote_content_starved(settings):
+        """Whether to demote content starved streams, from the LIVE settings dict."""
+        if settings is None or 'demote_content_starved' not in settings:
+            return PluginConfig.DEFAULT_DEMOTE_CONTENT_STARVED
+        return bool(settings.get('demote_content_starved'))
+
+    @staticmethod
+    def _is_content_starved(stream, floor_kbps):
+        """True only when a stream PROVABLY carries too little video for the
+        resolution it claims.
+
+        The evidence has to be positive. A stream with no stats, no height or
+        no measured bitrate returns False, because absence of data is not
+        evidence of a slate and this is a ranking backstop rather than a
+        primary input. Fail-open is the required direction.
+
+        Two bitrate fields are recorded and they were measured disagreeing on
+        real streams, for example 124 against 389 kbps on one. The HIGHER of
+        the two is used, so a disagreement resolves in favour of keeping the
+        stream rather than demoting it.
+
+        Both fields are in kbps, matching what Dispatcharr writes into
+        stream_stats.
+        """
+        stats = stream.get('stats') or {}
+        if not isinstance(stats, dict):
+            return False
+        try:
+            height = int(stats.get('height') or 0)
+        except (TypeError, ValueError):
+            return False
+        if height < PluginConfig.CONTENT_STARVED_MIN_HEIGHT:
+            return False
+
+        best = None
+        for key in ('video_bitrate', 'ffmpeg_output_bitrate'):
+            try:
+                value = float(stats.get(key))
+            except (TypeError, ValueError):
+                continue
+            # Zero means "not measured", not "carries no video".
+            if value <= 0:
+                continue
+            best = value if best is None else max(best, value)
+        if best is None:
+            return False
+        return best < float(floor_kbps)
 
     def _classify_stream_throughput(self, stream, cache, margin):
         """Return tier rank: 0=healthy, 1=marginal, 2=unknown, 3=insufficient.
@@ -6846,6 +6964,17 @@ class Plugin:
             logger.info(
                 f"[Stream-Mapparr] Prioritize quality: {self._prioritize_quality} "
                 f"({'quality tier before M3U source' if self._prioritize_quality else 'M3U source before quality tier'})"
+            )
+
+            # issue 40: same reason again. Sort is the action that reorders a
+            # channel's alternates, so if it does not resolve the placeholder
+            # rule itself the getattr default decides, and a Sort run silently
+            # undoes what Match and Assign just applied.
+            self._content_starved_enabled = self._resolve_demote_content_starved(settings)
+            self._content_starved_floor_kbps = self._resolve_content_starved_floor(settings)
+            logger.info(
+                f"[Stream-Mapparr] Demote placeholder streams: {self._content_starved_enabled} "
+                f"(floor {self._content_starved_floor_kbps:.0f} kbps at 720p and above)"
             )
 
             # bug-158 review I2: Sort must resolve this itself too, for the same
