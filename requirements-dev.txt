@@ -13,6 +13,6 @@
 # a pure-Python Levenshtein when it is absent). It is required here so CI can
 # exercise BOTH code paths and assert they agree.
 
-pytest>=8.0
+pytest>=9.1.1
 rapidfuzz>=3.0
 pytz>=2020.1
