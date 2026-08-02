@@ -1,52 +1,76 @@
 {
   "_comment": [
-    "Rules for the workspace pre-publish audit, run against whatever ref is",
-    "about to be pushed:",
-    "",
-    "  python ../.claude/skills/pre-publish-audit/audit_publish.py \\",
-    "      --ref main --rules .publish-audit.json",
-    "",
-    "`deny` holds strings the built-in patterns cannot know about, because they",
-    "look like ordinary words to a generic scanner. Every entry below was a real",
-    "occurrence in this repository, not a hypothetical one.",
-    "",
-    "`allow` holds the expected placeholders, each with a reason. Loosening a",
-    "pattern to silence a finding is how the next real one gets through."
+    "Rules for the workspace pre-publish audit, run against whatever ref is about to be pushed:",
+    "  python ../.claude/skills/pre-publish-audit/audit_publish.py --ref main --rules .publish-audit.json",
+    "`deny` holds strings the built-in patterns cannot know about, because they look like ordinary",
+    "words to a generic scanner. Every entry below was a real occurrence in this repository.",
+    "Each pattern is written with a character class around one letter so that this file does not",
+    "itself contain the literal string it is looking for.",
+    "`allow` holds the expected placeholders, each with a reason. Loosening a pattern to silence a",
+    "finding is how the next real one gets through."
   ],
-
   "deny": [
-    {"pattern": "strea[m]q",
-     "why": "the real provider brand host. Written as a character class so this rules file does not itself contain the string it is looking for. Found in 46 places across 6 tracked files on 2026-08-01, most of them added the same day, and replaced with provider.tv"},
-    {"pattern": "cf\\.live",
-     "why": "the provider's real CDN host labels, in URL or prose form"},
-    {"pattern": "\\bbk(15|26|29)\\b",
-     "why": "the real M3U account name suffixes. bk15 alone is meaningless to a generic scanner"},
-    {"pattern": "192\\.168\\.211\\.",
-     "why": "this installation's LAN prefix"},
-    {"pattern": "O:\\\\\\\\?docker",
-     "why": "this machine's Windows drive mapping of the container volumes. Was present in docs/DEVELOPMENT.md and already published before it was noticed"},
-    {"pattern": "/data/plugin_backups",
-     "why": "an internal backup location, not a path any user of this plugin has"},
-    {"pattern": "btolley",
-     "why": "the operator's personal account name, which appears in notification settings"}
+    {
+      "pattern": "strea[m]q",
+      "why": "the real provider brand host. 46 occurrences across 6 tracked files were replaced with provider.tv on 2026-08-01"
+    },
+    {
+      "pattern": "cf[.]live",
+      "why": "the provider's real CDN host labels, in URL or prose form"
+    },
+    {
+      "pattern": "\\bb[k](15|26|29)\\b",
+      "why": "the real M3U account name suffixes. Each is three characters and means nothing to a generic scanner, which is the whole reason this list exists"
+    },
+    {
+      "pattern": "192[.]168[.]211[.]",
+      "why": "this installation's LAN prefix"
+    },
+    {
+      "pattern": "[O]:\\\\?docker",
+      "why": "this machine's Windows drive mapping of the container volumes. It was in docs/DEVELOPMENT.md and already published before it was noticed"
+    },
+    {
+      "pattern": "/data/plugin_back[u]ps",
+      "why": "an internal backup location, not a path any user of this plugin has"
+    },
+    {
+      "pattern": "btoll[e]y",
+      "why": "the operator's personal account name, which appears in notification settings"
+    }
   ],
-
   "allow": [
-    {"pattern": "provider\\.tv",
-     "reason": "the placeholder that replaced the real provider brand host. The .tv top level domain is preserved deliberately: a previous substitution to .example silently disabled a test whose logic is gated on a TLD allowlist containing .tv"},
-    {"pattern": "provider-bk\\d+",
-     "reason": "the placeholder form of an M3U account name in test fixtures"},
-    {"pattern": "SUPERSECRETTOKEN",
-     "reason": "an obviously fake token in tests/test_settings_intro.py, proving the bug report file masks a secret rather than printing it"},
-    {"pattern": "user:pass@provider\\.tv",
-     "reason": "a fake credential-bearing URL in tests/test_reports_sanitise.py, proving an unknown key is dropped from the emailed report rather than carried through"},
-    {"pattern": "203\\.0\\.113\\.|198\\.51\\.100\\.",
-     "reason": "the reserved documentation address ranges, used in tests that prove an address is scrubbed out of a report. These cannot be anyone's real network"},
-    {"pattern": "2001:db8:|fe80::1ff:fe23",
-     "reason": "the reserved IPv6 documentation range and a link-local example, used in the test that proves IPv6 is scrubbed"},
-    {"pattern": "CLAUDE\\.md|AGENTS\\.md",
-     "reason": "named in .gitignore so the notes files are never published, and referenced in docs/DEVELOPMENT.md as the place contributors keep working notes. The files themselves are not tracked"},
-    {"pattern": "superpowers",
-     "reason": "a gitignore entry for a local planning directory, not a published path"}
+    {
+      "pattern": "provider[.]tv",
+      "reason": "the placeholder that replaced the real provider brand host. The .tv top level domain is preserved deliberately: a previous substitution to .example silently disabled a test gated on a TLD allowlist containing .tv"
+    },
+    {
+      "pattern": "provider[.\\w-]*alt\\d",
+      "reason": "the placeholder form of an M3U account name in test fixtures. The real suffixes are in the deny list"
+    },
+    {
+      "pattern": "SUPERSECRETTOKEN",
+      "reason": "an obviously fake token in tests/test_settings_intro.py, proving the bug report file masks a secret rather than printing it"
+    },
+    {
+      "pattern": "user:pass@provider[.]tv",
+      "reason": "a fake credential-bearing URL in tests/test_reports_sanitise.py, proving an unknown key is dropped from the emailed report"
+    },
+    {
+      "pattern": "203[.]0[.]113[.]|198[.]51[.]100[.]",
+      "reason": "the reserved documentation address ranges, used in tests proving an address is scrubbed out of a report. These cannot be anyone's real network"
+    },
+    {
+      "pattern": "2001:db8:|fe80::1ff:fe23",
+      "reason": "the reserved IPv6 documentation range and a link-local example, used in the test proving IPv6 is scrubbed"
+    },
+    {
+      "pattern": "CLAUDE[.]md|AGENTS[.]md",
+      "reason": "named in .gitignore so the notes files are never published, and referenced in docs/DEVELOPMENT.md as where contributors keep working notes. The files themselves are not tracked"
+    },
+    {
+      "pattern": "superpowers",
+      "reason": "a gitignore entry for a local planning directory, not a published path"
+    }
   ]
 }
