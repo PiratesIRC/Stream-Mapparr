@@ -42,12 +42,36 @@ LOGGER = logging.getLogger("plugins.fuzzy_matcher")
 # single letters W/E are intentionally NOT matched (e.g. the UK channel "W",
 # "E! Entertainment") and "EAST"/"WEST" embedded in a larger word ("EastEnders")
 # is excluded by the word boundaries.
-_ZONE_WEST_RE = re.compile(r'\(\s*W(?:EST)?\s*\)|\bWEST\b', re.IGNORECASE)
-_ZONE_EAST_RE = re.compile(r'\(\s*E(?:AST)?\s*\)|\bEAST\b', re.IGNORECASE)
+#
+# A BARE marker must also STAND ALONE: parenthesized, the last meaningful word,
+# or followed only by a quality/format tag. A marker followed by another WORD is
+# part of a place name, not a feed zone. Measured on a live installation
+# 2026-08-02: of 191 assignments an opposite-zone exclusion would have removed,
+# 24 were place names -- "West Palm Beach", "WEST HASTINGS, NE", "WEST HARTFORD,
+# CT" -- and two channels would have been left with no streams at all. This cost
+# nothing while zone detection only REORDERED a channel's streams; it deletes a
+# working assignment once opposite-zone streams are dropped.
+_ZONE_TRAILING_TAGS = (
+    r'(?:HD|SD|FHD|UHD|4K|8K|HEVC|H\.?265|H\.?264|RAW|FPS|'
+    r'\d+P?|\([A-Z]{1,4}\))'
+)
+# Decorations providers append after a real marker: superscripts, symbols, and
+# any non-letter run. These must not hide the fact that the marker was last.
+_ZONE_TAIL = r'(?:\W|[^\x00-\x7F])*'
+_ZONE_STANDALONE = (
+    r'(?:' + _ZONE_TAIL + r'$'                                    # last word
+    r'|\s+' + _ZONE_TRAILING_TAGS + r'(?:\s+' + _ZONE_TRAILING_TAGS + r')*'
+    + _ZONE_TAIL + r'$)'                                          # then only tags
+)
+_ZONE_WEST_RE = re.compile(
+    r'\(\s*W(?:EST)?\s*\)|\bWEST\b' + _ZONE_STANDALONE, re.IGNORECASE)
+_ZONE_EAST_RE = re.compile(
+    r'\(\s*E(?:AST)?\s*\)|\bEAST\b' + _ZONE_STANDALONE, re.IGNORECASE)
 # Pacific folds into WEST: a US premium channel's "West" feed IS its Pacific-time feed
 # (bug-126 follow-up). Bare PACIFIC + parenthesized (Pacific)/(PT) only — a bare '(P)'
 # is too ambiguous (premium/etc.) to read as a zone.
-_ZONE_PACIFIC_RE = re.compile(r'\(\s*PACIFIC\s*\)|\(\s*PT\s*\)|\bPACIFIC\b', re.IGNORECASE)
+_ZONE_PACIFIC_RE = re.compile(
+    r'\(\s*PACIFIC\s*\)|\(\s*PT\s*\)|\bPACIFIC\b' + _ZONE_STANDALONE, re.IGNORECASE)
 
 
 class FuzzyMatcher(FuzzyMatcherCore):

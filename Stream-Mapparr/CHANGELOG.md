@@ -1,5 +1,26 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141610 (August 2, 2026)
+
+### Fixed
+- **A place name containing the word West or East is no longer mistaken for a time
+  zone.** "US: ABC 25 (WPBF) West Palm Beach HD" was being read as a West feed, as were
+  "WEST HASTINGS, NE" and "WEST HARTFORD, CT".
+
+  A zone marker now has to stand alone: in brackets like (W), or the last word, or
+  followed only by a quality tag such as HD. A marker followed by another word is part
+  of a place name. Trailing symbols and superscripts that providers add do not hide a
+  real marker.
+
+  This mattered little before, because zone detection only reordered a channel's
+  streams and nothing was lost. It matters now that opposite-zone streams are removed
+  instead: on one real installation, 24 of the 191 assignments that would have been
+  removed were place names, and two over-the-air channels would have been left with no
+  streams at all.
+
+  Pacific is treated the same way, so "Asia Pacific News" is no longer read as a West
+  feed while "HBO Pacific" still is.
+
 ## v1.26.2141602 (August 2, 2026)
 
 ### Changed

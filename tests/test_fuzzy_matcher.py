@@ -165,16 +165,30 @@ def test_extract_zone_bare_single_letter_is_not_a_zone(matcher):
     assert matcher().extract_zone("EastEnders") == "DEFAULT"
 
 
-def test_extract_zone_brand_word_false_positives_are_accepted_but_harmless(matcher):
-    """ACCEPTED false positives (QA): a bare WEST/EAST brand word classifies as a
-    zone. This is HARMLESS by design — zone routing only activates when a same-base
-    DIFFERENT-zone sibling exists (_zone_routed_map), so a lone 'Key West' or 'West
-    Wing' is never zone-routed. Locked here so the boundary is understood and a
-    future tightening doesn't silently change it."""
+def test_extract_zone_requires_a_standalone_marker(matcher):
+    """A zone marker must STAND ALONE: parenthesised, the last meaningful word, or
+    followed only by a quality tag. A marker followed by another WORD is part of a
+    place name.
+
+    This test previously locked the opposite behaviour, recording brand-word false
+    positives as accepted and harmless. They were harmless while zone detection
+    only REORDERED a channel's streams. They stopped being harmless on 2026-08-02,
+    when opposite-zone streams began to be DROPPED instead: measured on a live
+    installation, 24 of 191 removals were place names, and two channels would have
+    been left with no streams at all.
+    """
     m = matcher()
+    # A word after the marker makes it a place, not a zone.
+    assert m.extract_zone("West Wing") == "DEFAULT"
+    assert m.extract_zone("BBC East Midlands") == "DEFAULT"
+    assert m.extract_zone("US: ABC 25 (WPBF) West Palm Beach HD") == "DEFAULT"
+    # "Key West" ends on the marker, so it still reads as a zone. Harmless: a lone
+    # marked channel with no opposite-zone sibling is never zone-routed.
     assert m.extract_zone("Key West") == "WEST"
-    assert m.extract_zone("West Wing") == "WEST"
-    assert m.extract_zone("BBC East Midlands") == "EAST"
+    # Real feeds are unaffected.
+    assert m.extract_zone("US: ANIMAL PLANET WEST HD") == "WEST"
+    assert m.extract_zone("Showtime (W)") == "WEST"
+    assert m.extract_zone("GO: HBO EAST") == "EAST"
 
 
 # --------------------------------------------------------------------------- #
