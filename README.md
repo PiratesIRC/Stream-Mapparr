@@ -117,13 +117,18 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Overwrite Existing Streams** | boolean | True | Replace existing streams vs append-only. A run that matches **0** streams never clears a channel's existing streams |
 | **Match Sensitivity** | select | Normal (80) | Relaxed (70), Normal (80), Strict (90), Exact (95) |
 | **Channel Profile** | select | - | Profile to process channels from (dropdown from DB) |
-| **Channel Groups** | string | (all) | Specific groups to process, comma-separated |
-| **Stream Groups** | string | (all) | Specific stream groups to use, comma-separated |
+| **Channel Groups** | string | (all) | Specific groups to process, comma-separated. Empty means all groups |
+| **Channel Groups Mode** | select | Only the groups listed | Whether the list above names the groups to PROCESS or the groups to SKIP. Choose *All groups except those listed* when another tool owns a group and this plugin should leave it alone. That option also means a group you create later is processed automatically, whereas listing groups to process skips a new group until you add it. Empty list means all groups either way |
+| **Stream Groups** | string | (all) | Specific stream groups to draw candidate streams from, comma-separated |
+| **Stream Groups Mode** | select | Only the groups listed | Same choice for the stream-group list, resolved separately, so excluding a channel group does not invert the stream-group list |
 | **M3U Sources** | string | (all) | Specific M3U sources, comma-separated (order = priority) |
 | **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings, merged with the built-in alias table |
 | **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` regex pairs applied in order to stream names before matching (e.g. `[["\\s*▎\\s*", " "], ["\\bVIP\\b", ""]]`). Python regex syntax; use `(?i)` for case-insensitive. Matching only — see [Regex pre-processing](#regex-pre-processing) below |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching (e.g., `[Dead], (Backup)`) |
+| **Wait for IPTV Checker Completion** | boolean | False | Hold a scheduled run until the IPTV Checker plugin has finished, so matching sees fresh stream stats |
+| **IPTV Checker Max Wait (hours)** | number | 2 | How long to wait before giving up and running anyway |
+| **Enable CSV Export** | boolean | True | Write a CSV report on a scheduled Match and Assign run. A dry run always writes one regardless |
 | **Tag Handling** | select | Strip All | Strip All / Keep Regional / Keep All |
 | **Channel Database** | select | US | Channel database for callsign and name matching |
 | **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams |
@@ -160,7 +165,9 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Manage Channel Visibility** | Enable/disable channels based on stream count |
 | **View Check Progress** | Show the current operation's progress (%) and ETA |
 | **View Last Results** | Show a summary of the last completed operation |
-| **Clear CSV Exports** | Delete all plugin CSV files |
+| **Clear CSV Exports** | Delete all plugin CSV files. Skips any file written in the last 40 minutes, because a queued email re-reads its attachment for that long |
+| **Cleanup Orphaned Tasks** | Remove scheduled task entries left behind by an older version or a renamed schedule |
+| **Report a Bug or Request a Feature** | Write a ready-to-paste report to /config/stream-mapparr/report-a-bug.txt containing the plugin version, your settings with secrets masked, and the paths of your three most recent CSV exports, then show the issues address |
 
 ## Regex pre-processing
 
@@ -209,8 +216,9 @@ rule degrades gracefully (and is reported) instead of freezing a worker.
 ## Scheduling
 
 1. Set **Scheduled Run Times** in 24-hour format (e.g., `0400,1600` for 4 AM and 4 PM) — times are interpreted in Dispatcharr's **global timezone** (no plugin timezone setting)
-2. Enable **CSV Export** if desired
-3. Click **Update Schedule**
+2. Choose which steps the scheduled run performs: **Schedule: Match & Assign Streams** (on by default) and **Schedule: Sort Streams** (off by default). They are independent, so a schedule can sort only, match only, or both
+3. Enable **CSV Export** if desired
+4. Click **Update Schedule**
 
 The scheduler runs in a background thread and re-arms automatically when the container restarts. When Dispatcharr runs several worker processes, a shared on-disk claim makes sure the scheduled job runs once per slot rather than once per worker.
 
