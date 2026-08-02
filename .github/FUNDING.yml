@@ -1,0 +1,4 @@
+# Puts a "Sponsor" button on the repository page and beside the repository in
+# search results. GitHub reads this file only from the DEFAULT BRANCH, so it has
+# no effect on a feature branch or in a fork whose default branch lacks it.
+github: PiratesIRC

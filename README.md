@@ -8,6 +8,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PiratesIRC/Stream-Mapparr)
 [![Workflow Guide](https://img.shields.io/badge/%F0%9F%93%96-Workflow_Guide-1F6FEB?style=flat)](https://piratesirc.github.io/Dispatcharr-Plugin-Workflow/workflow/03-stream-mapparr/)
 [![Discord](https://img.shields.io/badge/Discord-Discussion-5865F2?logo=discord&logoColor=white)](https://discord.gg/Sp45V5BcxU)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/PiratesIRC)
 
 [![GitHub Release](https://img.shields.io/github/v/release/PiratesIRC/Stream-Mapparr?include_prereleases&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 [![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
@@ -302,6 +303,15 @@ being a plugin written for it.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up, run the tests, and what
 runs on a pull request.
+
+## Sponsor
+
+This plugin is free and always will be. If it saves you time and you would like
+to support the work, you can sponsor it at
+[github.com/sponsors/PiratesIRC](https://github.com/sponsors/PiratesIRC).
+
+Sponsoring buys no priority, no private support and no influence over what gets
+built. Bug reports and pull requests are just as welcome from everyone.
 
 ## Security
 
