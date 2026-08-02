@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2140004 (August 1, 2026)
+
+### Added
+- **Email Report Format**, a new setting choosing which report files are emailed:
+  the HTML page only, the CSV only, or both. The default is both.
+
+  A notification carries one attachment, so choosing both sends two separate emails
+  per run rather than one email with two files. Choosing a single format halves the
+  mail. Both files are still written to /data/stream_mapparr_reports either way;
+  this setting only decides which are emailed.
+
+  An unrecognised stored value falls back to both, so a value this build does not
+  understand still delivers the report rather than silently delivering nothing.
+
 ## v1.26.2132346 (August 1, 2026)
 
 ### Added

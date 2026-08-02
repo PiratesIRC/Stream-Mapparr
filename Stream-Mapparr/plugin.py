@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2132346"
+    PLUGIN_VERSION = "1.26.2140004"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -325,6 +325,9 @@ class PluginConfig:
     DEFAULT_NOTIFY_ENABLED = False              # Opt-in: emit to the Newsflasharr service
     NOTIFY_REPORT_TRIGGERS = ("never", "scheduled", "every_run")
     DEFAULT_NOTIFY_REPORT_ON = "scheduled"      # Which runs email a report
+    # A notification carries ONE attachment, so "both" means two emails per run.
+    NOTIFY_REPORT_FORMATS = ("html", "csv", "both")
+    DEFAULT_NOTIFY_REPORT_FORMAT = "both"       # Which report files are emailed
     DEFAULT_ALLOW_SAME_NAME_STREAMS = False     # Opt-in: keep distinct same-named streams from one source (bug-140)
 
     # === RATE LIMITING DELAYS (seconds) - used for pacing ORM operations ===
@@ -798,13 +801,28 @@ class Plugin:
                     {"value": "scheduled", "label": "Scheduled runs only"},
                     {"value": "every_run", "label": "Every run that produces a report"},
                 ],
-                "help_text": "Which runs send the report by email. Two files are sent per "
-                             "run, an HTML page and a CSV, which arrive as two separate "
-                             "emails because a notification carries one attachment. Both "
-                             "files are built specifically for sending: they never contain "
-                             "your M3U source names, stream URLs or server addresses, which "
-                             "the CSV exports in /data/exports do contain. This setting does "
+                "help_text": "Which runs send the report by email. The report files are "
+                             "built specifically for sending: they never contain your M3U "
+                             "source names, stream URLs or server addresses, which the CSV "
+                             "exports in /data/exports do contain. This setting does "
                              "nothing unless Send notifications to Newsflasharr is on above.",
+            },
+            {
+                "id": "notify_report_format",
+                "label": "📎 Email Report Format",
+                "type": "select",
+                "default": PluginConfig.DEFAULT_NOTIFY_REPORT_FORMAT,
+                "options": [
+                    {"value": "html", "label": "HTML page only, one email"},
+                    {"value": "csv", "label": "CSV only, one email"},
+                    {"value": "both", "label": "Both, which arrives as two emails"},
+                ],
+                "help_text": "Which report files to email. A notification carries one "
+                             "attachment, so choosing both sends two separate emails per "
+                             "run rather than one email with two files. The HTML page is "
+                             "easier to read and the CSV is easier to sort and filter. Both "
+                             "files are written to /data/stream_mapparr_reports either way; "
+                             "this setting only decides which are emailed.",
             },
             {
                 "id": "prioritize_quality",

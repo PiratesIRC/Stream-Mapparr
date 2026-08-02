@@ -132,6 +132,7 @@ This plugin uses **calver** (`1.MAJOR.DDDHHMM`, UTC day-of-year + UTC time) — 
 | **Keep Same-Named Streams From One Source** | boolean | False | By default, streams sharing a name within one M3U source are treated as duplicates and only the first is assigned. Enable if your provider publishes several genuinely different feeds under one identical name (e.g. four streams all called `DAZN F1`) so they are all kept as failover alternates. Streams sharing a name across *different* sources are always kept; true duplicates (same name, source and URL) are always collapsed |
 | **Send notifications to Newsflasharr** | boolean | False | Emit notifications through the Newsflasharr plugin |
 | **Email A Report After** | select | Scheduled runs only | Which runs email a report: never, scheduled only, or every run |
+| **Email Report Format** | select | Both | Which files to email: HTML only, CSV only, or both (two emails) |
 | **Scheduled Run Times** | string | (none) | HHMM times, comma-separated (e.g., `0400,1600`) |
 | **Auto-match after M3U refresh** | boolean | False | Run Match & Assign automatically after each M3U refresh completes (opt-in; requires a Channel Profile). Dispatcharr v0.27+ |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
@@ -233,8 +234,10 @@ Turn on **Send notifications to Newsflasharr**, then choose when a report is
 emailed with **Email A Report After**: never, scheduled runs only, or every run
 that produces one. **Email Report Now** builds and queues one on demand.
 
-Each run sends two files, an HTML page and a CSV. They arrive as two separate
-emails, because a notification carries one attachment.
+**Email Report Format** chooses which files are sent: the HTML page, the CSV, or
+both. A notification carries one attachment, so choosing both sends two separate
+emails per run. Both files are written to /data/stream_mapparr_reports either
+way; the setting only decides which are emailed.
 
 Those two files are built specifically for sending and are not the CSV exports in
 `/data/exports`. The exports label every stream with its M3U source name, which on

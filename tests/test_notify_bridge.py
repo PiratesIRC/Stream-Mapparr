@@ -87,3 +87,45 @@ def test_no_em_dashes_in_the_new_field_copy(plugin_module):
             " ".join(o.get("label", "") for o in field.get("options", [])),
         ])
         assert "—" not in blob
+
+
+# --------------------------------------------------------------------------- #
+# The report format dropdown
+# --------------------------------------------------------------------------- #
+
+def test_report_format_is_a_dropdown(plugin_module):
+    assert _field(plugin_module, "notify_report_format")["type"] == "select"
+
+
+def test_report_format_offers_exactly_three_choices(plugin_module):
+    offered = {o["value"] for o in _field(plugin_module, "notify_report_format")["options"]}
+    assert offered == {"html", "csv", "both"}
+
+
+def test_report_format_defaults_to_both(plugin_module):
+    assert _field(plugin_module, "notify_report_format")["default"] == "both"
+
+
+def test_every_offered_format_is_one_the_resolver_understands(plugin_module):
+    offered = {o["value"] for o in _field(plugin_module, "notify_report_format")["options"]}
+    assert offered == set(plugin_module.PluginConfig.NOTIFY_REPORT_FORMATS)
+
+
+def test_the_format_field_sits_directly_below_the_trigger(plugin_module):
+    ids = [f.get("id") for f in _fields(plugin_module)]
+    assert ids.index("notify_report_format") == ids.index("notify_report_on") + 1
+
+
+def test_the_format_labels_say_how_many_emails_arrive(plugin_module):
+    """A notification carries one attachment, so choosing both means two
+    separate emails. The operator should not have to discover that."""
+    labels = " ".join(o["label"].lower()
+                      for o in _field(plugin_module, "notify_report_format")["options"])
+    assert "two" in labels or "2" in labels
+
+
+def test_no_em_dashes_in_the_format_field_copy(plugin_module):
+    field = _field(plugin_module, "notify_report_format")
+    blob = " ".join([str(field.get("label", "")), str(field.get("help_text", "")),
+                     " ".join(o.get("label", "") for o in field.get("options", []))])
+    assert "—" not in blob

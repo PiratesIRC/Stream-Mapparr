@@ -233,3 +233,67 @@ def test_the_stamp_write_is_atomic_and_leaves_no_temporary(tmp_path):
     write_scheduled_run_ts(str(p), 2.0)
     assert json.loads(p.read_text(encoding="utf-8"))["last_scheduled_run_ts"] == 2.0
     assert [f for f in os.listdir(tmp_path) if ".tmp" in f] == []
+
+
+# --------------------------------------------------------------------------- #
+# Which file formats are emailed
+# --------------------------------------------------------------------------- #
+
+def test_the_format_defaults_to_both():
+    from notify_bridge import resolve_report_format
+    assert resolve_report_format({}) == "both"
+
+
+def test_an_unknown_format_falls_back_to_both():
+    """Falling back to both is the safe direction: the operator still receives
+    the report rather than silently receiving nothing."""
+    from notify_bridge import resolve_report_format
+    assert resolve_report_format({"notify_report_format": "pdf"}) == "both"
+    assert resolve_report_format({"notify_report_format": None}) == "both"
+
+
+def test_the_format_tolerates_case_and_whitespace():
+    from notify_bridge import resolve_report_format
+    assert resolve_report_format({"notify_report_format": "  HTML "}) == "html"
+
+
+def test_html_only_sends_one_email(tmp_path):
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run",
+                             "notify_report_format": "html"}, w, is_scheduled=False)
+    assert out["sent"] == 1
+    assert spy.calls[0]["attachment"] == w["html_path"]
+
+
+def test_csv_only_sends_one_email(tmp_path):
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run",
+                             "notify_report_format": "csv"}, w, is_scheduled=False)
+    assert out["sent"] == 1
+    assert spy.calls[0]["attachment"] == w["csv_path"]
+
+
+def test_both_sends_two_emails(tmp_path):
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run",
+                             "notify_report_format": "both"}, w, is_scheduled=False)
+    assert out["sent"] == 2
+    assert sorted(c["attachment"] for c in spy.calls) == sorted(
+        [w["html_path"], w["csv_path"]])
+
+
+def test_the_format_does_not_override_the_other_gates(tmp_path):
+    """Choosing a format is not a way to switch notifications on."""
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    out = emit_reports(spy, {"notify_enabled": False, "notify_report_on": "every_run",
+                             "notify_report_format": "html"},
+                       _written(tmp_path), is_scheduled=False)
+    assert out["sent"] == 0
+    assert spy.calls == []

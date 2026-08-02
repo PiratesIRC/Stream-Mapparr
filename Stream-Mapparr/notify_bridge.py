@@ -22,6 +22,11 @@ SCHEDULED_RUN_FILE = "/data/stream_mapparr_scheduled_run.json"
 _TRIGGERS = ("never", "scheduled", "every_run")
 _DEFAULT_TRIGGER = "scheduled"
 
+# Which report files are emailed. A notification carries ONE attachment, so
+# "both" means two emails per run and either single format means one.
+_FORMATS = ("html", "csv", "both")
+_DEFAULT_FORMAT = "both"
+
 # The plugin key. Newsflasharr routing and deduplication both key on it, so it
 # must stay stable.
 SOURCE = "stream-mapparr"
@@ -100,6 +105,21 @@ def resolve_report_trigger(settings):
     return value if value in _TRIGGERS else _DEFAULT_TRIGGER
 
 
+def resolve_report_format(settings):
+    """Return "html", "csv" or "both", never anything else.
+
+    An unrecognised or missing value resolves to "both". That is the safe
+    direction here: the operator still receives the report rather than silently
+    receiving nothing, which is what falling back to a single format could do if
+    that format later failed to render.
+    """
+    value = (settings or {}).get("notify_report_format", _DEFAULT_FORMAT)
+    if not isinstance(value, str):
+        return _DEFAULT_FORMAT
+    value = value.strip().lower()
+    return value if value in _FORMATS else _DEFAULT_FORMAT
+
+
 def should_emit(settings, is_scheduled):
     """Return (bool, reason). The reason is operator-readable when False."""
     if not is_enabled(settings):
@@ -137,7 +157,10 @@ def emit_reports(notify_fn, settings, written, *, is_scheduled):
         if written.get("error"):
             result["skipped_reason"] = written["error"]
             return result
+        wanted = resolve_report_format(settings)
         for key, label in (("html_path", "HTML report"), ("csv_path", "CSV report")):
+            if wanted != "both" and not key.startswith(wanted):
+                continue
             path = written.get(key)
             if not path or not os.path.isfile(path):
                 continue
