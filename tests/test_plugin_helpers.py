@@ -284,7 +284,9 @@ def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matche
     ]
     ordered = p._order_streams_for_zone(streams, 'WEST')
     assert ordered[0]['id'] == 12    # WEST promoted to primary
-    assert ordered[-1]['id'] == 10   # EAST demoted to last (fallback)
+    # 2026-08-02: the opposite zone is now DROPPED, not demoted, so the EAST feed
+    # is gone entirely and the unmarked one is the only fallback left.
+    assert [s['id'] for s in ordered] == [12, 11]
 
 
 def test_channels_to_update_includes_each_zone_sibling(plugin_module):
@@ -311,7 +313,8 @@ def test_streams_for_channel_reorders_only_routed(plugin_module, matcher):
     p.fuzzy_matcher = matcher()
     streams = [{'id': 1, 'name': 'X EAST'}, {'id': 2, 'name': 'X WEST'}]
     routed = p._streams_for_channel(streams, 5, {5: 'WEST'})
-    assert [s['id'] for s in routed] == [2, 1]                  # West first
+    # 2026-08-02: the EAST feed is dropped from a WEST channel, not just demoted.
+    assert [s['id'] for s in routed] == [2]
     assert p._streams_for_channel(streams, 5, {}) is streams    # non-routed unchanged
 
 

@@ -1,5 +1,30 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141602 (August 2, 2026)
+
+### Changed
+- **A channel no longer receives streams from the opposite time zone at all.** Before,
+  a plain-named channel such as HBO was given every HBO West stream as well, ordered
+  below the East ones as backups. That only mattered when every East feed failed:
+  Dispatcharr would work down the list, reach HBO West, and play a film three hours
+  behind. For a movie channel that is a different programme, not a brief glitch.
+
+  A plain or East channel now gets East and unmarked feeds only. A West channel gets
+  West and unmarked feeds only. Unmarked feeds are kept for both, so neither side is
+  left short when a provider does not label its zones.
+
+  One exception, and it is logged when it happens: if excluding would leave a channel
+  with no streams at all, the streams are kept. Match and Assign replaces a channel's
+  whole stream list, so emptying it would take the channel off the air, which is worse
+  than the problem being solved.
+
+  Measured effect on one real lineup of 77 movie channels: HBO drops from 18 streams to
+  9, Cinemax from 21 to 12, STARZ from 12 to 9, Starz Encore from 18 to 12. Every one
+  keeps several same-zone feeds across multiple sources, so failover still works.
+
+  **This changes behaviour for existing installations.** If you would rather keep
+  opposite-zone feeds as last-resort backups, say so and it can be made a setting.
+
 ## v1.26.2141551 (August 2, 2026)
 
 ### Fixed

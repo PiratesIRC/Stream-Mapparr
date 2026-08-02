@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2141551"
+    PLUGIN_VERSION = "1.26.2141602"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2632,9 +2632,29 @@ class Plugin:
         """
         if not self.fuzzy_matcher or not matched_streams:
             return matched_streams
+
+        # Drop the OPPOSITE zone outright rather than ranking it last. A plain
+        # named channel is its East or national feed, and a West feed on it is
+        # three hours behind: if every East feed fails, Dispatcharr walks down
+        # the list and plays a different programme rather than showing a glitch.
+        # An unmarked feed is kept for either zone, so neither side is left with
+        # nothing when only generic feeds exist.
+        opposite = 'EAST' if channel_zone == 'WEST' else 'WEST'
+        kept = [s for s in matched_streams
+                if self.fuzzy_matcher.extract_zone(s.get('name', '')) != opposite]
+        if not kept:
+            # Match and Assign REPLACES a channel's whole stream list, so
+            # dropping everything takes the channel off the air. Keeping the
+            # wrong-zone feed is the lesser harm here, and it is said out loud
+            # rather than done quietly.
+            LOGGER.warning(
+                f"[Stream-Mapparr] Every matched stream for a {channel_zone} channel is "
+                f"{opposite} zone; keeping them rather than leaving the channel with none")
+            kept = list(matched_streams)
+
         ids = same_country_ids or set()
         return sorted(
-            matched_streams,
+            kept,
             key=lambda s: (
                 0 if id(s) in ids else 1,
                 _zone_affinity_rank(channel_zone, self.fuzzy_matcher.extract_zone(s.get('name', ''))),

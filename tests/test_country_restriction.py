@@ -438,7 +438,11 @@ def test_country_tier_outranks_zone_affinity(plugin_module):
     same_west = {"id": 2, "name": "US: Starz Encore (W)", "m3u_account": 1, "url": "u2"}
     out = inst._order_streams_for_zone(
         [same_west, unknown_generic], "DEFAULT", same_country_ids={id(same_west)})
-    assert [s["id"] for s in out] == [2, 1]
+    # The West feed is now dropped from a DEFAULT channel even though its country
+    # was proven, because it is still the wrong time zone. The country tier can
+    # only order what survives the zone filter, so a proven same-country WEST
+    # feed no longer beats an unproven generic here: it is not offered at all.
+    assert [s["id"] for s in out] == [1]
 
 
 def test_zone_order_unchanged_when_no_country_ids(plugin_module):
@@ -446,7 +450,8 @@ def test_zone_order_unchanged_when_no_country_ids(plugin_module):
     generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
     west = {"id": 2, "name": "Starz Encore (W)", "m3u_account": 1, "url": "u2"}
     out = inst._order_streams_for_zone([west, generic], "DEFAULT", same_country_ids=None)
-    assert [s["id"] for s in out] == [1, 2]
+    # West dropped from a DEFAULT channel; only the generic feed remains.
+    assert [s["id"] for s in out] == [1]
 
 
 def test_assignment_path_preserves_country_order_over_zone(plugin_module):
@@ -459,7 +464,9 @@ def test_assignment_path_preserves_country_order_over_zone(plugin_module):
         {"id": 9, "name": "Starz Encore", "channel_group__name": "USA: Movies"},
         [generic, same_west], [], LOGGER, True)
     out = inst._streams_for_channel([generic, same_west], 9, {9: "DEFAULT"}, ids)
-    assert [s["id"] for s in out] == [2, 1]
+    # The call site still passes the country ids, which is what this guards. The
+    # West feed is dropped by the zone filter before the country tier applies.
+    assert [s["id"] for s in out] == [1]
 
 
 def test_same_country_ids_for_returns_none_on_ambiguous_database_no_tiebreak(plugin_module):
@@ -744,7 +751,8 @@ def test_setting_off_order_streams_for_zone_unchanged(plugin_module):
     generic = {"id": 1, "name": "Starz Encore", "m3u_account": 1, "url": "u1"}
     west = {"id": 2, "name": "Starz Encore (W)", "m3u_account": 1, "url": "u2"}
     out = inst._order_streams_for_zone([west, generic], "DEFAULT", same_country_ids=None)
-    assert [s["id"] for s in out] == [1, 2]
+    # West dropped from a DEFAULT channel, so only the generic feed remains.
+    assert [s["id"] for s in out] == [1]
 
 
 def test_setting_off_same_country_ids_for_returns_none(plugin_module):
