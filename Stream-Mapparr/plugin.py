@@ -436,6 +436,11 @@ class PluginConfig:
     DEFAULT_DEMOTE_CONTENT_STARVED = True
     DEFAULT_CONTENT_BITRATE_FLOOR_KBPS = 300   # Below this while claiming >= 720p
     CONTENT_STARVED_MIN_HEIGHT = 720           # Floor only applies at 720p and above
+    # Marker shown in the CSV export and the emailed report, so a demotion is
+    # visible rather than silent. Plain ASCII on purpose: the CSV is opened in
+    # spreadsheets and the report is emailed, and neither is a safe place for a
+    # character that may not survive an encoding round trip.
+    CONTENT_STARVED_LABEL = "placeholder"
 
     # Nominal bitrate (Mbps) heuristics keyed by (height_bucket, fps_band).
     # These are coarse — only used to decide if a measured throughput is "enough".
@@ -3180,6 +3185,30 @@ class Plugin:
         if best is None:
             return False
         return best < float(floor_kbps)
+
+    def _stream_tier_label(self, stream, cache, margin):
+        """The per-stream label written into the CSV export's `tiers` column.
+
+        A stream proven to carry too little video for the resolution it claims
+        reports as a placeholder rather than as a throughput tier, because that
+        is the reason it was moved and the throughput tier would say nothing
+        useful about it. Everything else reports its throughput tier exactly as
+        before.
+
+        The placeholder label is only ever shown when the demotion setting is
+        on. With the setting off nothing was moved, so describing a stream as a
+        placeholder in the export would be reporting an action that did not
+        happen.
+        """
+        if getattr(self, '_content_starved_enabled',
+                   PluginConfig.DEFAULT_DEMOTE_CONTENT_STARVED):
+            floor = getattr(self, '_content_starved_floor_kbps',
+                            PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS)
+            if self._is_content_starved(stream, floor):
+                return PluginConfig.CONTENT_STARVED_LABEL
+        rank = self._classify_stream_throughput(stream, cache, margin)
+        return {0: 'healthy', 1: 'marginal', 2: 'unknown',
+                3: 'insufficient'}.get(rank, 'unknown')
 
     def _classify_stream_throughput(self, stream, cache, margin):
         """Return tier rank: 0=healthy, 1=marginal, 2=unknown, 3=insufficient.
@@ -6474,14 +6503,24 @@ class Plugin:
                 _bridge = self._notify_bridge()
                 _allowed, _skip_reason = _bridge.should_emit(settings, is_scheduled)
                 if _allowed:
+                    # issue 40: resolved from the LIVE settings dict rather than
+                    # read off the instance, because this action does not
+                    # necessarily prime that state and a getattr default would
+                    # decide silently (bug-139).
+                    _starve_on = self._resolve_demote_content_starved(settings)
+                    _starve_floor = self._resolve_content_starved_floor(settings)
                     report_channels = []
                     for _group_key, _cache_entry in group_match_cache.items():
                         _matched = _cache_entry['matched_streams']
+                        _flagged = ([s['name'] for s in _matched
+                                     if self._is_content_starved(s, _starve_floor)]
+                                    if _starve_on else [])
                         for _channel in _cache_entry['channels_to_update']:
                             report_channels.append({
                                 'channel_name': _channel['name'],
                                 'matched': len(_matched),
                                 'stream_names': [s['name'] for s in _matched],
+                                'placeholder_streams': _flagged,
                             })
                     account_names = [m['name'] for m in self._get_all_m3u_accounts(logger)
                                      if m.get('name')]
@@ -7177,12 +7216,16 @@ class Plugin:
                     cache_for_csv = getattr(self, '_throughput_cache', None) or {}
                     margin_for_csv = float(getattr(self, '_bitrate_safety_margin',
                                                    PluginConfig.DEFAULT_BITRATE_SAFETY_MARGIN))
-                    tier_label = {0: 'healthy', 1: 'marginal', 2: 'unknown', 3: 'insufficient'}
-                    tiers, mbps_list, edges = [], [], []
+                    tiers, mbps_list, edges, placeholders = [], [], [], []
                     for s in sorted_streams:
-                        rank = self._classify_stream_throughput(s, cache_for_csv, margin_for_csv)
+                        # issue 40: a stream demoted for carrying too little
+                        # video reports as a placeholder here, so the export
+                        # shows the reason next to the position.
+                        label = self._stream_tier_label(s, cache_for_csv, margin_for_csv)
                         entry = cache_for_csv.get(str(s.get('id'))) or {}
-                        tiers.append(tier_label.get(rank, 'unknown'))
+                        tiers.append(label)
+                        if label == PluginConfig.CONTENT_STARVED_LABEL:
+                            placeholders.append(s.get('name'))
                         mbps_val = entry.get('throughput_mbps')
                         mbps_list.append(f"{float(mbps_val):.2f}" if mbps_val is not None else "")
                         edges.append(entry.get('edge_ip') or "")
@@ -7195,6 +7238,7 @@ class Plugin:
                         'tiers': tiers,
                         'throughput_mbps': mbps_list,
                         'edge_ips': edges,
+                        'placeholder_streams': placeholders,
                     })
                     
                     # Apply changes if not dry run

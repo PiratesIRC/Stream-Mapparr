@@ -28,6 +28,12 @@ import time
 
 # Reports are written here, deliberately NOT under /data/logos: Dispatcharr's
 # nginx serves that tree unauthenticated to the entire local network.
+# Marker appended to a stream name that was demoted for carrying too little
+# video for the resolution it claims (issue 40). Kept in step with
+# PluginConfig.CONTENT_STARVED_LABEL, and plain ASCII because this report is
+# emailed and rendered as both HTML and CSV.
+PLACEHOLDER_LABEL = "placeholder"
+
 REPORT_DIR = "/data/stream_mapparr_reports"
 
 # How many of each file type to keep. Newsflasharr re-reads an attachment path
@@ -144,6 +150,19 @@ def build_model(channels, account_names, settings, now):
                 "stream_names must be a list, not the joined string the CSV "
                 "export builds. Pass the raw matched stream names.")
         names = [_scrub(s, account_names) for s in raw]
+        # issue 40. A stream demoted for carrying too little video for the
+        # resolution it claims is marked, so the demotion is visible instead of
+        # silent. Marking happens AFTER scrubbing, and the flagged names are
+        # scrubbed the same way before comparison, so the account-name removal
+        # is not defeated by comparing a raw name against a cleaned one. The
+        # account name is a provider hostname and must never reach an email.
+        raw_flagged = row.get("placeholder_streams") or []
+        if isinstance(raw_flagged, str):
+            raw_flagged = [raw_flagged]
+        flagged = {_scrub(s, account_names) for s in raw_flagged}
+        if flagged:
+            names = [f"{n} [{PLACEHOLDER_LABEL}]" if n in flagged else n
+                     for n in names]
         entries.append({
             "channel_name": _scrub(row.get("channel_name"), account_names),
             # The count is what was actually assigned, so it counts every

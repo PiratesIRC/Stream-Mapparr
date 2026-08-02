@@ -1,5 +1,55 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141815 (August 2, 2026)
+
+### Added
+- **Placeholder streams that claim HD but carry almost no video are now ranked
+  last.** Providers serve looping slates, black screens and static cards that
+  report 1080p in their stats while carrying roughly 190 kbps of actual picture.
+  Nothing demoted these before, so one could sit at the front of a channel and
+  play a still image while a working alternative waited behind it.
+
+  Neither existing mechanism could catch this. The quality sort ranks on claimed
+  resolution and frame rate, so a placeholder wins on its claim. The throughput
+  probe and its Bitrate Safety Margin measure how fast the bytes arrive against
+  the bitrate expected for the claimed resolution, and a tiny payload arrives
+  many times faster than realtime, so the probe rates a placeholder healthy. No
+  adjustment to that setting would help, because it is not measuring the amount
+  of picture.
+
+  Two new settings control it. Demote Placeholder Streams turns the rule on or
+  off, and defaults to on. Placeholder Bitrate Floor (kbps) sets the threshold,
+  and defaults to 300. The floor only applies to streams claiming 720p or
+  higher, so ordinary standard definition content is never checked.
+
+  Three deliberate choices make a wrong demotion less likely than a missed one.
+  The evidence has to be positive, so a stream with no stats, no height or no
+  measured bitrate is never demoted. Where a stream records two different
+  bitrate figures, the higher one is used, so a disagreement between them keeps
+  the stream rather than dropping it. And streams are only moved down the order,
+  never removed, because Match and Assign replaces a channel's whole stream list
+  and removing one can take a channel off air.
+
+  Measured against one real lineup of 5,311 streams carrying usable statistics:
+  at 720p the fifth percentile of measured video bitrate is 1,078 kbps and the
+  median is 3,193, so a 300 kbps floor sits far below anything normal. A
+  per-resolution floor table was tested and would have flagged one additional
+  stream across the whole database, so a single floor is used instead.
+
+- **A demoted stream is now visible rather than silent.** The CSV export written
+  by Sort Alternate Streams shows `placeholder` in its per-stream `tiers` column,
+  and the emailed report marks the stream name. Without this a stream moved to
+  the back of a channel with nothing anywhere saying why.
+
+### Changed
+- The bundled notification client moves to 1.2.0. Its redaction now removes the
+  host and the stream id from a provider URL, not only the username and
+  password. A URL of the form `http://host/live/user/pass/605881.ts` previously
+  became `http://host/live/<redacted>/<redacted>/605881.ts`, which still named
+  the provider's edge host and the stream. The scheme, the path segments and the
+  file extension are kept so a reader can still tell what was removed. Links to
+  documentation and issues are left intact.
+
 ## v1.26.2141627 (August 2, 2026)
 
 ### Fixed
