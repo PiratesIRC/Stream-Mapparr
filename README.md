@@ -298,6 +298,11 @@ is not affiliated with, endorsed by, or sponsored by any television network, bro
 streaming service or IPTV provider, and it is not affiliated with the Dispatcharr project beyond
 being a plugin written for it.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up, run the tests, and what
+runs on a pull request.
+
 ## Security
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not include provider

@@ -1,15 +1,22 @@
-# Fails a pull request that would publish a provider hostname, an M3U account
-# suffix, a LAN address or a personal path. The repository is public, and every
-# real leak here has been in that category rather than the cloud-token category
-# a generic scanner looks for, which is why .publish-audit.json carries a
+# Fails when the tree would publish a provider hostname, an M3U account suffix,
+# a LAN address or a personal path. The repository is public, and every real leak
+# here has been in that category rather than the cloud-token category a generic
+# scanner looks for, which is why .publish-audit.json carries a
 # repository-specific deny list.
 #
-# The audit script lives in the workspace this repository is developed in and is
-# not committed here, so the job is skipped when it is absent. That keeps the
-# workflow honest: it never reports success for a check it did not run.
+# The rules are applied inline below rather than by the workspace audit script,
+# which is not committed here. That is deliberate: the script only applies the
+# repository-specific rules when it is given --rules on the command line, and a
+# workflow that forgot the flag would pass while checking almost nothing.
+#
+# The push trigger is load bearing. This originally ran on pull requests only,
+# and the maintainer pushes to main directly, so across its first 11 runs it had
+# checked nothing but Dependabot branches. Every direct push had gone unaudited.
 name: Publish audit
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
