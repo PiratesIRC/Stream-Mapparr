@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2141526"
+    PLUGIN_VERSION = "1.26.2141551"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -369,10 +369,29 @@ class PluginConfig:
     OPERATION_LOCK_TIMEOUT_MINUTES = 10  # Lock expires after 10 minutes (in case of errors)
 
     # === PROGRESS TRACKING SETTINGS ===
-    # Avg wall-clock per channel-group during matching (observed: 18 groups / 19k streams
-    # with rapidfuzz + normalization cache ≈ 14s → ~0.8s/group). The estimate scales
-    # with stream pool size; 0.8s is tuned for the common "all streams" case.
+    # Matching walks the whole stream pool once per channel group, so the work is
+    # groups TIMES streams. An earlier model used groups alone at 0.8s each, which
+    # therefore degraded as the pool grew: it was 3.4x low on a 1,670-stream pool
+    # and 39x low on a 19,493-stream one (35s predicted against 1382s measured).
+    #
+    # One rate explains every measurement taken so far:
+    #
+    #   groups  streams   measured
+    #       13    ~1670      35.0s
+    #       29    ~1670      78.0s
+    #       44    19493    1382.1s
+    #
+    # Fitting on the largest run gives 1.61 s per group per 1000 streams, and
+    # applying that backwards implies pools of 1,671 and 1,669 for the two
+    # historical runs, which agree with each other as they should.
+    #
+    # This is the FALLBACK only. _observed_rate replaces it with a rate measured
+    # on this installation as soon as one run has completed, because the matcher's
+    # speed depends on the machine and on the shape of the channel names.
+    ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS = 1.61
+    # Retained: the throughput probe paces itself per stream, not per group.
     ESTIMATED_SECONDS_PER_ITEM = 0.8
+    RUN_TIMING_FILE = "/data/stream_mapparr_run_timing.json"
 
     # === SYNC vs BACKGROUND DISPATCH (bug-117) ===
     # Dispatcharr's uWSGI runs `gevent = 400` with `gevent-early-monkey-patch = true`,
@@ -489,12 +508,31 @@ def _eta_from_progress(elapsed, progress):
     return elapsed * (100 - progress) / progress if 0 < progress < 100 else 0
 
 
+def estimate_run_seconds(groups, streams, rate=None):
+    """Predict how long a matching run will take, in seconds.
+
+    Matching walks the stream pool once per channel group, so the work is the
+    PRODUCT of the two, not the group count alone. `rate` is seconds per group
+    per 1000 streams; when None the shipped fallback is used. Never raises and
+    never returns a negative number: the result feeds the sync-versus-background
+    dispatch decision, and a bad value there freezes a worker.
+    """
+    try:
+        g = max(0, int(groups or 0))
+        s = max(0, int(streams or 0))
+    except (TypeError, ValueError):
+        return 0.0
+    if rate is None:
+        rate = PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS
+    return g * (s / 1000.0) * float(rate)
+
+
 class ProgressTracker:
     """
     Tracks operation progress with ETA calculation and periodic updates.
     Provides minute-by-minute progress reporting with estimated time remaining.
     """
-    def __init__(self, total_items, action_id, logger, context=None, send_progress_callback=None, plugin=None):
+    def __init__(self, total_items, action_id, logger, context=None, send_progress_callback=None, plugin=None, stream_count=None):
         """
         Initialize progress tracker.
         
@@ -516,6 +554,11 @@ class ProgressTracker:
         if plugin is not None:
             plugin._op_total_items = total_items
 
+        # Kept for record_timing, which reports the run's real cost back so the
+        # next estimate is calibrated on this installation rather than shipped.
+        self.plugin = plugin
+        self.stream_count = stream_count
+
         # Time tracking
         self.start_time = time.time()
         self.last_update_time = self.start_time
@@ -530,12 +573,37 @@ class ProgressTracker:
         self.base_progress_start = 0
         self.base_progress_end = 100
         
-        # Calculate initial ETA based on historical average
-        initial_eta_seconds = total_items * PluginConfig.ESTIMATED_SECONDS_PER_ITEM
+        # Opening estimate. When the caller passes the stream pool this uses the
+        # same model as the dispatcher, so the toast and View Check Progress no
+        # longer disagree: the toast used to say 30 seconds for a run the live
+        # ETA then reported as 30 minutes, because this line multiplied the
+        # group count by a flat per-group constant and ignored the pool.
+        if stream_count:
+            rate = plugin._observed_rate(PluginConfig.RUN_TIMING_FILE) if plugin else None
+            initial_eta_seconds = estimate_run_seconds(total_items, stream_count, rate=rate)
+        else:
+            initial_eta_seconds = total_items * PluginConfig.ESTIMATED_SECONDS_PER_ITEM
         initial_eta_str = self._format_eta(initial_eta_seconds)
         
         self.logger.info(f"[Stream-Mapparr] {action_id}: Starting to process {total_items} items (estimated ~{initial_eta_str})")
     
+    def record_timing(self):
+        """Hand the run's real cost to the plugin so the next estimate improves.
+
+        Called when the run completes. Never raises: this is diagnostics, and a
+        failure here must not turn a finished run into a failed one.
+        """
+        try:
+            if self.plugin is None or not self.stream_count:
+                return
+            self.plugin._record_run_timing(
+                PluginConfig.RUN_TIMING_FILE,
+                groups=self.total_items,
+                streams=self.stream_count,
+                duration=time.time() - self.start_time)
+        except Exception:
+            pass
+
     def set_progress_range(self, start, end):
         """
         Set the progress range for this tracker within the overall operation.
@@ -4704,6 +4772,48 @@ class Plugin:
         padded_eta = eta_seconds * PluginConfig.ETA_SAFETY_FACTOR
         return padded_eta < PluginConfig.SYNC_THRESHOLD_SECONDS
 
+    # ── Run timing, so the estimate calibrates itself ──────────────────────
+    # The shipped rate was fitted on one installation. The matcher's speed
+    # depends on the machine and on the shape of the channel names, so a rate
+    # measured HERE beats one fitted elsewhere as soon as one run has finished.
+
+    def _record_run_timing(self, path, groups, streams, duration):
+        """Record what a completed run actually cost. Never raises: timing is
+        diagnostics and must not break the run it measures."""
+        tmp = f"{path}.tmp-{os.getpid()}"
+        try:
+            groups, streams, duration = int(groups), int(streams), float(duration)
+            if groups <= 0 or streams <= 0 or duration <= 0:
+                return  # nothing to learn from
+            rate = duration / (groups * (streams / 1000.0))
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"groups": groups, "streams": streams,
+                           "duration_seconds": round(duration, 1),
+                           "seconds_per_group_per_1k_streams": round(rate, 4),
+                           "recorded_at": time.time()}, f)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+
+    def _observed_rate(self, path):
+        """Return the rate measured on this installation, or None.
+
+        None means "use the shipped fallback". Returning zero instead would make
+        every estimate zero, which would send a long job down the synchronous
+        path and freeze a worker.
+        """
+        try:
+            with open(path, encoding="utf-8") as f:
+                rate = float(json.load(f).get("seconds_per_group_per_1k_streams"))
+            # A run cut short, or one that sat behind a lock, would otherwise
+            # poison every future estimate. Bracket it rather than trust it.
+            return rate if 0.01 <= rate <= 1000.0 else None
+        except Exception:
+            return None
+
     def _estimate_eta_seconds(self, settings, logger):
         """Estimate runtime of a matching action in seconds.
 
@@ -4736,7 +4846,10 @@ class Plugin:
                         processed_data.get('ignore_misc', True),
                     )
                 seen.add(key)
-            return len(seen) * PluginConfig.ESTIMATED_SECONDS_PER_ITEM
+            streams = len(processed_data.get('streams', []))
+            return estimate_run_seconds(
+                len(seen), streams,
+                rate=self._observed_rate(PluginConfig.RUN_TIMING_FILE))
         except Exception as e:
             logger.debug(f"[Stream-Mapparr] Could not estimate ETA: {e}")
             return None
@@ -5722,6 +5835,7 @@ class Plugin:
             # Initialize progress tracker for channel group processing
             progress_tracker = ProgressTracker(
                 total_items=len(channel_groups),
+                stream_count=len(streams),
                 action_id="preview_changes",
                 logger=logger,
                 context=context,
@@ -5832,6 +5946,9 @@ class Plugin:
                         "is_current": True
                     })
 
+            # Report the run's real cost, so the next estimate is calibrated
+            # on this installation rather than on a shipped constant.
+            progress_tracker.record_timing()
             # Log channel group statistics
             logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
             for group_key, stats in list(group_stats.items())[:10]:  # Log first 10 groups
@@ -6066,6 +6183,7 @@ class Plugin:
             # Initialize progress tracker for channel group processing
             progress_tracker = ProgressTracker(
                 total_items=len(channel_groups),
+                stream_count=len(streams),
                 action_id="add_streams_to_channels",
                 logger=logger,
                 context=context,
@@ -6171,6 +6289,9 @@ class Plugin:
                 # Update progress tracker (automatically sends updates every minute with ETA)
                 progress_tracker.update(items_processed=1)
 
+            # Report the run's real cost, so the next estimate is calibrated
+            # on this installation rather than on a shipped constant.
+            progress_tracker.record_timing()
             # Log channel group statistics
             logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
             for group_key, stats in list(group_stats.items())[:10]:  # Log first 10 groups

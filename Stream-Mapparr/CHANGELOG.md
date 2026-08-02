@@ -1,5 +1,28 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141551 (August 2, 2026)
+
+### Fixed
+- **The time estimate shown when you start a run was wildly optimistic, and disagreed
+  with the one View Check Progress showed a moment later.** A real run reported about
+  30 seconds up front and about 30 minutes once it was underway. It took 23 minutes.
+
+  The estimate multiplied the number of channel groups by a flat 0.8 seconds and
+  ignored how many streams it had to search. Matching walks the whole stream pool once
+  per channel group, so the work is groups TIMES streams. With a small pool the old
+  figure was about 3 times low; with a 19,493-stream pool it was 39 times low.
+
+  The estimate now uses both numbers. On the run above it predicts 1381 seconds against
+  a measured 1382. The opening message and View Check Progress now use the same model,
+  so they agree.
+
+- **The estimate now calibrates itself.** Each completed run records what it actually
+  cost, and the next estimate uses that rate instead of the shipped default. Matching
+  speed depends on your machine and on the shape of your channel names, so a figure
+  measured on your installation beats one fitted on someone else's. An implausible
+  measurement, from a run cut short or one that waited behind a lock, is ignored rather
+  than allowed to spoil later estimates.
+
 ## v1.26.2141526 (August 2, 2026)
 
 ### Changed
