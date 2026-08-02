@@ -120,6 +120,11 @@ def test_an_unmarked_name_is_default(fuzzy_module):
 
 def test_a_trailing_decorator_does_not_hide_the_marker(fuzzy_module):
     """Providers append superscript and symbol decorations. Those must not stop
-    a real marker being seen as the last meaningful word."""
-    assert _extract(fuzzy_module, "UK: BBC ONE WEST ◉") == "WEST"
+    a real marker being seen as the last meaningful word.
+
+    The example used to be "UK: BBC ONE WEST", which is no longer a zone at all:
+    the UK has one time zone, so its East and West are regions. See
+    tests/test_zone_single_timezone.py. A US name is used instead, where the
+    marker really is a time-shifted feed."""
     assert _extract(fuzzy_module, "US: ANIMAL PLANET WEST ᴿᴬᵂ") == "WEST"
+    assert _extract(fuzzy_module, "US: STARZ WEST ◉") == "WEST"

@@ -1,5 +1,23 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2141627 (August 2, 2026)
+
+### Fixed
+- **East and West are only treated as time zones for countries that have more than
+  one.** "BBC ONE WEST" is one of the BBC's English regions, sitting in a set with
+  East, South East, South West, North West, West Midlands, East Midlands, Yorkshire
+  and London. The UK has a single time zone, so none of those is a time-shifted feed
+  and none should be removed from a channel as though it were.
+
+  Measured on one real lineup: the stream pool holds 36 distinct BBC One regional
+  names, and the plain BBC One channel had been given both BBC ONE EAST and BBC ONE
+  WEST. A rule that knows nothing about countries deletes one of those and keeps the
+  other, which is arbitrary because neither is a time shift.
+
+  Countries that really do run time-shifted feeds, including the United States and
+  Canada, are unaffected. A name with no country marker is also unaffected, so a
+  typical US lineup behaves exactly as before.
+
 ## v1.26.2141610 (August 2, 2026)
 
 ### Fixed

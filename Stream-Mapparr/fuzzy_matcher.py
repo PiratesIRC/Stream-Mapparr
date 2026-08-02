@@ -74,6 +74,46 @@ _ZONE_PACIFIC_RE = re.compile(
     r'\(\s*PACIFIC\s*\)|\(\s*PT\s*\)|\bPACIFIC\b' + _ZONE_STANDALONE, re.IGNORECASE)
 
 
+# East and West only mean a TIME ZONE in a country that has more than one. The
+# UK has a single one, so "BBC ONE WEST" is one of the BBC's English regions,
+# sitting in a set with East, South East, North West, West Midlands and the rest.
+# Dropping it from a channel as though it were a time-shifted feed would be
+# wrong, and arbitrary: measured on a live installation, the plain "BBC One"
+# channel had been given both BBC ONE EAST and BBC ONE WEST, and a country-blind
+# rule deletes one and keeps the other for no reason.
+#
+# Listed by exclusion rather than inclusion: a country marker this set does not
+# recognise still gets zone detection, so an unprefixed name (most of a US
+# lineup) behaves exactly as before.
+_SINGLE_TIMEZONE_COUNTRIES = frozenset({
+    "UK", "IE", "DE", "FR", "NL", "BE", "ES", "IT", "PT", "AT", "CH",
+    "SE", "NO", "DK", "FI", "PL", "CZ", "GR", "TR", "IN", "ZA",
+})
+
+
+def _country_has_one_timezone(name):
+    """True when the name carries a country marker for a single-time-zone
+    country, so East and West on it are regions rather than feeds.
+
+    Never raises: country detection is optional here and a failure must fall
+    through to the ordinary zone rules rather than break matching.
+    """
+    try:
+        from . import country as _country_mod
+    except ImportError:
+        try:
+            import country as _country_mod
+        except Exception:
+            return False
+    except Exception:
+        return False
+    try:
+        code = _country_mod.country_from_name(name)
+    except Exception:
+        return False
+    return code in _SINGLE_TIMEZONE_COUNTRIES
+
+
 class FuzzyMatcher(FuzzyMatcherCore):
     """Stream-Mapparr matcher: the shared pure core (FuzzyMatcherCore) plus this
     plugin's layer — channel/broadcast DB loading, zone expansion, and the matching
@@ -417,6 +457,8 @@ class FuzzyMatcher(FuzzyMatcherCore):
         (conventionally the East/primary feed in US lineups).
         """
         n = name or ''
+        if _country_has_one_timezone(n):
+            return 'DEFAULT'
         if _ZONE_WEST_RE.search(n) or _ZONE_PACIFIC_RE.search(n):
             return 'WEST'
         if _ZONE_EAST_RE.search(n):
