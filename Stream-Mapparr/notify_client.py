@@ -17,7 +17,7 @@ import time
 import types
 
 SCHEMA_V = 1
-CLIENT_VERSION = "1.1.0"
+CLIENT_VERSION = "1.2.0"
 DEFAULT_BASE = "/data/newsflasharr"
 MAX_BODY_BYTES = 65536
 MAX_SPOOL_FILES = 1000
@@ -34,6 +34,55 @@ _QUERY_CREDS_RE = re.compile(r"([?&](?:username|user|password|pass)=)[^&\s]+",
 _BASIC_AUTH_RE = re.compile(r"(://)[^/\s@]+:[^/\s@]+(@)")
 _SOURCE_RE = re.compile(r"[^a-z0-9_-]")
 
+# Stripping the username and password out of a provider URL leaves the edge
+# hostname and the numeric stream id, and both identify the operator's provider
+# account to anyone reading a Discord message or an email. Those are removed too.
+#
+# The rewrite is scoped to URLs, never to free text, and that scoping is the
+# whole safety argument. A rule that hunts for bare hostnames in prose needs a
+# curated top-level-domain allowlist, a file-extension denylist, a two-label
+# minimum and public-suffix handling, because .ts, .sh, .zip and .mov are all
+# real top-level domains. A host sitting between "://" and the next "/" needs
+# none of that, because the URL syntax has already identified it.
+_URL_RE = re.compile(
+    r"(?P<scheme>[a-z][a-z0-9+.\-]*)://(?P<authority>[^/\s?#]*)"
+    r"(?P<path>[^\s?#]*)(?P<query>[?#][^\s]*)?",
+    re.IGNORECASE)
+
+# A URL is treated as media, and therefore rewritten, on either signal: a
+# provider path segment, or a streaming file extension. Anything else is left
+# alone, because destroying a link to documentation or to an issue makes
+# notifications less useful while protecting nothing.
+_MEDIA_PATH_RE = re.compile(r"/(?:live|movie|series)/", re.IGNORECASE)
+_MEDIA_EXT_RE = re.compile(
+    r"\.(?:ts|m3u8|m3u|mp4|mkv|avi|flv|m4v|mov|mpd|mpg|mpeg|wmv)$",
+    re.IGNORECASE)
+
+
+def _redact_media_url(match):
+    """Rewrite one URL if it looks like media, otherwise return it unchanged.
+
+    The scheme, the /live/ style path segments and the file extension survive,
+    so a reader can still tell what kind of value was removed. The authority,
+    which carries any host, port and remaining userinfo, and the final path
+    segment, which carries the stream id, do not.
+    """
+    whole = match.group(0)
+    path = match.group("path") or ""
+    if not (_MEDIA_PATH_RE.search(path) or _MEDIA_EXT_RE.search(path)):
+        return whole
+
+    segments = path.split("/")
+    last = segments[-1]
+    ext = ""
+    dot = last.rfind(".")
+    if dot > 0:
+        ext = last[dot:]
+    segments[-1] = "<redacted>" + ext
+    # The query string on a media URL is where a session token lives, so it is
+    # dropped rather than kept. On a non-media URL it is left untouched above.
+    return "%s://<redacted>%s" % (match.group("scheme"), "/".join(segments))
+
 
 def redact(text):
     if text is None:
@@ -41,7 +90,8 @@ def redact(text):
     out = str(text)
     out = _CREDS_RE.sub(r"\1<redacted>/<redacted>", out)
     out = _QUERY_CREDS_RE.sub(r"\1<redacted>", out)
-    return _BASIC_AUTH_RE.sub(r"\1<redacted>:<redacted>\2", out)
+    out = _BASIC_AUTH_RE.sub(r"\1<redacted>:<redacted>\2", out)
+    return _URL_RE.sub(_redact_media_url, out)
 
 
 def _client_state():
