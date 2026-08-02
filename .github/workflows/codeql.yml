@@ -1,0 +1,38 @@
+# Static analysis of the plugin's Python. GitHub already runs a default CodeQL
+# setup on this repository; this file pins it to the same triggers as the test
+# workflow so a pull request cannot merge without it having run, and so the
+# analysis is versioned alongside the code it inspects.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly published rule finds existing code rather than waiting
+    # for the next commit.
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze Python
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

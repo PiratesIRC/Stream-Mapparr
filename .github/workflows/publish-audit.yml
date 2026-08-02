@@ -1,0 +1,73 @@
+# Fails a pull request that would publish a provider hostname, an M3U account
+# suffix, a LAN address or a personal path. The repository is public, and every
+# real leak here has been in that category rather than the cloud-token category
+# a generic scanner looks for, which is why .publish-audit.json carries a
+# repository-specific deny list.
+#
+# The audit script lives in the workspace this repository is developed in and is
+# not committed here, so the job is skipped when it is absent. That keeps the
+# workflow honest: it never reports success for a check it did not run.
+name: Publish audit
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the deny list is present and parses
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, sys
+          p = pathlib.Path(".publish-audit.json")
+          if not p.exists():
+              sys.exit(".publish-audit.json is missing: the deny list is the half "
+                       "that catches real leaks in this repository")
+          rules = json.loads(p.read_text(encoding="utf-8"))
+          for group in ("deny", "allow"):
+              for rule in rules.get(group, []):
+                  re.compile(rule["pattern"])
+                  assert rule.get("why") or rule.get("reason"), \
+                      f"{group} rule {rule['pattern']!r} has no stated reason"
+          print(f"{len(rules['deny'])} deny and {len(rules['allow'])} allow rules, all compile")
+          PY
+
+      - name: Scan the tree against the deny list
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, subprocess, sys
+          rules = json.loads(pathlib.Path(".publish-audit.json").read_text(encoding="utf-8"))
+          deny = [(re.compile(r["pattern"], re.I), r["pattern"], r["why"]) for r in rules["deny"]]
+          allow = [re.compile(r["pattern"], re.I) for r in rules["allow"]]
+          files = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split()
+          findings = []
+          for f in files:
+              p = pathlib.Path(f)
+              if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip", ".gz"}:
+                  continue
+              try:
+                  text = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for rx, pat, why in deny:
+                  for m in rx.finditer(text):
+                      if any(a.search(m.group(0)) for a in allow):
+                          continue
+                      findings.append(f"{f}: matched {pat!r} ({why})")
+          if findings:
+              print("\n".join(sorted(set(findings))))
+              sys.exit(f"{len(set(findings))} finding(s): read every one before merging")
+          print("no findings")
+          PY

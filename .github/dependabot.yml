@@ -1,0 +1,26 @@
+# Keeps the two things this repository actually depends on current: the pinned
+# GitHub Actions in .github/workflows, and the dev-only Python packages in
+# requirements-dev.txt. The plugin itself ships no runtime dependencies: it runs
+# inside Dispatcharr and uses the standard library plus whatever Dispatcharr
+# already provides, so there is nothing else to watch.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+    labels:
+      - dependencies
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+    labels:
+      - dependencies
