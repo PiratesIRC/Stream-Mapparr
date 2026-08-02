@@ -1,5 +1,63 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2142011 (August 2, 2026)
+
+Response to maintainer review on PR #42 — measured, reproducible findings on
+all four points; every repro case re-verified against the fixed code.
+
+### Fixed
+- **`epg_placeholder_name_patterns` bypassed the regex safety gate.** It compiled
+  user-supplied patterns with a bare `re.compile()`, skipping the same
+  `_pattern_is_unsafe()` check `stream_name_regex_rules` already goes through —
+  measured live: `^(a+)+$` rejected by the existing gate, accepted by this one,
+  then 3+ seconds to match a single 27-character stream name, inside a
+  uWSGI/gevent worker that never yields mid-match. `_resolve_epg_placeholder_patterns`
+  now runs the exact same gate (reject + log unsafe/over-length patterns, cap
+  pattern count), and the placeholder-matching loop in
+  `_apply_epg_resolution_to_streams` gained the same runtime containment
+  `_apply_regex_rules_to_streams` already has (input length cap, cumulative
+  wall-clock budget, cooperative yields). `_is_epg_placeholder_name` also
+  switched `.search()` to `.fullmatch()` — a no-op against the shipped
+  (already-anchored) defaults, but correct for a future unanchored
+  user-written pattern deciding whole-name eligibility.
+- **The "is this event today" check read Django's active timezone (UTC), not
+  Dispatcharr's configured one.** `_epg_next_event_date_is_today` used
+  `timezone.localtime(timezone.now())`, which only ever reflects
+  `settings.TIME_ZONE` — a plugin never sees the per-request timezone
+  activation Django applies in the normal request path. Measured live: Django's
+  active tz was UTC while `CoreSettings.get_system_time_zone()` was
+  America/Phoenix, a 7-hour gap where the two calendar days disagree every
+  single day — exactly the evening hours live events actually air. New
+  `_epg_local_now()` helper resolves through `_dispatcharr_timezone()` (the
+  same helper the scheduler already uses), matching its `pytz.timezone(...)` +
+  `datetime.now(tz)` idiom.
+- **The date comparison was string equality, not a real date compare.**
+  `"August 5"` and `"Aug 05"` were silently rejected even when today was
+  "Aug 5" — nothing logged, so there was no way to notice. Now parses the
+  captured date (trying abbreviated and full month names, both accepting
+  1- or 2-digit days) and compares `(month, day)` tuples. An unrecognized
+  format is now logged and treated permissively, instead of silently and
+  irreversibly discarding the match.
+- **N+1 EPG queries per channel group.** `_collect_epg_watch_streams` rebuilt
+  its lookup cache on every call and `_resolve_current_epg_title_for_epg_data_id`
+  never cached its `ProgramData` query at all — measured live at roughly 8600
+  synchronous ORM queries in a single pass on a 1440-channel instance, inside a
+  non-yielding greenlet. New per-run `epg_title_cache`, built once alongside
+  the existing `channel_info_cache` and threaded through the same call chain,
+  memoizes the resolved title per EPG record id for the whole pass.
+
+### Changed
+- `epg_skip_titles` and `epg_watch_source_streams` now guard against an
+  explicit `None` value the same way `epg_channel_schedule_cleanup_rules`
+  already did — previously only that one setting had the `is None` check,
+  so the other two could raise `AttributeError` on a null value.
+- `_collect_epg_watch_streams` now requires a channel name to clean down to
+  at least 2 tokens before attempting the containment check — a single-token
+  name ("Max", "Live", "News") would otherwise force-include a watched stream
+  on a large fraction of its daily programming, the same shape of over-match
+  this plugin already hit once (a shared idle EPG title over-matching 130
+  streams) arriving from a different angle.
+
 ## v1.26.2121807 (July 31, 2026)
 
 ### Fixed
