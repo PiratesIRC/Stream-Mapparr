@@ -10,7 +10,6 @@ on the actual new logic (the watch-name filter and the token-containment gate)
 rather than re-testing EPG lookup plumbing the rest of the suite doesn't cover
 either.
 """
-import pytest
 
 
 def _bare_plugin(plugin_module, matcher):
@@ -115,3 +114,33 @@ def test_no_current_programme_excludes_stream(plugin_module, matcher, monkeypatc
     hits = p._collect_epg_watch_streams(
         "WWE SummerSlam", streams, _epg_settings(["ESPN"]), *IGNORE_ARGS)
     assert hits == []
+
+
+def test_single_token_channel_name_is_rejected(plugin_module, matcher, monkeypatch):
+    """Review note: a single-token channel name ("Max", "Live", "News") would
+    force-include a watched stream on almost any current programme -- the same
+    shape of over-match this file already hit once (a shared idle EPG title
+    over-matched 130 streams) arriving from a different angle. A channel name
+    that cleans down to fewer than _EPG_WATCH_MIN_CHANNEL_TOKENS tokens is
+    rejected before the containment check even runs."""
+    p = _bare_plugin(plugin_module, matcher)
+    called = []
+    monkeypatch.setattr(p, '_resolve_current_epg_title_for_stream',
+                         lambda *a, **k: called.append(1) or "Max Power Hour")
+    streams = [{'name': 'ESPN', 'tvg_id': 'ESPN.us'}]
+    hits = p._collect_epg_watch_streams(
+        "Max", streams, _epg_settings(["ESPN"]), *IGNORE_ARGS)
+    assert hits == []
+    assert not called  # short-circuits before ever resolving EPG data
+
+
+def test_two_token_channel_name_is_allowed(plugin_module, matcher, monkeypatch):
+    """The floor is >= 2 tokens, not > 1 word -- a genuine two-word channel
+    name still works normally."""
+    p = _bare_plugin(plugin_module, matcher)
+    monkeypatch.setattr(p, '_resolve_current_epg_title_for_stream',
+                         lambda *a, **k: "WWE SummerSlam Special")
+    streams = [{'name': 'ESPN', 'tvg_id': 'ESPN.us'}]
+    hits = p._collect_epg_watch_streams(
+        "WWE SummerSlam", streams, _epg_settings(["ESPN"]), *IGNORE_ARGS)
+    assert hits == streams

@@ -5,8 +5,6 @@ reported as though the event were happening today.
 """
 from datetime import datetime, timedelta, timezone as stdlib_tz
 
-import pytest
-
 
 def _bare_plugin(plugin_module):
     return plugin_module.Plugin.__new__(plugin_module.Plugin)
@@ -52,13 +50,62 @@ def test_lowercase_am_pm_still_matches(plugin_module):
 
 
 def test_date_check_uses_configured_localtime(plugin_module, monkeypatch):
-    """Confirms the check goes through timezone.localtime (the configured/active
-    timezone), not a raw UTC now() -- matters near local midnight, where the UTC
-    calendar day and the configured-timezone calendar day can disagree."""
+    """Confirms the check goes through _epg_local_now (Dispatcharr's
+    user-configured timezone via _dispatcharr_timezone/CoreSettings), not
+    Django's active timezone (django.utils.timezone.localtime, which only
+    ever reflects settings.TIME_ZONE -- UTC in Dispatcharr -- since a plugin
+    never sees the per-request timezone activation Django applies in the
+    normal request path). Confirmed live: Django's active tz was UTC while
+    CoreSettings.get_system_time_zone() was America/Phoenix, a 7-hour gap
+    where the two calendar days disagree every single day."""
     fixed_local = datetime(2026, 8, 5, 10, 0, tzinfo=stdlib_tz.utc)
-    monkeypatch.setattr(plugin_module.timezone, "localtime", lambda *a, **k: fixed_local)
-    title = "Next Event: AEW Dynamite: Grand Slam Mexico at 05:00PM on Aug 5"
     p = _bare_plugin(plugin_module)
+    monkeypatch.setattr(p, "_epg_local_now", lambda: fixed_local)
+    title = "Next Event: AEW Dynamite: Grand Slam Mexico at 05:00PM on Aug 5"
     assert p._epg_next_event_date_is_today(title) is True
     title_wrong_day = "Next Event: AEW Dynamite: Grand Slam Mexico at 05:00PM on Aug 6"
     assert p._epg_next_event_date_is_today(title_wrong_day) is False
+
+
+def test_epg_local_now_uses_dispatcharr_timezone(plugin_module, monkeypatch):
+    """_epg_local_now itself: resolves through _dispatcharr_timezone (the
+    CoreSettings-backed helper the scheduler already uses), not Django's
+    active timezone."""
+    p = _bare_plugin(plugin_module)
+    monkeypatch.setattr(p, "_dispatcharr_timezone", lambda: "America/Phoenix")
+    now = p._epg_local_now()
+    assert str(now.tzinfo) == "America/Phoenix"
+
+
+def test_epg_local_now_falls_back_to_utc_on_error(plugin_module, monkeypatch):
+    p = _bare_plugin(plugin_module)
+    monkeypatch.setattr(p, "_dispatcharr_timezone", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    now = p._epg_local_now()
+    assert now.tzinfo is not None  # degrade-don't-fail: still a valid aware datetime
+
+
+def test_full_month_name_matches_abbreviated(plugin_module, monkeypatch):
+    """Review finding: the old string-equality check silently rejected
+    'August 5' and 'Aug 05' even when today is 'Aug 5' -- a real date compare
+    (month, day) fixes the whole class rather than one format at a time."""
+    fixed = datetime(2026, 8, 5, 10, 0, tzinfo=stdlib_tz.utc)
+    p = _bare_plugin(plugin_module)
+    monkeypatch.setattr(p, "_epg_local_now", lambda: fixed)
+    for date_text in ("Aug 5", "Aug 05", "August 5", "August 05"):
+        title = f"Next Event: Some Show at 05:00PM on {date_text}"
+        assert p._epg_next_event_date_is_today(title) is True, date_text
+
+
+def test_unrecognized_date_format_is_permissive(plugin_module, monkeypatch, caplog):
+    """A date clause that matches the regex shape but not a recognized month
+    name (e.g. a non-English provider convention) degrades permissively
+    (treated as today) rather than silently discarding the match forever --
+    but it IS logged, unlike the old behavior, so the gap is discoverable."""
+    import logging
+    caplog.set_level(logging.DEBUG, logger="plugins.stream_mapparr")
+    fixed = datetime(2026, 8, 5, 10, 0, tzinfo=stdlib_tz.utc)
+    p = _bare_plugin(plugin_module)
+    monkeypatch.setattr(p, "_epg_local_now", lambda: fixed)
+    title = "Next Event: Some Show at 05:00PM on Zzz 5"  # matches the regex shape, not a real month
+    assert p._epg_next_event_date_is_today(title) is True
+    assert any("Zzz 5" in r.message for r in caplog.records)
