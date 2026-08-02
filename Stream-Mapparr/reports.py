@@ -8,10 +8,10 @@ an export later must not be able to start being emailed on its own.
 Two measured facts about this installation drive the design:
 
 1. Every CSV export in /data/exports appends the M3U account name to each stream
-   name, and on this box those account names are the provider's hostnames.
-2. 327 stream names contain square brackets and not one of them holds an account
-   name. The brackets hold the market, which for an over-the-air station is its
-   whole identity.
+   name, and an account name is commonly the provider's hostname.
+2. Bracketed text in a stream name is usually the market rather than a source
+   label, and for an over-the-air station the market is its whole identity.
+   Measured on one real installation: 327 bracketed names, none an account name.
 
 So the primary defence is that build_model is fed RAW stream names, which never
 carried an account label. sanitise_stream_label is the backstop: it removes an
@@ -73,14 +73,14 @@ def sanitise_stream_label(label, account_names):
 
     Matching is case-insensitive and is NOT limited to the bracketed form. The
     account names on a real installation are literal provider hostnames, so
-    "ESPN backup streamq.tv" leaks exactly as much as "ESPN [streamq.tv]", and
-    "[STREAMQ.TV]" leaks the same hostname in different case. An earlier version
+    "ESPN backup provider.tv" leaks exactly as much as "ESPN [provider.tv]", and
+    "[PROVIDER.TV]" leaks the same hostname in different case. An earlier version
     matched only the exact-case bracketed form, which a security review of the
     written code found to be a narrower guarantee than the docstring claimed.
 
-    Account names are matched longest first: "streamq.tv" is a prefix of
-    "streamq.tv-bk15", and matching the shorter one first would leave a
-    "-bk15" fragment behind.
+    Account names are matched longest first: "provider.tv" is a prefix of
+    "provider.tv-alt1", and matching the shorter one first would leave a
+    "-alt1" fragment behind.
     """
     text = str(label or "")
     for account in sorted([a for a in (account_names or []) if a], key=len, reverse=True):

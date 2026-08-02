@@ -287,8 +287,9 @@ and that `source_url` resolves. The `{version}` substitutes the bare-calver tag,
   `…\Microsoft\WinGet\Packages\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\bin\gh.exe`.
   GitHub Releases, issue comments/close, and Hub PRs are done with `gh` directly.
 - **`docker cp` and stdin-piped `docker exec` trip the shell harness here.** Deploy by
-  staging files into the `/config` bind mount (host `O:\docker\dispatcharr\config`) then
-  `docker exec dispatcharr cp /config/<file> /data/plugins/stream-mapparr/<file>` (plain
+  staging files into the `/config` bind mount (whatever host directory you have
+  bound to it) then `docker exec dispatcharr cp /config/<file>
+  /data/plugins/stream-mapparr/<file>` (plain
   `docker exec` works).
 - **Build the release zip with 7-Zip (`zip.cmd`) or `git archive` — NEVER PowerShell
   `Compress-Archive` or .NET Framework `ZipFile.CreateFromDirectory` (bug-087).** Those

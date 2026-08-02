@@ -647,7 +647,7 @@ Three normalization passes were added to the top of `FuzzyMatcher.normalize_name
 
 - **Phase-1 channel-name alias matching**: an exact-normalized alias layer (`FuzzyMatcher.alias_lookup` + a built-in US alias table) force-includes known aliases into a channel's matches, independent of the fuzzy threshold. A new **Custom Aliases** setting accepts a JSON object of additional `"channel": ["alias", …]` mappings (merged with the built-ins; invalid entries are logged and skipped).
 - **Timezone now follows Dispatcharr's global setting**: the plugin's own *Timezone* dropdown was **removed**. Scheduled runs read the timezone from Dispatcharr (`CoreSettings.get_system_time_zone()`), validated via `pytz`, with a `UTC` fallback. One less setting to keep in sync.
-- **CSV stream-source labeling**: every stream name in a CSV export is now tagged with its M3U source (e.g. `GO: CNN [streamq.tv-bk15]`), so identical names from different providers are distinguishable in reports.
+- **CSV stream-source labeling**: every stream name in a CSV export is now tagged with its M3U source (e.g. `GO: CNN [provider.tv-alt1]`), so identical names from different providers are distinguishable in reports.
 - **Multi-source stream dedup** (GitHub #28 / #29): deduplication is keyed on `(name, m3u_account)`, so the same channel name from **different** providers both survive (multi-source failover); only true same-source duplicates collapse. Runs after the quality sort, so the kept copy is the best one.
 - **Norwegian (NO) channel database** (GitHub #30).
 

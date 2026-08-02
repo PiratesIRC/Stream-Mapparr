@@ -122,7 +122,7 @@ def test_build_and_emit_produces_real_files_and_two_events(plugin_module, tmp_pa
         _Logger(),
         [{"channel_name": "Sky News",
           "stream_names": ["SKY NEWS HD", "US: ABC 45 HD [WINSTON-SALEM]"]}],
-        ["streamq.tv", "streamq.tv-bk15"],
+        ["provider.tv", "provider.tv-alt1"],
         is_scheduled=False)
 
     assert out["sent"] == 2, out
@@ -136,7 +136,7 @@ def test_build_and_emit_produces_real_files_and_two_events(plugin_module, tmp_pa
 
     for path in produced:
         text = path.read_text(encoding="utf-8")
-        assert "streamq" not in text, f"provider hostname leaked into {path.name}"
+        assert "provider" not in text, f"provider hostname leaked into {path.name}"
         assert "[WINSTON-SALEM]" in text, "the market label must survive"
 
 

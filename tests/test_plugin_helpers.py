@@ -169,12 +169,12 @@ def test_labeled_stream_names_tags_source(plugin_module):
         {"name": "GO: CNN", "m3u_account": 9},   # same name, different provider
         {"name": "US: CNN HD", "m3u_account": 5},
     ]
-    name_map = {5: "streamq-bk15", 9: "streamq-bk26"}
+    name_map = {5: "provider-alt1", 9: "provider-alt2"}
     out = Plugin._labeled_stream_names(streams, name_map)
     assert out == [
-        "GO: CNN [streamq-bk15]",
-        "GO: CNN [streamq-bk26]",
-        "US: CNN HD [streamq-bk15]",
+        "GO: CNN [provider-alt1]",
+        "GO: CNN [provider-alt2]",
+        "US: CNN HD [provider-alt1]",
     ]
 
 

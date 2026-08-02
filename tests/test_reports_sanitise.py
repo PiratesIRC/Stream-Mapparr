@@ -7,9 +7,10 @@ by email.
 Two measured facts drive the design, both taken from the live installation:
 
 1. Every CSV export in /data/exports appends the M3U account name to each stream
-   name, and on this box those account names are the provider's hostnames
-   (streamq.tv, streamq.tv-bk15, streamq.tv-bk26, streamq.tv-bk29).
-2. 327 stream names contain square brackets and NOT ONE of them holds an account
+   name, and on a real installation those account names are the provider's hostnames
+   (placeholders below: provider.tv and three numbered variants).
+2. Bracketed text is usually the market, not a source label. Measured on one
+   real installation: 327 bracketed names and NOT ONE of them holds an account
    name. The brackets hold the market, which for an over-the-air station is its
    whole identity: "US: ABC 45 HD [WINSTON-SALEM]" against
    "US: ABC 33/40 HD [BIRMINGHAM]".
@@ -20,7 +21,7 @@ indistinguishable label.
 """
 import pytest
 
-ACCOUNTS = ["custom", "streamq.tv", "streamq.tv-bk15", "streamq.tv-bk26", "streamq.tv-bk29"]
+ACCOUNTS = ["custom", "provider.tv", "provider.tv-alt1", "provider.tv-alt2", "provider.tv-alt3"]
 
 
 # --------------------------------------------------------------------------- #
@@ -29,7 +30,7 @@ ACCOUNTS = ["custom", "streamq.tv", "streamq.tv-bk15", "streamq.tv-bk26", "strea
 
 def test_an_exact_account_label_is_stripped_from_a_stream_name():
     from reports import sanitise_stream_label
-    assert sanitise_stream_label("SKY NEWS HD [streamq.tv-bk15]", ACCOUNTS) == "SKY NEWS HD"
+    assert sanitise_stream_label("SKY NEWS HD [provider.tv-alt1]", ACCOUNTS) == "SKY NEWS HD"
 
 
 def test_a_bare_stream_name_is_unchanged():
@@ -52,15 +53,15 @@ def test_a_market_label_survives_alongside_an_account_label():
     part may be removed."""
     from reports import sanitise_stream_label
     assert sanitise_stream_label(
-        "US: ABC 45 HD [WINSTON-SALEM] [streamq.tv-bk26]",
+        "US: ABC 45 HD [WINSTON-SALEM] [provider.tv-alt2]",
         ACCOUNTS) == "US: ABC 45 HD [WINSTON-SALEM]"
 
 
 def test_the_longest_matching_account_name_is_stripped_first():
-    """streamq.tv is a prefix of streamq.tv-bk15. Matching the short one first
-    would leave a "-bk15]" fragment behind."""
+    """provider.tv is a prefix of provider.tv-alt1. Matching the short one first
+    would leave a "-alt1]" fragment behind."""
     from reports import sanitise_stream_label
-    assert sanitise_stream_label("SKY [streamq.tv-bk15]", ACCOUNTS) == "SKY"
+    assert sanitise_stream_label("SKY [provider.tv-alt1]", ACCOUNTS) == "SKY"
 
 
 def test_an_empty_account_list_strips_nothing():
@@ -68,7 +69,7 @@ def test_an_empty_account_list_strips_nothing():
     is fed RAW stream names which never carried a label at all; this function is
     a backstop for a caller that passes the labelled form by mistake."""
     from reports import sanitise_stream_label
-    assert sanitise_stream_label("SKY NEWS HD [streamq.tv]", []) == "SKY NEWS HD [streamq.tv]"
+    assert sanitise_stream_label("SKY NEWS HD [provider.tv]", []) == "SKY NEWS HD [provider.tv]"
 
 
 # --------------------------------------------------------------------------- #
@@ -84,8 +85,8 @@ def test_the_model_never_contains_an_m3u_account_name():
     from reports import build_model
     model = build_model(
         [{"channel_name": "Sky News",
-          "stream_names": ["SKY NEWS HD [streamq.tv-bk15]",
-                           "SKY NEWS FHD [streamq.tv-bk26]"]}],
+          "stream_names": ["SKY NEWS HD [provider.tv-alt1]",
+                           "SKY NEWS FHD [provider.tv-alt2]"]}],
         ACCOUNTS, {}, 0)
     blob = repr(model)
     for account in ACCOUNTS:
@@ -154,22 +155,22 @@ def test_an_empty_input_produces_an_empty_model():
 def test_a_BARE_account_name_is_stripped_not_only_the_bracketed_form():
     """The account names are literal provider hostnames, so an occurrence
     outside brackets leaks exactly as much as one inside them. An operator
-    naming a channel "ESPN backup streamq.tv" is enough."""
+    naming a channel "ESPN backup provider.tv" is enough."""
     from reports import sanitise_stream_label
-    assert "streamq.tv" not in sanitise_stream_label("ESPN backup streamq.tv", ACCOUNTS)
-    assert "streamq.tv" not in sanitise_stream_label("ESPN (streamq.tv)", ACCOUNTS)
+    assert "provider.tv" not in sanitise_stream_label("ESPN backup provider.tv", ACCOUNTS)
+    assert "provider.tv" not in sanitise_stream_label("ESPN (provider.tv)", ACCOUNTS)
 
 
 def test_account_name_matching_ignores_case():
-    """[STREAMQ.TV] is the same hostname and the same leak."""
+    """[PROVIDER.TV] is the same hostname and the same leak."""
     from reports import sanitise_stream_label
-    assert "STREAMQ" not in sanitise_stream_label("SKY [STREAMQ.TV]", ACCOUNTS).upper()
-    assert "STREAMQ" not in sanitise_stream_label("SKY StreamQ.TV feed", ACCOUNTS).upper()
+    assert "PROVIDER" not in sanitise_stream_label("SKY [PROVIDER.TV]", ACCOUNTS).upper()
+    assert "PROVIDER" not in sanitise_stream_label("SKY Provider.TV feed", ACCOUNTS).upper()
 
 
 def test_stripping_a_bare_account_name_leaves_readable_text():
     from reports import sanitise_stream_label
-    assert sanitise_stream_label("ESPN backup streamq.tv HD", ACCOUNTS) == "ESPN backup HD"
+    assert sanitise_stream_label("ESPN backup provider.tv HD", ACCOUNTS) == "ESPN backup HD"
 
 
 def test_an_ipv6_address_is_scrubbed():
@@ -188,7 +189,7 @@ def test_an_ipv6_address_is_scrubbed():
 def test_scrubbing_an_address_does_not_leave_a_double_space():
     from reports import build_model
     model = build_model(
-        [{"channel_name": "Backup 192.168.1.5 Feed", "stream_names": []}],
+        [{"channel_name": "Backup 203.0.113.5 Feed", "stream_names": []}],
         ACCOUNTS, {}, 0)
     assert model["entries"][0]["channel_name"] == "Backup Feed"
 
@@ -208,8 +209,8 @@ def test_an_uppercase_bracketed_account_leaves_no_empty_brackets():
     bare-name fallback still removes the hostname but leaves "[]" behind, so the
     leak is closed and the output is ugly. Both matter."""
     from reports import sanitise_stream_label
-    assert sanitise_stream_label("SKY [STREAMQ.TV]", ACCOUNTS) == "SKY"
-    assert sanitise_stream_label("SKY (StreamQ.TV)", ACCOUNTS) == "SKY"
+    assert sanitise_stream_label("SKY [PROVIDER.TV]", ACCOUNTS) == "SKY"
+    assert sanitise_stream_label("SKY (Provider.TV)", ACCOUNTS) == "SKY"
 
 
 def test_repeated_names_are_collapsed_with_a_count():

@@ -7,7 +7,7 @@ account name appended to every stream name.
 import os
 import tempfile
 
-ACCOUNTS = ["streamq.tv", "streamq.tv-bk15"]
+ACCOUNTS = ["provider.tv", "provider.tv-alt1"]
 
 
 def _model(now=1785237435.0):
