@@ -292,6 +292,131 @@
   read (delete it if you want to tidy up; nothing reads it). The settings page still shows the
   running version, as plain text, with no claim about whether it is current. Building the settings
   form runs on Dispatcharr's per-request path, so it should never wait on the network.
+## v1.26.2142011 (August 2, 2026)
+
+Response to maintainer review on PR #42 — measured, reproducible findings on
+all four points; every repro case re-verified against the fixed code.
+
+### Fixed
+- **`epg_placeholder_name_patterns` bypassed the regex safety gate.** It compiled
+  user-supplied patterns with a bare `re.compile()`, skipping the same
+  `_pattern_is_unsafe()` check `stream_name_regex_rules` already goes through —
+  measured live: `^(a+)+$` rejected by the existing gate, accepted by this one,
+  then 3+ seconds to match a single 27-character stream name, inside a
+  uWSGI/gevent worker that never yields mid-match. `_resolve_epg_placeholder_patterns`
+  now runs the exact same gate (reject + log unsafe/over-length patterns, cap
+  pattern count), and the placeholder-matching loop in
+  `_apply_epg_resolution_to_streams` gained the same runtime containment
+  `_apply_regex_rules_to_streams` already has (input length cap, cumulative
+  wall-clock budget, cooperative yields). `_is_epg_placeholder_name` also
+  switched `.search()` to `.fullmatch()` — a no-op against the shipped
+  (already-anchored) defaults, but correct for a future unanchored
+  user-written pattern deciding whole-name eligibility.
+- **The "is this event today" check read Django's active timezone (UTC), not
+  Dispatcharr's configured one.** `_epg_next_event_date_is_today` used
+  `timezone.localtime(timezone.now())`, which only ever reflects
+  `settings.TIME_ZONE` — a plugin never sees the per-request timezone
+  activation Django applies in the normal request path. Measured live: Django's
+  active tz was UTC while `CoreSettings.get_system_time_zone()` was
+  America/Phoenix, a 7-hour gap where the two calendar days disagree every
+  single day — exactly the evening hours live events actually air. New
+  `_epg_local_now()` helper resolves through `_dispatcharr_timezone()` (the
+  same helper the scheduler already uses), matching its `pytz.timezone(...)` +
+  `datetime.now(tz)` idiom.
+- **The date comparison was string equality, not a real date compare.**
+  `"August 5"` and `"Aug 05"` were silently rejected even when today was
+  "Aug 5" — nothing logged, so there was no way to notice. Now parses the
+  captured date (trying abbreviated and full month names, both accepting
+  1- or 2-digit days) and compares `(month, day)` tuples. An unrecognized
+  format is now logged and treated permissively, instead of silently and
+  irreversibly discarding the match.
+- **N+1 EPG queries per channel group.** `_collect_epg_watch_streams` rebuilt
+  its lookup cache on every call and `_resolve_current_epg_title_for_epg_data_id`
+  never cached its `ProgramData` query at all — measured live at roughly 8600
+  synchronous ORM queries in a single pass on a 1440-channel instance, inside a
+  non-yielding greenlet. New per-run `epg_title_cache`, built once alongside
+  the existing `channel_info_cache` and threaded through the same call chain,
+  memoizes the resolved title per EPG record id for the whole pass.
+
+### Changed
+- `epg_skip_titles` and `epg_watch_source_streams` now guard against an
+  explicit `None` value the same way `epg_channel_schedule_cleanup_rules`
+  already did — previously only that one setting had the `is None` check,
+  so the other two could raise `AttributeError` on a null value.
+- `_collect_epg_watch_streams` now requires a channel name to clean down to
+  at least 2 tokens before attempting the containment check — a single-token
+  name ("Max", "Live", "News") would otherwise force-include a watched stream
+  on a large fraction of its daily programming, the same shape of over-match
+  this plugin already hit once (a shared idle EPG title over-matching 130
+  streams) arriving from a different angle.
+
+## v1.26.2121807 (July 31, 2026)
+
+### Fixed
+- **A "Next Event: X at TIME on DATE" placeholder could be reported as today's event
+  while actually days or weeks out.** The guide's "what's coming up" block stays the
+  CURRENTLY ACTIVE `ProgramData` row until the real event starts, however far off
+  that is — confirmed live: 84 such rows active at once, most dated a week-plus in
+  the future (e.g. `Next Event: AEW Dynamite: Grand Slam Mexico at 05:00PM on Aug 5`
+  live and "current" on Jul 31). Stripping the `at TIME on DATE` clause and matching
+  on the bare title (the existing cleanup-rules behavior) would have surfaced that
+  future event as though it aired today. `_resolve_current_epg_title_for_epg_data_id`
+  now checks the embedded date against today's date (via `timezone.localtime`, the
+  configured/active timezone) before resolving a "Next Event" placeholder at all —
+  a title with no such date clause (e.g. a live, unwrapped title once the provider
+  flips it) is unaffected. Applies to every EPG-aware matching path (placeholder
+  names and the new EPG Event Watch) since they share this one primitive.
+
+## v1.26.2121751 (July 31, 2026)
+
+### Added
+- **EPG Event Watch: match a real, permanently-named stream by its current programme,
+  not just placeholder-named ones.** Some events never get their own dedicated
+  placeholder feed at all — a WWE PPV's only guide presence turned out to be
+  time-boxed pre-show coverage on ESPN/ESPN2/ESPN News, verified live: a "WWE
+  SummerSlam" channel had zero candidates because none of the placeholder-name
+  patterns apply to a channel that's genuinely, permanently named "ESPN". New
+  setting `epg_watch_source_streams` (comma-separated exact stream names, empty =
+  disabled) opts specific real channels into being considered as an EXTRA
+  alternate for any channel whose full cleaned name is contained in that stream's
+  current EPG title — deliberately a token-containment check, not the usual
+  whole-string similarity ratio, since a real programme title is typically the
+  event name plus promotional wrapping ("WWE SummerSlam Special") that dilutes a
+  string ratio below any reasonable threshold even for a correct hit (measured
+  60–63% live against a 70% threshold). A watched stream's own identity is never
+  touched — it keeps matching its own literally-named channel exactly as before;
+  this only adds it as a candidate elsewhere. First unit test coverage for any
+  part of the EPG-aware matching feature (7 tests), including a regression guard
+  for an unrelated-show false positive found while validating this live.
+
+## v1.26.2110111 (July 30, 2026)
+
+### Changed
+- **Default EPG placeholder name patterns now cover `MAX #` and `Triller TV | Event #`.**
+  A live census of one deployment's stream names found six numbered-placeholder families
+  sharing the same `Next Event: X at TIME on DATE` / `No Event Today` EPG format as the
+  already-covered `HBO #`/`PPV EVENT #`/`PPV # |`/`LIVE EVENT #` patterns — but two of them,
+  `MAX #` (128 streams, the single largest category) and `Triller TV | Event #` (14 streams),
+  had no matching pattern and so were silently never eligible for EPG resolution. Both use
+  the same `ProgramData` shape confirmed against live data before being added. Existing
+  saved `epg_placeholder_name_patterns` settings are not retroactively changed — add the two
+  new lines yourself if you already customized this setting.
+
+## v1.26.2110101 (July 29, 2026)
+
+### Fixed
+- **EPG-aware placeholder matching silently stopped matching schedule-suffixed channel
+  names.** Without provider-assigned channel numbers, a natural convention is to name event
+  channels with an inline schedule (e.g. `WWE Monday Night Raw | Monday @ 5`). That trailing
+  annotation was never stripped before matching, so it diluted the fuzzy-match score against
+  a resolved EPG title (`WWE MONDAY NIGHT RAW`) below threshold — confirmed live at 60%/40%
+  against a 70% threshold for two real channels — and its stray digit separately tripped the
+  channel-has-numbers-so-stream-must-too guard meant for cases like `BBC1` vs `CBBC`. New
+  setting `epg_channel_schedule_cleanup_rules` (same `[find, replace]` JSON shape as the
+  existing EPG/regex cleanup rules) strips this suffix from the channel name — matching
+  only, `Channel.name` is never modified — before it's compared against a resolved EPG
+  title. Only applies when EPG-based placeholder matching is enabled, so unrelated matching
+  is unaffected.
 
 ## v1.26.2072208 (July 26, 2026)
 
