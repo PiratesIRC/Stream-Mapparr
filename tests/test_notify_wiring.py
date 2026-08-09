@@ -95,7 +95,7 @@ def test_build_and_emit_reports_never_raises(plugin_module, monkeypatch):
     assert out["skipped_reason"]
 
 
-def test_build_and_emit_produces_real_files_and_two_events(plugin_module, tmp_path, monkeypatch):
+def test_build_and_emit_writes_both_files_and_sends_one_email(plugin_module, tmp_path, monkeypatch):
     """End to end through the helper: real rendering, real files on disk, two
     notifications, and no M3U account name anywhere in either file."""
     inst = plugin_module.Plugin.__new__(plugin_module.Plugin)
@@ -125,7 +125,12 @@ def test_build_and_emit_produces_real_files_and_two_events(plugin_module, tmp_pa
         ["provider.tv", "provider.tv-alt1"],
         is_scheduled=False)
 
-    assert out["sent"] == 2, out
+    # ONE email, because a notification carries one attachment. BOTH files are
+    # still written: the format setting decides which one travels, not which
+    # ones exist.
+    assert out["sent"] == 1, out
+    assert len(calls) == 1
+    assert calls[0]["attachment"].endswith(".html")
     # Only the report files: the test harness also redirects the plugin's /data
     # paths into this same temporary directory.
     produced = sorted(p for p in tmp_path.iterdir()

@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211306"
+    PLUGIN_VERSION = "1.26.2211558"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -918,16 +918,17 @@ class Plugin:
                 "type": "select",
                 "default": PluginConfig.DEFAULT_NOTIFY_REPORT_FORMAT,
                 "options": [
-                    {"value": "html", "label": "HTML page only, one email"},
-                    {"value": "csv", "label": "CSV only, one email"},
-                    {"value": "both", "label": "Both, which arrives as two emails"},
+                    {"value": "html", "label": "HTML page"},
+                    {"value": "csv", "label": "CSV"},
+                    {"value": "both", "label": "Write both, email the HTML page"},
                 ],
-                "help_text": "Which report files to email. A notification carries one "
-                             "attachment, so choosing both sends two separate emails per "
-                             "run rather than one email with two files. The HTML page is "
-                             "easier to read and the CSV is easier to sort and filter. Both "
-                             "files are written to /data/stream_mapparr_reports either way; "
-                             "this setting only decides which are emailed.",
+                "help_text": "Which report file gets emailed. One email is sent per run "
+                             "and it carries one attachment, because a notification can "
+                             "carry only one. The HTML page holds everything the CSV does "
+                             "and reads on a phone, so it is the one that travels unless "
+                             "you pick CSV. Both files are always written to "
+                             "/data/stream_mapparr_reports, and the email names the one it "
+                             "did not attach so you know it is there.",
             },
             {
                 "id": "_section_epg_matching",
@@ -1392,6 +1393,14 @@ class Plugin:
             "button_variant": "outline",
             "button_color": "blue",
             "button_label": "🧪 Test Rules",
+        },
+        {
+            "id": "check_stream_countries",
+            "label": "🌍 Check Stream Country Labels",
+            "description": "Compare each stream's group country against its EPG identifier suffix and report where they disagree. Reads two database columns, opens no provider connection, changes nothing.",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "🌍 Check Countries",
         },
         {
             "id": "clear_csv_exports",
@@ -1996,31 +2005,261 @@ class Plugin:
     # Slack token in its path and that file is meant to be pasted in public.
     _SECRET_SETTING_KEYS = ("webhook_url",)
 
+    # Settings whose VALUE is one or more M3U account names. On a real
+    # installation an account name is the provider's hostname plus an account
+    # suffix, so these leak the provider as surely as a credential does.
+    # MEASURED 2026-08-09 on this box: the bug report file carried the provider
+    # hostname three times and the account suffixes three times, in a file whose
+    # own opening lines tell the reader to paste it into a PUBLIC issue.
+    # The count is kept because it is diagnostically useful and names nothing.
+    _ACCOUNT_NAME_SETTING_KEYS = ("selected_m3us",)
+
     def _redact_settings_for_report(self, settings):
-        """Settings with secrets masked, for pasting into a public issue.
+        """Settings with secrets and provider identifiers masked.
+
+        For pasting into a public issue AND for emailing, so it must be safe in
+        both directions.
 
         webhook_url carries a Discord or Slack token in its path, so it is masked
-        rather than omitted: the reporter still sees THAT one is configured.
+        rather than omitted: the reporter still sees THAT one is configured. The
+        M3U source list is masked the same way but keeps its COUNT, because how
+        many sources are configured is what a maintainer actually needs and the
+        names never are.
         """
         out = {}
         for k, v in sorted((settings or {}).items()):
             if k in self._SECRET_SETTING_KEYS and v:
                 out[k] = "(set, redacted)"
+            elif k in self._ACCOUNT_NAME_SETTING_KEYS and v:
+                if isinstance(v, str):
+                    count = len([p for p in v.split(",") if p.strip()])
+                elif isinstance(v, (list, tuple, set)):
+                    count = len(v)
+                else:
+                    count = 1
+                out[k] = f"(set, {count} source(s), redacted)"
             else:
                 out[k] = v
         return out
 
+    # A tvg_id like skysports1uhd.uk or cnn.us ends in a country-ish suffix.
+    # Anchored to the END and to exactly two letters, so a bare domain such as
+    # "bbc.co.uk" yields "uk" and a numeric id yields nothing.
+    _TVG_SUFFIX_RE = re.compile(r"\.([A-Za-z]{2})$")
+    # A group label like "UK| NEWS" or "US: SPORT". Either separator, because
+    # this provider uses both.
+    _GROUP_COUNTRY_RE = re.compile(r"^\s*([A-Za-z]{2})\s*[|:]")
+
+    @classmethod
+    def _country_label_disagreement(cls, stream):
+        """Compare a stream's two independent country signals.
+
+        Returns (group_code, tvg_code) with either side None when that signal is
+        absent, so the caller can tell "they disagree" from "only one exists".
+
+        WHY THIS IS WORTH CHECKING. The country restriction trusts the group
+        label, and the group label is the provider's claim about where a stream
+        is CARRIED. The tvg_id suffix is written by whoever built the EPG and
+        usually says where the channel ORIGINATES. Where both exist they mostly
+        agree, and a disagreement is worth an operator's eye rather than an
+        automatic action: a channel carried in one country and made in another
+        is perfectly ordinary, so this REPORTS and never filters.
+        """
+        stream = stream if isinstance(stream, dict) else {}
+        group = stream.get("channel_group__name") or ""
+        tvg = (stream.get("tvg_id") or "").strip()
+        g_match = cls._GROUP_COUNTRY_RE.match(group)
+        t_match = cls._TVG_SUFFIX_RE.search(tvg)
+        return (g_match.group(1).upper() if g_match else None,
+                t_match.group(1).upper() if t_match else None)
+
+    def check_stream_countries_action(self, settings, logger, context=None):
+        """Report streams whose group country and EPG identifier disagree.
+
+        Opens NO provider connection and changes nothing: it reads two columns
+        that are already loaded for matching. That is the whole appeal. The only
+        alternative way to verify a provider's country claim is to open the
+        stream and look at the picture, which costs one of a small number of
+        provider connections and can interrupt a viewer.
+        """
+        try:
+            streams = self._get_all_streams(logger)
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Could not load streams: {e}")
+            return {"status": "error",
+                    "error": f"Could not load the stream list ({e})."}
+
+        both = agree = 0
+        disagreements = []
+        for stream in streams:
+            group_code, tvg_code = self._country_label_disagreement(stream)
+            if not group_code or not tvg_code:
+                continue
+            both += 1
+            if group_code == tvg_code:
+                agree += 1
+            else:
+                disagreements.append((stream.get("name") or "",
+                                      stream.get("channel_group__name") or "",
+                                      group_code, tvg_code))
+
+        rate = (100.0 * agree / both) if both else 0.0
+        lines = [
+            "Stream-Mapparr: stream country label check",
+            "==========================================",
+            "",
+            "Two independent signals are compared for every stream that has both:",
+            "  the country prefix on its GROUP name, which the country restriction",
+            "  trusts, and the two-letter suffix on its EPG identifier.",
+            "",
+            "A disagreement is not automatically a fault. A channel carried in one",
+            "country and made in another is ordinary. This reports; it never filters.",
+            "",
+            f"Streams loaded               : {len(streams)}",
+            f"Streams carrying both signals: {both}",
+            f"They agree                   : {agree}",
+            f"They disagree                : {len(disagreements)}",
+            f"Agreement rate               : {rate:.1f}%",
+            "",
+        ]
+        if disagreements:
+            lines.append("Disagreements, grouped by direction:")
+            counts = {}
+            for _, _, group_code, tvg_code in disagreements:
+                counts[(group_code, tvg_code)] = counts.get((group_code, tvg_code), 0) + 1
+            for (group_code, tvg_code), n in sorted(counts.items(), key=lambda kv: -kv[1]):
+                lines.append(f"  group says {group_code}, EPG identifier says {tvg_code}: {n}")
+            lines.append("")
+            lines.append("Every disagreeing stream:")
+            for name, group, group_code, tvg_code in sorted(disagreements):
+                lines.append(f"  {group_code} vs {tvg_code}  {name}   [group: {group}]")
+        else:
+            lines.append("No disagreements found.")
+
+        path = None
+        try:
+            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+            path = os.path.join(self.BUG_REPORT_DIR, "stream-country-check.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines) + "\n")
+        except Exception as e:
+            # The readout still has to reach the operator, and a toast cannot
+            # carry it, so say plainly that the file is missing.
+            logger.warning(f"[Stream-Mapparr] Could not write the country check: {e}")
+            path = None
+
+        if both == 0:
+            message = ("No stream carries both a group country and an EPG identifier "
+                       "suffix, so there was nothing to compare.")
+        else:
+            message = (f"{agree} of {both} streams agree ({rate:.1f}%). "
+                       f"{len(disagreements)} disagree. A disagreement usually means "
+                       f"the channel is carried in one country and made in another.")
+        result = {"status": "success", "message": message}
+        if path:
+            result["file"] = path
+        return result
+
+    def _build_sanitised_bug_csv(self, logger):
+        """Copy the newest CSV export with every M3U account name removed.
+
+        Returns a path, or None when there is nothing to copy or the copy fails.
+        Never raises: a bug report must still be produced when this cannot be.
+
+        WHY A COPY AND NOT THE EXPORT ITSELF. Every file in /data/exports has the
+        M3U account name appended to each stream name, and an account name is the
+        provider's hostname. Newsflasharr transmits an attachment byte for byte,
+        so attaching an export would email the provider identity. The same
+        sanitiser the emailed reports already use is applied here instead: it
+        strips an exact account name wherever it appears, plus IPv4 and IPv6
+        addresses, and leaves other bracketed text alone because that holds the
+        market rather than a source label.
+
+        The preamble of an export names the selected M3U sources outright, and
+        that is covered too, because the sanitiser matches the account name
+        anywhere in the text rather than only in a stream-name column.
+        """
+        try:
+            from glob import glob as _glob
+            newest = sorted(
+                _glob(os.path.join(PluginConfig.EXPORTS_DIR, "*.csv")),
+                key=os.path.getmtime, reverse=True)
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Could not list CSV exports: {e}")
+            return None
+        if not newest:
+            return None
+
+        try:
+            accounts = [a.get("name") for a in self._get_all_m3u_accounts(logger)]
+        except Exception as e:
+            # FAIL CLOSED. Without the account names the sanitiser cannot remove
+            # them, and shipping the export unsanitised is the exact outcome this
+            # exists to prevent. No attachment is the safe answer.
+            logger.warning(
+                f"[Stream-Mapparr] Not attaching a CSV: the M3U account names "
+                f"could not be read, so they could not be removed ({e})")
+            return None
+
+        try:
+            reports = self._reports()
+            with open(newest[0], "r", encoding="utf-8", errors="replace") as fh:
+                raw = fh.read()
+            cleaned = "\n".join(reports.sanitise_stream_label(line, accounts)
+                                for line in raw.splitlines())
+            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+            out = os.path.join(self.BUG_REPORT_DIR, "report-a-bug-data.csv")
+            with open(out, "w", encoding="utf-8", newline="") as fh:
+                fh.write(cleaned + "\n")
+            return out
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Could not build the sanitised CSV: {e}")
+            return None
+
+    def _email_bug_report(self, settings, logger, text, csv_path):
+        """Send the bug report through Newsflasharr. Returns (sent, reason).
+
+        The report TEXT rides in the body rather than as an attachment, because
+        Newsflasharr accepts only .html, .htm and .csv attachments and a bug
+        report is a .txt file. The body cap is 64 KB and the report is a few
+        kilobytes, so nothing is lost. The single attachment slot is spent on the
+        sanitised CSV, which is the part that cannot be pasted into a body.
+        """
+        try:
+            bridge = self._notify_bridge()
+            if not bridge.is_enabled(settings):
+                return False, "notifications to Newsflasharr are switched off"
+            # The operator chose to have this respect the report trigger, so a
+            # setting of never means never, including for a button press.
+            if bridge.resolve_report_trigger(settings) == "never":
+                return False, "Email A Report After is set to never"
+            kwargs = {
+                "source": bridge.SOURCE,
+                "title": "Stream-Mapparr bug report",
+                "body": text,
+                "event": bridge.EVENT,
+                "severity": "info",
+                "kind": "event",
+                "dedup_key": None,
+                "url": None,
+            }
+            if csv_path and os.path.isfile(csv_path):
+                kwargs["attachment"] = csv_path
+            if self._notify_client().notify(**kwargs):
+                return True, None
+            return False, "Newsflasharr declined the event, the spool may be full"
+        except Exception as e:
+            # Contained: a failure to email must never stop the file being
+            # written, which is the part the operator can always fall back on.
+            return False, f"the emit path raised and was contained: {type(e).__name__}"
+
     def report_a_bug_action(self, settings, logger, context=None):
-        """Write a ready-to-paste bug report and point the user at the issues page.
+        """Write a ready-to-paste bug report, and email it when configured.
 
         The toast clips at roughly 280 characters and closes after a few seconds,
-        so it carries only the address; everything the maintainer actually needs
+        so it carries only the headline; everything the maintainer actually needs
         goes in a file under /config, which is a normal folder on the host.
         """
-        message = (
-            f"Open an issue at {self.ISSUES_URL} . A ready-to-paste report with your "
-            f"version, settings and latest CSV was written to the file below."
-        )
         try:
             os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
             path = os.path.join(self.BUG_REPORT_DIR, "report-a-bug.txt")
@@ -2054,17 +2293,52 @@ class Plugin:
             lines += [f"  {p}" for p in exports] or ["  (none found in /data/exports)"]
             lines += [
                 "",
-                "Settings (secrets masked):",
+                "Those exports label every stream with its M3U source, and a source name is",
+                "usually your provider's hostname. Do NOT attach one to a public issue.",
+                "",
+                "Settings (secrets and M3U source names masked):",
                 json.dumps(self._redact_settings_for_report(settings), indent=2, ensure_ascii=False),
                 "",
                 "Which action did you run? ..........................................",
                 "What did you expect? ...............................................",
                 "What happened instead? .............................................",
             ]
+            text = "\n".join(lines) + "\n"
             with open(path, "w", encoding="utf-8") as f:
-                f.write("\n".join(lines) + "\n")
+                f.write(text)
 
             logger.info(f"[Stream-Mapparr] Bug report template written to {path}")
+
+            # Email it when Newsflasharr is on. The sanitised CSV is built only
+            # when there is somewhere for it to go, because building it costs a
+            # full read and rewrite of the newest export.
+            csv_path = None
+            sent, reason = False, None
+            try:
+                bridge = self._notify_bridge()
+                wanted = (bridge.is_enabled(settings)
+                          and bridge.resolve_report_trigger(settings) != "never")
+            except Exception:
+                wanted = False
+            if wanted:
+                csv_path = self._build_sanitised_bug_csv(logger)
+                sent, reason = self._email_bug_report(settings, logger, text, csv_path)
+
+            if sent:
+                extra = ("with a sanitised copy of your latest CSV attached"
+                         if csv_path else "with no CSV attached, none was available")
+                message = (f"Emailed to your Newsflasharr address, {extra}. "
+                           f"A copy was written to the file below. "
+                           f"Issues: {self.ISSUES_URL}")
+                logger.info("[Stream-Mapparr] Bug report emailed via Newsflasharr")
+            elif reason:
+                message = (f"Written to the file below, NOT emailed: {reason}. "
+                           f"Open an issue at {self.ISSUES_URL}")
+                logger.info(f"[Stream-Mapparr] Bug report not emailed: {reason}")
+            else:
+                message = (f"Open an issue at {self.ISSUES_URL} . A ready-to-paste "
+                           f"report with your version and settings was written to the "
+                           f"file below.")
             return {"status": "success", "message": message, "file": path}
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Could not write the bug report template: {e}")
@@ -5643,6 +5917,7 @@ class Plugin:
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,
                 "test_regex_rules": self.test_regex_rules_action,
+                "check_stream_countries": self.check_stream_countries_action,
             }
 
             if action in background_actions:

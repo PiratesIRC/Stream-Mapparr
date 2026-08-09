@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.2211306",
+  "version": "1.26.2211558",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -121,6 +121,14 @@
       "button_variant": "outline",
       "button_color": "blue",
       "button_label": "🧠 Test Rules"
+    },
+    {
+      "id": "check_stream_countries",
+      "label": "🌍 Check Stream Country Labels",
+      "description": "Compare each stream's group country against its EPG identifier suffix and report where they disagree. Reads two database columns, opens no provider connection, changes nothing.",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "🌍 Check Countries"
     },
     {
       "id": "email_report_now",

@@ -116,12 +116,22 @@ def test_the_format_field_sits_directly_below_the_trigger(plugin_module):
     assert ids.index("notify_report_format") == ids.index("notify_report_on") + 1
 
 
-def test_the_format_labels_say_how_many_emails_arrive(plugin_module):
-    """A notification carries one attachment, so choosing both means two
-    separate emails. The operator should not have to discover that."""
-    labels = " ".join(o["label"].lower()
-                      for o in _field(plugin_module, "notify_report_format")["options"])
-    assert "two" in labels or "2" in labels
+def test_the_both_label_says_only_one_file_is_emailed(plugin_module):
+    """One report now sends ONE email carrying one attachment, because
+    Newsflasharr has no multi-attachment path. Choosing "both" still WRITES both
+    files, and the label has to say which of them actually travels, or the
+    operator reasonably expects two attachments and gets one.
+
+    This replaced a test asserting the labels warned of two separate emails,
+    which is what the old behaviour did.
+    """
+    options = _field(plugin_module, "notify_report_format")["options"]
+    both = next(o for o in options if o["value"] == "both")
+    label = both["label"].lower()
+    assert "email" in label
+    assert "html" in label
+    for misleading in ("two", "2", "both emails"):
+        assert misleading not in label
 
 
 def test_no_em_dashes_in_the_format_field_copy(plugin_module):

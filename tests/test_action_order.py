@@ -43,6 +43,7 @@ EXPECTED = [
     "cleanup_periodic_tasks",
     # Tools and recovery
     "test_regex_rules",
+    "check_stream_countries",
     "clear_csv_exports",
     "clear_operation_lock",
     "report_a_bug",

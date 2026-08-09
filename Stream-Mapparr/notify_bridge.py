@@ -144,8 +144,20 @@ def emit_reports(notify_fn, settings, written, *, is_scheduled):
     second attempt. A path that is missing is skipped rather than sent, because
     a green task result does not prove an artifact was published.
 
-    Two events are emitted, not one: a notification carries a single attachment,
-    so the HTML page and the CSV arrive as two separate emails.
+    ONE event is emitted, so ONE email arrives.
+
+    A notification carries a single attachment: Newsflasharr's delivery path
+    classifies one extension, reads one file and hands the sender one attachment
+    tuple, and the vendored client exposes `attachment` as one value. So both
+    files in one message is not something this plugin can choose; it would need
+    the notification service and the client vendored into six plugins to change.
+
+    Sending two events instead produced two emails per run, which is not what an
+    operator wants from one report. The HTML page is now the attachment whenever
+    it exists, matching what the IPTV Checker plugin does, because it contains
+    everything the CSV does in a form that reads on a phone. The CSV is chosen
+    only when the format setting explicitly asks for the CSV alone. Both files
+    are still WRITTEN either way; the setting decides which one travels.
     """
     result = {"sent": 0, "skipped_reason": None}
     try:
@@ -158,16 +170,30 @@ def emit_reports(notify_fn, settings, written, *, is_scheduled):
             result["skipped_reason"] = written["error"]
             return result
         wanted = resolve_report_format(settings)
-        for key, label in (("html_path", "HTML report"), ("csv_path", "CSV report")):
-            if wanted != "both" and not key.startswith(wanted):
-                continue
+        # Preference order, first existing file wins. "csv" asks for the CSV
+        # alone; everything else prefers the HTML page and falls back to the CSV
+        # only if the page is missing, so a render failure still delivers
+        # something rather than nothing.
+        if wanted == "csv":
+            order = (("csv_path", "CSV report"), ("html_path", "HTML report"))
+        else:
+            order = (("html_path", "HTML report"), ("csv_path", "CSV report"))
+        for key, label in order:
             path = written.get(key)
             if not path or not os.path.isfile(path):
                 continue
+            other = "csv_path" if key == "html_path" else "html_path"
+            body = f"Attached: {os.path.basename(path)}"
+            other_path = written.get(other)
+            if other_path and os.path.isfile(other_path):
+                # Name the file that was written but not sent, so the operator
+                # knows it exists rather than assuming it was not produced.
+                body += (f"\nAlso written, not attached: "
+                         f"{os.path.basename(other_path)}")
             ok = notify_fn(
                 source=SOURCE,
                 title=f"Stream-Mapparr {label} ready",
-                body=f"Attached: {os.path.basename(path)}",
+                body=body,
                 event=EVENT,
                 severity="info",
                 kind="event",
@@ -177,6 +203,10 @@ def emit_reports(notify_fn, settings, written, *, is_scheduled):
             )
             if ok:
                 result["sent"] += 1
+            # One email per report, whether that send succeeded or not. Falling
+            # through to the second file on failure would turn a declined send
+            # into the two-email behaviour this replaced.
+            break
     except Exception as e:
         result["skipped_reason"] = f"the emit path raised and was contained: {e}"
     return result

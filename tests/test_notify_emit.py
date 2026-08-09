@@ -52,7 +52,7 @@ def test_trigger_scheduled_emits_on_a_scheduled_run(tmp_path):
     spy = _Spy()
     out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "scheduled"},
                        _written(tmp_path), is_scheduled=True)
-    assert out["sent"] == 2
+    assert out["sent"] == 1
 
 
 def test_trigger_scheduled_emits_nothing_on_a_manual_run(tmp_path):
@@ -69,22 +69,59 @@ def test_trigger_every_run_emits_on_a_manual_run(tmp_path):
     spy = _Spy()
     out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
                        _written(tmp_path), is_scheduled=False)
-    assert out["sent"] == 2
+    assert out["sent"] == 1
 
 
 # --------------------------------------------------------------------------- #
 # What each event looks like
 # --------------------------------------------------------------------------- #
 
-def test_both_files_are_sent_as_separate_events(tmp_path):
-    """A notification carries one attachment, so two files means two events."""
+def test_one_email_is_sent_and_it_carries_the_html_page(tmp_path):
+    """A notification carries one attachment, and Newsflasharr has no
+    multi-attachment path, so one report means ONE email. The HTML page is the
+    one that travels because it holds everything the CSV does."""
     from notify_bridge import emit_reports
     spy = _Spy()
     w = _written(tmp_path)
     emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
                  w, is_scheduled=False)
-    assert sorted(c["attachment"] for c in spy.calls) == sorted(
-        [w["html_path"], w["csv_path"]])
+    assert len(spy.calls) == 1
+    assert spy.calls[0]["attachment"] == w["html_path"]
+
+
+def test_the_body_names_the_file_that_was_written_but_not_attached(tmp_path):
+    """Otherwise the operator cannot tell a file that was not sent from one that
+    was never produced."""
+    import os
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
+                 w, is_scheduled=False)
+    assert os.path.basename(w["csv_path"]) in spy.calls[0]["body"]
+
+
+def test_asking_for_csv_only_attaches_the_csv(tmp_path):
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run",
+                       "notify_report_format": "csv"}, w, is_scheduled=False)
+    assert len(spy.calls) == 1
+    assert spy.calls[0]["attachment"] == w["csv_path"]
+
+
+def test_a_missing_html_page_falls_back_to_the_csv(tmp_path):
+    """A render failure should still deliver something rather than nothing."""
+    import os
+    from notify_bridge import emit_reports
+    spy = _Spy()
+    w = _written(tmp_path)
+    os.remove(w["html_path"])
+    emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
+                 w, is_scheduled=False)
+    assert len(spy.calls) == 1
+    assert spy.calls[0]["attachment"] == w["csv_path"]
 
 
 def test_every_event_uses_the_report_conventions(tmp_path):
@@ -94,7 +131,7 @@ def test_every_event_uses_the_report_conventions(tmp_path):
     spy = _Spy()
     emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
                  _written(tmp_path), is_scheduled=False)
-    assert len(spy.calls) == 2
+    assert len(spy.calls) == 1
     for call in spy.calls:
         assert call["source"] == "stream-mapparr"
         assert call["event"] == "usage_report"
@@ -152,7 +189,9 @@ def test_a_refused_spool_write_is_counted_as_not_sent(tmp_path):
     out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run"},
                        _written(tmp_path), is_scheduled=False)
     assert out["sent"] == 0
-    assert len(spy.calls) == 2
+    # One attempt, not two: falling through to the second file on a refused send
+    # would reintroduce the two-email behaviour this replaced.
+    assert len(spy.calls) == 1
 
 
 # --------------------------------------------------------------------------- #
@@ -176,7 +215,7 @@ def test_a_string_master_toggle_is_coerced(tmp_path):
     spy = _Spy()
     out = emit_reports(spy, {"notify_enabled": "true", "notify_report_on": "every_run"},
                        _written(tmp_path), is_scheduled=False)
-    assert out["sent"] == 2
+    assert out["sent"] == 1
 
 
 def test_is_enabled_is_public_and_coerces_a_string():
@@ -277,15 +316,18 @@ def test_csv_only_sends_one_email(tmp_path):
     assert spy.calls[0]["attachment"] == w["csv_path"]
 
 
-def test_both_sends_two_emails(tmp_path):
+def test_both_sends_one_email(tmp_path):
+    """Choosing "both" writes both files and emails ONE of them. It used to send
+    two separate emails per run, which is not what an operator wants from a
+    single report, and Newsflasharr has no way to carry two attachments on one
+    message."""
     from notify_bridge import emit_reports
     spy = _Spy()
     w = _written(tmp_path)
     out = emit_reports(spy, {"notify_enabled": True, "notify_report_on": "every_run",
                              "notify_report_format": "both"}, w, is_scheduled=False)
-    assert out["sent"] == 2
-    assert sorted(c["attachment"] for c in spy.calls) == sorted(
-        [w["html_path"], w["csv_path"]])
+    assert out["sent"] == 1
+    assert [c["attachment"] for c in spy.calls] == [w["html_path"]]
 
 
 def test_the_format_does_not_override_the_other_gates(tmp_path):
