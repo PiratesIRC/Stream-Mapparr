@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211759"
+    PLUGIN_VERSION = "1.26.2211821"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -6602,6 +6602,19 @@ class Plugin:
             header_lines.append(
                 f"#   - {cs.get('foreign_dropped', 0)} foreign stream match(es) excluded; "
                 f"{cs.get('unknown_kept', 0)} unmarked kept as alternates")
+            # The operator's own prefix map belongs here for the same reason as
+            # every other line: this preamble is the record of what produced the
+            # result below it. An entry here can decide a stream's country, so a
+            # reader comparing two exports must be able to see it changed. Only
+            # printed when the country filter is on, because that is the only
+            # thing that consumes it, and the COUNT is printed alongside so an
+            # entry silently dropped for naming an unknown country is visible.
+            overrides = self._resolve_prefix_country_overrides(settings)
+            raw_overrides = str(settings.get('stream_prefix_countries') or '').strip()
+            if raw_overrides or overrides:
+                header_lines.append(
+                    f"#   - stream prefix countries: {raw_overrides or '(none)'} "
+                    f"({len(overrides)} accepted)")
         header_lines += [
             f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)}",
             "#",

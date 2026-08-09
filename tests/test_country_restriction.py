@@ -1770,3 +1770,56 @@ def test_real_us_channels_json_has_no_broadcast_callsign_entries(plugin_module):
     assert channels, "US_channels.json loaded no channels -- test fixture broken"
     assert not any("callsign" in c for c in channels)
     assert not any("broadcast" in str(c.get("type", "")).lower() for c in channels)
+
+
+# --------------------------------------------------------------------------- #
+# The operator's prefix map in the export preamble
+# --------------------------------------------------------------------------- #
+
+def test_csv_header_records_the_operator_prefix_map(plugin_module):
+    """The preamble is the record of what produced the rows below it. An entry
+    in this map can decide a stream's country, so a reader comparing two exports
+    has to be able to see that it changed. It was missing when the setting
+    shipped, found by reading a real export."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {"stream_prefix_countries": "NOW=UK"},
+        {"restrict_matching_to_country": True, "country_stats": {}},
+        action_name="Preview")
+    assert "NOW=UK" in header
+
+
+def test_csv_header_states_how_many_prefix_entries_were_accepted(plugin_module):
+    """An entry naming a country the plugin does not know is DROPPED. Printing
+    the raw text alone would show a rule the run never used, so the count of
+    accepted entries is printed beside it."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {"stream_prefix_countries": "NOW=UK, BAD=ZZ"},
+        {"restrict_matching_to_country": True, "country_stats": {}},
+        action_name="Preview")
+    assert "1 accepted" in header
+
+
+def test_csv_header_omits_the_prefix_map_when_it_is_empty(plugin_module):
+    """No new noise in an export from an installation that does not use it."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {}, {"restrict_matching_to_country": True, "country_stats": {}},
+        action_name="Preview")
+    assert "stream prefix countries" not in header.lower()
+
+
+def test_csv_header_omits_the_prefix_map_when_the_country_filter_is_off(plugin_module):
+    """The map is only consumed by the country filter, so reporting it while the
+    filter is off would imply it did something."""
+    inst = _matcher_inst(plugin_module)
+    inst.version = "test"
+    header = inst._generate_csv_header_comment(
+        {"stream_prefix_countries": "NOW=UK"},
+        {"restrict_matching_to_country": False},
+        action_name="Preview")
+    assert "NOW=UK" not in header
