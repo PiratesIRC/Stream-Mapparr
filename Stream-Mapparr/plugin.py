@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211725"
+    PLUGIN_VERSION = "1.26.2211759"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -870,7 +870,7 @@ class Plugin:
             {
                 "id": "custom_aliases",
                 "label": "🔤 Custom Aliases (JSON)",
-                "type": "string",
+                "type": "text",
                 "default": PluginConfig.DEFAULT_CUSTOM_ALIASES,
                 "placeholder": '{"My Channel": ["Provider Stream Name", "Alt Name"]}',
                 "help_text": "JSON object mapping a channel name to extra stream-name aliases (a bare string is accepted as a single alias). Streams whose name exactly matches an alias are force-matched to that channel. Leave blank to use built-in aliases only.",
@@ -878,7 +878,7 @@ class Plugin:
             {
                 "id": "stream_name_regex_rules",
                 "label": "🧹 Stream Name Regex Rules (JSON)",
-                "type": "string",
+                "type": "text",
                 "default": PluginConfig.DEFAULT_STREAM_NAME_REGEX_RULES,
                 "placeholder": '[["\\\\s*▎\\\\s*", " "], ["\\\\bVIP\\\\b", ""]]',
                 "help_text": "JSON list of [find, replace] regex pairs applied in order "
@@ -960,7 +960,7 @@ class Plugin:
             {
                 "id": "epg_placeholder_name_patterns",
                 "label": "🏷️ Placeholder Name Patterns (one regex per line)",
-                "type": "string",
+                "type": "text",
                 "default": PluginConfig.DEFAULT_EPG_PLACEHOLDER_NAME_PATTERNS,
                 "placeholder": "^PPV EVENT \\d+$",
                 "help_text": "A channel or stream name is only ever treated as a generic "
@@ -972,7 +972,7 @@ class Plugin:
             {
                 "id": "epg_title_cleanup_rules",
                 "label": "🧽 EPG Title Cleanup Rules (JSON)",
-                "type": "string",
+                "type": "text",
                 "default": PluginConfig.DEFAULT_EPG_TITLE_CLEANUP_RULES,
                 "placeholder": '[["^Next Event:\\\\s*", ""], ["\\\\s+at \\\\d{1,2}:\\\\d{2}\\\\s*[AP]M on \\\\w+ \\\\d{1,2}$", ""]]',
                 "help_text": "Same [find, replace] JSON format as Stream Name Regex Rules "
@@ -994,7 +994,7 @@ class Plugin:
             {
                 "id": "epg_channel_schedule_cleanup_rules",
                 "label": "🗓️ Channel Schedule Suffix Cleanup Rules (JSON)",
-                "type": "string",
+                "type": "text",
                 "default": PluginConfig.DEFAULT_EPG_CHANNEL_SCHEDULE_CLEANUP_RULES,
                 "placeholder": '[["(?i)\\\\s*\\\\|\\\\s*\\\\w+\\\\s*@\\\\s*\\\\d{1,2}(?::\\\\d{2})?\\\\s*[AP]?M?\\\\s*$", ""]]',
                 "help_text": "Same [find, replace] JSON format as the other regex rules above, "
@@ -1052,12 +1052,19 @@ class Plugin:
             },
             {
                 "id": "stream_prefix_countries",
-                "label": "🏷️ Stream Prefix Countries (one per line)",
+                # Deliberately a single-line input, so the label says comma
+                # separated. Dispatcharr renders "string" as a one-line TextInput
+                # and only "text" as a Textarea, so a label promising one entry
+                # per line would describe something the box cannot accept. The
+                # parser takes either separator; the label has to match the
+                # control the operator is actually given.
+                "label": "🏷️ Stream Prefix Countries (comma-separated)",
                 "type": "string",
                 "default": PluginConfig.DEFAULT_STREAM_PREFIX_COUNTRIES,
-                "placeholder": "NOW=UK",
-                "help_text": "Tell the country filter what a provider prefix means, one "
-                             "PREFIX=COUNTRY per line, for example NOW=UK. Use this when a "
+                "placeholder": "NOW=UK, GO=US",
+                "help_text": "Tell the country filter what a provider prefix means, as "
+                             "PREFIX=COUNTRY entries separated by commas, for example "
+                             "NOW=UK, GO=US. Use this when a "
                              "prefix names a platform rather than a country, so the plugin "
                              "cannot know it: NOW is Sky's service in the United Kingdom "
                              "and also in Italy, which is why no default can be right for "

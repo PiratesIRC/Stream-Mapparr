@@ -213,7 +213,12 @@ def test_field_declared(plugin_module):
     ids = [f["id"] for f in p.fields]
     assert "stream_name_regex_rules" in ids
     field = next(f for f in p.fields if f["id"] == "stream_name_regex_rules")
-    assert field["type"] == "string" and field["default"] == ""
+    # "text" renders as a multi-line Textarea; "string" renders as a one-line
+    # TextInput. Verified by reading Dispatcharr's own settings form: the "text"
+    # case builds a Textarea and everything else falls to a TextInput. This
+    # setting holds a JSON list of find/replace pairs, which is unusable in a
+    # single-line box, so it was changed from "string".
+    assert field["type"] == "text" and field["default"] == ""
     # user-surprise guard from the spec: help text must state the split
     assert "quality" in field["help_text"].lower()
     assert "never modified" in field["help_text"].lower()
