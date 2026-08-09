@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211821"
+    PLUGIN_VERSION = "1.26.2212032"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -413,6 +413,22 @@ class PluginConfig:
     # on this installation as soon as one run has completed, because the matcher's
     # speed depends on the machine and on the shape of the channel names.
     ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS = 1.61
+    # Bounds on a rate MEASURED on this installation, used to reject a reading
+    # from a run that was cut short or that sat behind a lock. The floor was
+    # 0.01 and rejected a real 0.008 measured on a live box: 117 groups over
+    # 19,493 streams in 18.2 seconds. That installation could never learn its
+    # own speed, so every estimate stayed 200 times too high, permanently.
+    #
+    # THE FLOOR IS NOT ARBITRARY AND MUST NOT BE LOWERED CASUALLY. A rate small
+    # enough to predict under SYNC_THRESHOLD_SECONDS / ETA_SAFETY_FACTOR, which
+    # is 1.25 seconds, sends the job down the SYNCHRONOUS path, and a CPU-bound
+    # matching loop there freezes the whole uWSGI worker rather than one request
+    # (bug-117). At 0.001 that same 117-group run estimates 2.3 seconds and
+    # still dispatches to the background, while leaving an eightfold margin
+    # below the real measurement. At 0.0001 it estimates 0.23 seconds and would
+    # run inline.
+    MEASURED_MIN_RATE = 0.001
+    MEASURED_MAX_RATE = 1000.0
     # Retained: the throughput probe paces itself per stream, not per group.
     ESTIMATED_SECONDS_PER_ITEM = 0.8
     RUN_TIMING_FILE = "/data/stream_mapparr_run_timing.json"
@@ -5874,13 +5890,29 @@ class Plugin:
         None means "use the shipped fallback". Returning zero instead would make
         every estimate zero, which would send a long job down the synchronous
         path and freeze a worker.
+
+        THE LOWER BOUND USED TO REJECT REAL MEASUREMENTS. It was 0.01, and a
+        live installation measured 0.008: 117 groups over 19,493 streams in 18.2
+        seconds. Its own correct timing was thrown away on every run, the shipped
+        fallback of 1.61 was used instead, and the opening estimate read 1 hour 1
+        minute for a job that took 18 seconds, permanently, because the machine
+        was simply faster than the bracket allowed for.
+
+        The bound exists to stop a run that was cut short, or that sat behind a
+        lock, from poisoning future estimates. That is worth keeping, so the
+        floor moves rather than disappears: it is now low enough to believe a
+        fast machine and still high enough to reject a rate that would predict
+        an instantaneous run and send a long job down the synchronous path.
+        MEASURED_MIN_RATE is a hundredth of the slowest plausible real reading,
+        so a genuine measurement has three orders of magnitude of headroom.
         """
         try:
             with open(path, encoding="utf-8") as f:
                 rate = float(json.load(f).get("seconds_per_group_per_1k_streams"))
-            # A run cut short, or one that sat behind a lock, would otherwise
-            # poison every future estimate. Bracket it rather than trust it.
-            return rate if 0.01 <= rate <= 1000.0 else None
+            if rate != rate:  # not-a-number compares unequal to itself
+                return None
+            return (rate if PluginConfig.MEASURED_MIN_RATE <= rate
+                    <= PluginConfig.MEASURED_MAX_RATE else None)
         except Exception:
             return None
 
@@ -7541,6 +7573,17 @@ class Plugin:
             # in logs and the CSV report.
             if dry_run:
                 success_msg = f"Dry run complete. Would update {channels_updated} channels with {total_streams_added} streams."
+            elif total_streams_added == 0 and channels_updated > 0:
+                # Matched normally, wrote nothing. With Overwrite Existing
+                # Streams OFF only streams a channel does not already have are
+                # added, so a second run over an unchanged library adds none.
+                # Reporting "assigned 0 streams" for that reads as a failure and
+                # sent an operator looking for a fault that was not there.
+                success_msg = (
+                    f"Matched {channels_updated} channels. Nothing new to add: "
+                    f"every matched stream was already assigned. Turn on "
+                    f"Overwrite Existing Streams to replace a channel's list "
+                    f"instead of adding to it.")
             else:
                 success_msg = f"Matched and assigned {total_streams_added} streams across {channels_updated} channels."
             if channels_skipped > 0:
