@@ -26,6 +26,16 @@ import os
 import re
 import time
 
+# Page furniture shared with the other reporting plugin here, so the two pages
+# cannot drift apart again. Vendored: a plugin deploys as a self-contained
+# directory into /data/plugins, where the workspace _shared path does not exist.
+# The relative import wins inside Dispatcharr; the plain import is the path the
+# test suite takes, which puts the inner folder on sys.path.
+try:
+    from . import report_chrome
+except ImportError:  # pragma: no cover - exercised by the test suite's path
+    import report_chrome
+
 # Reports are written here, deliberately NOT under /data/logos: Dispatcharr's
 # nginx serves that tree unauthenticated to the entire local network.
 # Marker appended to a stream name that was demoted for carrying too little
@@ -131,11 +141,15 @@ def _collapse_repeats(names):
             for name in order]
 
 
-def build_model(channels, account_names, settings, now):
+def build_model(channels, account_names, settings, now, version="", plugin_dir=""):
     """Build the report model from a list of per-channel result dicts.
 
     Only the keys named below are copied. Anything else the caller passes is
     dropped rather than carried through.
+
+    `version` and `plugin_dir` are optional and default to empty, so an existing
+    caller that does not pass them keeps working and simply gets a report with
+    no version line and no logo.
 
     `stream_names` must be a list. A caller that passes the semicolon-joined
     string the CSV export builds would otherwise have it iterated one character
@@ -174,6 +188,12 @@ def build_model(channels, account_names, settings, now):
         "generated_ts": float(now or 0),
         "channel_count": len(entries),
         "entries": entries,
+        # Both are optional and both fail quietly. A missing version renders no
+        # version text rather than the word None, and a missing or unreadable
+        # logo renders no image element at all rather than a broken-image icon.
+        # Neither is worth failing a report over.
+        "version": version or "",
+        "plugin_dir": plugin_dir or "",
     }
 
 
@@ -181,34 +201,71 @@ def build_model(channels, account_names, settings, now):
 # Rendering
 # --------------------------------------------------------------------------- #
 
-# Styling is inlined because the page is read from a file path or inside an
-# email client, where an external stylesheet would not resolve. Colours and
-# layout follow Dustarr's report so the two look like one family.
-_CSS = """
-:root { color-scheme: light dark; --accent: #2a78d6; --track: #e1e0d9; }
-body { font: 15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
-       margin: 0; padding: 24px; background: #fbfbfd; color: #16181d; }
-@media (prefers-color-scheme: dark) {
-  :root { --accent: #3987e5; --track: #2c2c2a; }
-  body { background: #14161a; color: #e8eaed; }
-  th { background: #1e2127 !important; }
-  tr:nth-child(even) td { background: #191c21; }
-  .card { background: #1a1d22 !important; border-color: #2a2e35 !important; }
+# Colour vocabulary for this report. Each entry becomes a --NAME custom
+# property plus matching dot and bar classes in the shared stylesheet, so the
+# categories below are this plugin's own and nothing from the sibling report
+# leaks in. Light colour first, dark second.
+ACCENTS = {
+    "empty": ("#d03b3b", "#e66767"),
+    "placeholder": ("#b06f00", "#f2c98a"),
+    "matched": ("#1baf7a", "#199e70"),
 }
-h1 { font-size: 22px; margin: 0 0 4px; }
-.sub { opacity: .7; font-size: 15px; margin-bottom: 20px; }
-.card { background: #fff; border: 1px solid #e3e5ea; border-radius: 10px;
-        padding: 14px 16px; margin-bottom: 18px; }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-.scroll { overflow-x: auto; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e6e8ec;
-         vertical-align: top; }
-th { background: #f2f3f6; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-ul.streams { margin: 0; padding-left: 18px; }
-.empty { opacity: .7; font-style: italic; }
-.note { font-size: 14px; opacity: .7; margin-top: 20px; }
-"""
+
+_CSS = report_chrome.build_css(ACCENTS)
+
+REPO_URL = "https://github.com/PiratesIRC/Stream-Mapparr"
+ISSUES_URL = REPO_URL + "/issues"
+NEWSFLASHARR_URL = "https://github.com/PiratesIRC/Dispatcharr-Newsflasharr-Plugin"
+
+# Sections, in the order a reader should meet them: the problems first, then
+# the ones that merely want a look, then the ones that are fine. The plain
+# table this replaced put a channel with no streams somewhere in the middle of
+# 117 rows, where nothing distinguished it from a healthy one.
+SECTION_EMPTY = "empty"
+SECTION_PLACEHOLDER = "placeholder"
+SECTION_MATCHED = "matched"
+
+SECTION_SPECS = [
+    {
+        "key": SECTION_EMPTY,
+        "title": "No streams matched",
+        "glyph": "⚠",
+        "description": "Nothing was assigned to these channels by this run.",
+        "action": "Check the channel name against the stream list, and check "
+                  "that the channel database matches the country you are "
+                  "processing. Assigning replaces a channel's whole stream "
+                  "list, so a channel that ends up here goes off air.",
+    },
+    {
+        "key": SECTION_PLACEHOLDER,
+        "title": "Holds a stream that looks like a placeholder",
+        "glyph": "○",
+        "description": "At least one assigned stream carries far too little "
+                       "video for the resolution it claims, which is what a "
+                       "slate or holding card looks like. It is ranked last "
+                       "rather than removed.",
+        "action": "Nothing, unless the channel plays a holding card. The "
+                  "demoted stream is marked in the list below.",
+    },
+    {
+        "key": SECTION_MATCHED,
+        "title": "Matched",
+        "glyph": "✓",
+        "description": "Streams were assigned and none of them looks like a "
+                       "placeholder.",
+        "action": "Nothing.",
+    },
+]
+
+
+def _classify(entry):
+    """Which section one channel belongs in. Every channel lands in exactly one."""
+    if not (entry.get("stream_names") or []):
+        return SECTION_EMPTY
+    marker = "[%s]" % PLACEHOLDER_LABEL
+    if any(marker in str(name) for name in entry["stream_names"]):
+        return SECTION_PLACEHOLDER
+    return SECTION_MATCHED
 
 
 def _esc(value):
@@ -229,50 +286,85 @@ def _fmt_ts(ts):
         return "unknown"
 
 
-def render_html(model):
-    """Render the model to one self-contained HTML page."""
-    rows = []
-    for entry in model.get("entries") or []:
-        names = entry.get("stream_names") or []
-        if names:
-            streams = ("<ul class=\"streams\">"
-                       + "".join(f"<li>{_esc(n)}</li>" for n in names)
-                       + "</ul>")
-        else:
-            streams = "<span class=\"empty\">no streams matched</span>"
-        rows.append(
-            "<tr>"
-            f"<td>{_esc(entry.get('channel_name'))}</td>"
-            f"<td class=\"num\">{_esc(entry.get('matched'))}</td>"
-            f"<td>{streams}</td>"
-            "</tr>"
-        )
-    if rows:
-        table = ("<div class=\"scroll\"><table>"
-                 "<tr><th>Channel</th><th>Matched</th><th>Streams</th></tr>"
-                 + "".join(rows) + "</table></div>")
+def _row_html(entry):
+    """One channel as a table row."""
+    names = entry.get("stream_names") or []
+    if names:
+        streams = ('<ul class="streams">'
+                   + "".join("<li>%s</li>" % _esc(n) for n in names)
+                   + "</ul>")
     else:
-        table = "<p class=\"empty\">No channels were matched in this run.</p>"
-
-    count = _esc(model.get("channel_count", 0))
-    return (
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n"
-        "<meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-        "<title>Stream-Mapparr report</title>\n"
-        f"<style>{_CSS}</style>\n</head>\n<body>\n"
-        "<h1>Stream-Mapparr report</h1>\n"
-        f"<div class=\"sub\">{count} channel(s) &middot; generated {_esc(_fmt_ts(model.get('generated_ts')))}</div>\n"
-        f"<div class=\"card\">{table}</div>\n"
-        "<p class=\"note\">Stream names in this report are shown without their M3U "
-        "source label. The CSV exports in /data/exports include that label and are "
-        "not sent by email.</p>\n"
-        "</body>\n</html>\n"
-    )
+        streams = '<span class="empty">no streams matched</span>'
+    return ("<tr><td>%s</td><td class=\"num\">%s</td><td>%s</td></tr>"
+            % (_esc(entry.get("channel_name")), _esc(entry.get("matched")), streams))
 
 
-# A cell beginning with any of these is evaluated as a formula by Excel,
-# LibreOffice and Google Sheets when the file is opened.
+def render_html(model):
+    """Render the model to one self-contained HTML page.
+
+    Total over its input: a report must never fail to render because a value
+    was missing. Every helper called here tolerates None.
+    """
+    model = model if isinstance(model, dict) else {}
+    entries = model.get("entries") or []
+
+    grouped = {spec["key"]: [] for spec in SECTION_SPECS}
+    for entry in entries:
+        grouped[_classify(entry)].append(entry)
+
+    assigned = 0
+    for entry in entries:
+        try:
+            assigned += int(entry.get("matched") or 0)
+        except (TypeError, ValueError):
+            pass
+
+    meta = "Generated %s" % _esc(_fmt_ts(model.get("generated_ts")))
+    version = model.get("version")
+    if version:
+        meta += " . Plugin version %s" % _esc(version)
+
+    body = [
+        report_chrome.masthead(
+            "Stream-Mapparr report", meta,
+            report_chrome.logo_data_uri(model.get("plugin_dir"))),
+        report_chrome.tiles([
+            (len(entries), "channels"),
+            (assigned, "streams assigned"),
+            (len(grouped[SECTION_EMPTY]), "with no streams"),
+            (len(grouped[SECTION_PLACEHOLDER]), "holding a placeholder"),
+        ]),
+    ]
+
+    if not entries:
+        body.append('<p class="empty">No channels were matched in this run.</p>')
+    else:
+        body.append(report_chrome.bar_chart(
+            [(spec["title"], len(grouped[spec["key"]]), spec["key"])
+             for spec in SECTION_SPECS],
+            aria_label="Channels by outcome"))
+        for spec in SECTION_SPECS:
+            rows = grouped[spec["key"]]
+            body.append(report_chrome.section(
+                spec["title"], len(rows), spec["key"],
+                report_chrome.table(["Channel", "Matched", "Streams"],
+                                    [_row_html(e) for e in rows]),
+                description=spec["description"],
+                action=spec["action"],
+                glyph=spec["glyph"]))
+
+    body.append(report_chrome.colophon(
+        ["Built by Stream-Mapparr, which matches streams to channels for "
+         "Dispatcharr by name similarity and quality.",
+         "Stream names here are shown without their M3U source label. The CSV "
+         "exports in /data/exports include that label and are never emailed.",
+         'Emailed copies of this report are delivered courtesy of '
+         '<a href="%s">Newsflasharr</a>.' % NEWSFLASHARR_URL],
+        [("Source and documentation", REPO_URL), ("Report a problem", ISSUES_URL)]))
+
+    return report_chrome.page("Stream-Mapparr report", _CSS, body)
+
+
 _FORMULA_LEADS = ("=", "+", "-", "@")
 
 

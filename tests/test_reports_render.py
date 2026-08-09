@@ -44,11 +44,37 @@ def test_html_escapes_a_stream_name():
 def test_html_is_self_contained():
     """No external stylesheet, script or image. The page is read from a file
     path or inside an email client, where an external request would not
-    resolve and would leak a read receipt."""
+    resolve and would leak a read receipt.
+
+    A hyperlink in the footer is NOT such a request: nothing is fetched until
+    the reader chooses to click it, and both the address bar and the status bar
+    show them where it goes. The rule being enforced is that the page renders
+    completely with the network switched off. This test previously banned the
+    string "https://" outright, which also banned links; it was narrowed when
+    the footer gained the same source and issue links the sibling plugin's
+    report carries.
+    """
     from reports import render_html
     html = render_html(_model())
-    for marker in ("http://", "https://", "<link ", "<script"):
+    for marker in ("<link ", "<script", "@import"):
         assert marker not in html
+    # Anything that FETCHES must not point off the machine.
+    for marker in ('src="http', "src='http", "url(http"):
+        assert marker not in html
+
+
+def test_every_external_address_is_a_plain_hyperlink():
+    """The only external addresses allowed are anchor targets. If a fetching
+    attribute ever gains one, the test above catches it; this one catches an
+    address arriving anywhere else at all, such as inside inlined styling."""
+    import re
+    from reports import render_html
+    html = render_html(_model())
+    for match in re.finditer(r"https?://", html):
+        window = html[max(0, match.start() - 60):match.start()]
+        assert window.rstrip().endswith('<a href="'), (
+            "an external address appears outside an anchor href: "
+            + html[max(0, match.start() - 60):match.start() + 40])
 
 
 def test_html_carries_the_channel_and_stream_names():

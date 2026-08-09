@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211233"
+    PLUGIN_VERSION = "1.26.2211306"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -2522,7 +2522,9 @@ class Plugin:
             reports = self._reports()
             now = time.time()
             written = reports.write_report(
-                reports.build_model(report_channels, account_names, settings, now),
+                reports.build_model(report_channels, account_names, settings, now,
+                                    version=PluginConfig.PLUGIN_VERSION,
+                                    plugin_dir=os.path.dirname(__file__)),
                 reports.REPORT_DIR, now)
             if written.get("error"):
                 logger.warning(f"[Stream-Mapparr] Report not written: {written['error']}")
