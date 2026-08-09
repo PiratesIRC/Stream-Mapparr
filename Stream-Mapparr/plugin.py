@@ -2008,9 +2008,9 @@ class Plugin:
     # Settings whose VALUE is one or more M3U account names. On a real
     # installation an account name is the provider's hostname plus an account
     # suffix, so these leak the provider as surely as a credential does.
-    # MEASURED 2026-08-09 on this box: the bug report file carried the provider
-    # hostname three times and the account suffixes three times, in a file whose
-    # own opening lines tell the reader to paste it into a PUBLIC issue.
+    # MEASURED 2026-08-09 on a live installation: the bug report file carried the
+    # provider hostname three times and the account suffixes three times, in a
+    # file whose own opening lines tell the reader to paste it into a PUBLIC issue.
     # The count is kept because it is diagnostically useful and names nothing.
     _ACCOUNT_NAME_SETTING_KEYS = ("selected_m3us",)
 
