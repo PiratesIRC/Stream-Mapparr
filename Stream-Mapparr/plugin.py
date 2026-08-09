@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2202106"
+    PLUGIN_VERSION = "1.26.2211233"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1220,27 +1220,42 @@ class Plugin:
                     db_options.append({"value": "_all", "label": "All databases"})
                 # Default to US if available, else first database
                 default_db = "US" if any(d['id'] == 'US' for d in databases) else databases[0]['id']
-                static_fields.append({
+                database_field = {
                     "id": "channel_database",
                     "label": "Channel Database",
                     "type": "select",
                     "default": default_db,
                     "options": db_options,
-                    "help_text": "Channel name database for callsign and name matching.",
-                })
+                    "help_text": "Which country's channel list to load for name and callsign "
+                                 "matching. This also decides a channel's country, which is the "
+                                 "signal Restrict Matching To Same Country filters on, so a "
+                                 "database that does not cover the channels you are processing "
+                                 "makes that filter drop the streams you wanted to keep.",
+                }
             else:
-                static_fields.append({
+                database_field = {
                     "id": "no_databases_found",
                     "type": "info",
                     "label": "No channel databases found. Place XX_channels.json files in the plugin directory.",
-                })
+                }
         except Exception as e:
             LOGGER.error(f"[Stream-Mapparr] Error loading channel databases for settings: {e}")
-            static_fields.append({
+            database_field = {
                 "id": "database_error",
                 "type": "info",
                 "label": f"Error loading channel databases: {e}",
-            })
+            }
+
+        # The channel database defines matching SCOPE rather than tuning it: it decides
+        # which country's channel list loads, and that list is the primary signal for a
+        # channel's country. Appended last it sat below the throughput probe settings,
+        # where an operator processing a UK group never saw that it was still on the US
+        # default, and the country filter then dropped their UK streams as foreign.
+        # Anchored on profile_name rather than a fixed index so that reordering the list
+        # above cannot silently move this somewhere meaningless.
+        anchor = next((i for i, f in enumerate(static_fields)
+                       if f.get("id") == "profile_name"), len(static_fields))
+        static_fields.insert(anchor, database_field)
 
         return static_fields
 
