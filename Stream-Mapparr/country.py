@@ -230,6 +230,70 @@ def country_from_name(text):
     return _scan_words(str(text), GROUP_NAME_ALIASES)
 
 
+def parse_prefix_country_overrides(raw):
+    """Parse an operator's "PREFIX=CC" lines into {PREFIX: COUNTRY}.
+
+    Accepts one per line or comma separated, ignores blanks and anything after
+    a "#". Case is normalised on both sides.
+
+    WHY THIS IS A SETTING AND NOT A SHIPPED TABLE. A provider's prefix is often a
+    PLATFORM rather than a country, and the same platform name means different
+    countries in different markets: NOW is Sky's service in the United Kingdom
+    and Ireland AND in Italy. Shipping NOW=UK would be right for one operator's
+    feeds and wrong for another's. Each installation declares its own.
+
+    DEGRADE, DO NOT FAIL. A malformed line is skipped, not raised on: this runs
+    while resolving settings for every action, and a typo must not stop matching.
+
+    THE COUNTRY MUST BE ONE THIS PLUGIN ALREADY KNOWS. An entry naming something
+    absent from KNOWN_COUNTRY_CODES is dropped, because an invented code would
+    compare unequal to every real one and quietly mark every stream carrying that
+    prefix as foreign, which is a removal rather than a no-op.
+    """
+    out = {}
+    if not raw or not isinstance(raw, str):
+        return out
+    for chunk in raw.replace(",", "\n").splitlines():
+        line = chunk.split("#", 1)[0].strip()
+        if not line or "=" not in line:
+            continue
+        prefix, _, code = line.partition("=")
+        prefix = prefix.strip().upper()
+        code = code.strip().upper()
+        if not prefix or not code:
+            continue
+        code = ISO2_SYNONYMS.get(code, code)
+        if code not in KNOWN_COUNTRY_CODES:
+            continue
+        out[prefix] = code
+    return out
+
+
+def country_from_prefix_overrides(text, overrides):
+    """Country for `text` from an operator-declared prefix map, or None.
+
+    Matches only the ANCHORED prefix forms the rest of this module accepts, so a
+    declared prefix of "NOW" matches "NOW: Sky Sports" and "(NOW) Sky Sports" but
+    never the word "now" inside a title. Without that restriction a short entry
+    would match ordinary English and reclassify unrelated streams.
+    """
+    if not text or not overrides:
+        return None
+    stripped = str(text).strip()
+    candidates = []
+    if re.fullmatch(r"[A-Za-z0-9]{1,12}", stripped):
+        candidates.append(stripped)
+    for pattern in (_RE_WRAPPED, _RE_TOKEN_DELIM):
+        m = pattern.match(str(text))
+        if m:
+            candidates.append(m.group(1))
+    for candidate in candidates:
+        code = overrides.get(candidate.strip().upper())
+        if code:
+            return code
+    return None
+
+
 def classify(channel_code, stream_code):
     """SAME / FOREIGN / UNKNOWN for one channel/stream country pair.
 

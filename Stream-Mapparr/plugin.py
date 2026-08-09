@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2211558"
+    PLUGIN_VERSION = "1.26.2211725"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -293,6 +293,10 @@ class PluginConfig:
     DEFAULT_AUTO_MATCH_ON_M3U_REFRESH = False   # opt-in: run Match & Assign after each M3U refresh
     DEFAULT_VISIBLE_CHANNEL_LIMIT = 1           # Channels per group to enable
     DEFAULT_RESTRICT_MATCHING_TO_COUNTRY = False  # Only match streams from same detected country/group
+    # Empty by design. A provider prefix is often a PLATFORM rather than a
+    # country, and the same platform means different countries in different
+    # markets, so no mapping is correct for every installation.
+    DEFAULT_STREAM_PREFIX_COUNTRIES = ""
 
     # === TAG FILTERING SETTINGS ===
     DEFAULT_IGNORE_QUALITY_TAGS = True          # Ignore [4K], HD, (SD), etc.
@@ -1045,6 +1049,24 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY,
                 "help_text": "When enabled, channels only match streams detected as the same country. Detection checks the channel database entry first, then the group name, then the channel name (bare, '|'-delimited or multi-token country markers all count). Streams with no recognizable country marker are not dropped; they are kept as lower-priority alternates behind same-country matches. Same-named channels for different countries (for example a CANADA and a UK channel both named CNN) are matched separately instead of being merged. OTA broadcast channels (matched by FCC callsign) are exempt from this filter. When disabled, legacy cross-country matching behavior is used. Works best with a single Channel Database selected: choosing 'All' means a channel name that appears in several databases with disagreeing countries (for example CNN, TNT or USA Network) is treated as ambiguous, and the filter is skipped for that channel rather than guessing.",
+            },
+            {
+                "id": "stream_prefix_countries",
+                "label": "🏷️ Stream Prefix Countries (one per line)",
+                "type": "string",
+                "default": PluginConfig.DEFAULT_STREAM_PREFIX_COUNTRIES,
+                "placeholder": "NOW=UK",
+                "help_text": "Tell the country filter what a provider prefix means, one "
+                             "PREFIX=COUNTRY per line, for example NOW=UK. Use this when a "
+                             "prefix names a platform rather than a country, so the plugin "
+                             "cannot know it: NOW is Sky's service in the United Kingdom "
+                             "and also in Italy, which is why no default can be right for "
+                             "everyone. A prefix listed here is only consulted when nothing "
+                             "else identified the stream, so it fills a gap and never "
+                             "overrules a country the provider stated. It matches only at "
+                             "the start of a name, as NOW: or (NOW), never the word inside "
+                             "a title. An entry naming a country this plugin does not know "
+                             "is ignored. Leave empty to change nothing.",
             },
             {
                 "id": "ignore_tags",
@@ -3687,21 +3709,45 @@ class Plugin:
 
         return group_name_code
 
-    def _stream_country_code(self, stream):
+    def _resolve_prefix_country_overrides(self, settings):
+        """The operator's PREFIX=COUNTRY map, resolved from the LIVE settings.
+
+        Resolved per call rather than stored, in line with every other setting
+        here: self.saved_settings is a snapshot that drifts from the database,
+        and state primed on one entry path is silently missing on another.
+        Returns {} when the setting is empty, absent or unparseable, which makes
+        the whole feature a no-op rather than a failure.
+        """
+        settings = settings if isinstance(settings, dict) else {}
+        raw = settings.get("stream_prefix_countries")
+        if raw is None:
+            raw = PluginConfig.DEFAULT_STREAM_PREFIX_COUNTRIES
+        return country_detect.parse_prefix_country_overrides(raw)
+
+    def _stream_country_code(self, stream, prefix_overrides=None):
         """Resolve a stream's country from its group label, then its RAW name.
 
         Reads stream['name'], never _mname(stream): the issue #36 consumer split
         keeps identity/ordering consumers on the raw name so a matching-only regex
         rule cannot blind this.
+
+        `prefix_overrides` is the operator's own PREFIX=COUNTRY map. It is
+        consulted LAST, so it fills a gap rather than overruling a country the
+        provider stated. Threaded as a parameter, never cached on self: a value
+        primed on one entry path is silently absent on another (bug-139).
         """
         if not stream:
             return None
         return (
             country_detect.country_from_group(stream.get('channel_group__name'))
             or country_detect.country_from_name(stream.get('name'))
+            or country_detect.country_from_prefix_overrides(
+                stream.get('name'), prefix_overrides)
+            or country_detect.country_from_prefix_overrides(
+                stream.get('channel_group__name'), prefix_overrides)
         )
 
-    def _build_stream_country_memo(self, streams):
+    def _build_stream_country_memo(self, streams, prefix_overrides=None):
         """One `_stream_country_code()` call per stream, reused for the rest of
         one action run (bug-158 review finding I3).
 
@@ -3720,9 +3766,11 @@ class Plugin:
         across groups. Explicit optional parameter threaded by the calling
         action, exactly like `country_stats` -- never cached on `self`.
         """
-        return {id(s): self._stream_country_code(s) for s in streams}
+        return {id(s): self._stream_country_code(s, prefix_overrides)
+                for s in streams}
 
-    def _resolve_stream_country(self, stream, stream_country_memo=None):
+    def _resolve_stream_country(self, stream, stream_country_memo=None,
+                                prefix_overrides=None):
         """`_stream_country_code(stream)`, served from `stream_country_memo`
         when the caller supplied one (see `_build_stream_country_memo`).
         Falls back to a direct (uncached) computation when no memo is given,
@@ -3731,10 +3779,10 @@ class Plugin:
             key = id(stream)
             if key in stream_country_memo:
                 return stream_country_memo[key]
-            code = self._stream_country_code(stream)
+            code = self._stream_country_code(stream, prefix_overrides)
             stream_country_memo[key] = code
             return code
-        return self._stream_country_code(stream)
+        return self._stream_country_code(stream, prefix_overrides)
 
     def _get_channel_info_and_matches(self, channel, channels_data, logger, need_matches,
                                        channel_info_cache=None):
@@ -6834,7 +6882,9 @@ class Plugin:
             # channels_data lookups too. Both stay None/empty (= exact prior
             # per-call computation) when the setting is off.
             stream_country_memo = (
-                self._build_stream_country_memo(streams) if restrict_matching_to_country else None
+                self._build_stream_country_memo(
+                    streams, self._resolve_prefix_country_overrides(settings))
+                if restrict_matching_to_country else None
             )
             channel_info_cache = {}
 
@@ -7182,7 +7232,9 @@ class Plugin:
             # channels_data lookups too. Both stay None/empty (= exact prior
             # per-call computation) when the setting is off.
             stream_country_memo = (
-                self._build_stream_country_memo(streams) if restrict_matching_to_country else None
+                self._build_stream_country_memo(
+                    streams, self._resolve_prefix_country_overrides(settings))
+                if restrict_matching_to_country else None
             )
             channel_info_cache = {}
 

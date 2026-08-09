@@ -1059,9 +1059,13 @@ def test_stream_country_memo_reused_across_groups(plugin_module):
     calls = []
     real = inst._stream_country_code
 
-    def counting(stream):
+    # Accepts the prefix-override argument the resolver gained when the
+    # operator-declared PREFIX=COUNTRY setting was added. A double pinned to the
+    # old arity fails with a TypeError rather than a useful assertion, which is
+    # the same trap the deduplication helper has here.
+    def counting(stream, prefix_overrides=None):
         calls.append(1)
-        return real(stream)
+        return real(stream, prefix_overrides)
 
     inst._stream_country_code = counting
 
