@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2212032"
+    PLUGIN_VERSION = "1.26.2212055"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -5916,6 +5916,33 @@ class Plugin:
         except Exception:
             return None
 
+    @staticmethod
+    def _dispatch_rate(measured):
+        """The rate the SYNCHRONOUS-versus-background decision should use.
+
+        Returns None when nothing was measured, which means "use the shipped
+        fallback" downstream.
+
+        A measured rate describes the job that produced it, and two jobs on one
+        machine differ enormously: measured on a live installation, 0.008
+        seconds per group per 1000 streams against the 1,899-entry UK channel
+        database and 0.4849 against the 31,823-entry US one, sixty times apart.
+        The model has no term for the database size, so the stored rate is
+        simply whatever ran last.
+
+        Under-estimating is the dangerous direction here. This number decides
+        whether a job runs inline, and a CPU-bound matching loop on the
+        synchronous path freezes the whole uWSGI worker rather than one request
+        (bug-117). A rate carried over from a cheap run would send an expensive
+        one inline. So this takes the SLOWER of the two.
+
+        The progress display deliberately does NOT clamp: there, being accurate
+        is the entire point and being wrong costs nothing.
+        """
+        if measured is None:
+            return None
+        return max(measured, PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS)
+
     def _estimate_eta_seconds(self, settings, logger):
         """Estimate runtime of a matching action in seconds.
 
@@ -5949,9 +5976,27 @@ class Plugin:
                     )
                 seen.add(key)
             streams = len(processed_data.get('streams', []))
-            return estimate_run_seconds(
-                len(seen), streams,
-                rate=self._observed_rate(PluginConfig.RUN_TIMING_FILE))
+            # THE DISPATCH DECISION TAKES THE PESSIMISTIC RATE, NOT THE LAST ONE.
+            #
+            # A measured rate describes the job that produced it, and two jobs on
+            # the same machine differ enormously: measured here, 0.008 for a run
+            # against the 1,899-entry UK channel database and 0.4849 for one
+            # against the 31,823-entry US database, sixty times apart. The model
+            # does not know the database size, so the stored rate is whatever the
+            # last run happened to be.
+            #
+            # Under-estimating is the dangerous direction. This value decides
+            # SYNCHRONOUS versus background, and a CPU-bound matching loop on the
+            # synchronous path freezes the entire uWSGI worker (bug-117). A rate
+            # carried over from a cheap run would send an expensive one inline.
+            #
+            # So the estimate that gates dispatch uses the SLOWER of the measured
+            # rate and the shipped fallback, while the progress display keeps
+            # using the measured one, where being accurate is the whole point and
+            # being wrong costs nothing.
+            rate = self._dispatch_rate(
+                self._observed_rate(PluginConfig.RUN_TIMING_FILE))
+            return estimate_run_seconds(len(seen), streams, rate=rate)
         except Exception as e:
             logger.debug(f"[Stream-Mapparr] Could not estimate ETA: {e}")
             return None

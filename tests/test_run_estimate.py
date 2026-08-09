@@ -148,3 +148,71 @@ def test_a_run_that_added_streams_still_reports_the_count(plugin_module):
 def test_a_dry_run_message_is_unchanged(plugin_module):
     block = _message_for(plugin_module, 0, 103)
     assert "Dry run complete." in block
+
+
+# --------------------------------------------------------------------------- #
+# The dispatch decision must not inherit a cheap run's rate
+# --------------------------------------------------------------------------- #
+
+def test_the_dispatch_rate_never_undercuts_the_shipped_fallback(plugin_module):
+    """MEASURED on one machine: 0.008 seconds per group per 1000 streams against
+    the 1,899-entry UK channel database, and 0.4849 against the 31,823-entry US
+    one. Sixty times apart, same box, and the model has no term for the database
+    size, so the stored rate is whatever ran last.
+
+    This number decides SYNCHRONOUS versus background dispatch, and a CPU-bound
+    matching loop on the synchronous path freezes the entire uWSGI worker rather
+    than one request. Carrying a cheap run's rate into an expensive one would
+    send it inline.
+    """
+    P = plugin_module.Plugin
+    cfg = plugin_module.PluginConfig
+    assert P._dispatch_rate(0.008) == cfg.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS
+
+
+def test_a_slower_measured_rate_is_kept(plugin_module):
+    """Clamping upward only. A machine genuinely slower than the shipped guess
+    must keep its own number, or the estimate under-reports again."""
+    P = plugin_module.Plugin
+    assert P._dispatch_rate(5.0) == 5.0
+
+
+def test_no_measurement_means_use_the_shipped_fallback(plugin_module):
+    P = plugin_module.Plugin
+    assert P._dispatch_rate(None) is None
+
+
+def test_the_clamp_actually_prevents_synchronous_dispatch(plugin_module):
+    """The property that matters, stated in seconds rather than in rates: a
+    seven-group run over 19,493 streams would dispatch inline on the cheap rate
+    and must not on the clamped one."""
+    P = plugin_module.Plugin
+    cfg = plugin_module.PluginConfig
+    optimistic = plugin_module.estimate_run_seconds(7, 19493, rate=0.008)
+    clamped = plugin_module.estimate_run_seconds(
+        7, 19493, rate=P._dispatch_rate(0.008))
+    assert cfg.ETA_SAFETY_FACTOR * optimistic < cfg.SYNC_THRESHOLD_SECONDS, (
+        "premise gone: the cheap rate would not dispatch synchronously anyway")
+    assert cfg.ETA_SAFETY_FACTOR * clamped >= cfg.SYNC_THRESHOLD_SECONDS
+
+
+def test_the_dispatch_path_uses_the_clamp(plugin_module):
+    """Source-level, because the surrounding method needs more instance state
+    than this harness can supply. It proves the call site exists, not that it
+    runs."""
+    import pathlib
+    src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
+    block = src[src.index("def _estimate_eta_seconds"):]
+    block = block[:block.index("def run(self")]
+    assert "_dispatch_rate(" in block
+
+
+def test_the_progress_display_still_uses_the_measured_rate(plugin_module):
+    """The displayed estimate is where accuracy matters and where being wrong
+    costs nothing, so it is NOT clamped."""
+    import pathlib
+    src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
+    block = src[src.index("if stream_count:"):]
+    block = block[:block.index("initial_eta_str")]
+    assert "_observed_rate" in block
+    assert "max(" not in block
