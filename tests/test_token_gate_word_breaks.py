@@ -18,9 +18,15 @@ channels affected and 134 newly eligible pairs. Two of them, EuroNews and
 WildEarth, had been reported as matching nothing at all.
 
 WHAT THIS MUST NOT DO. The strict gate exists to stop "Premier Sports 1"
-matching "Premier Sports 2". Joining the sorted tokens keeps every letter and
-every token, so it can only accept names built from the same words; a partial
-overlap, a missing word or an extra one still fails.
+matching "Premier Sports 2". Removing the spaces keeps every other character, so
+only names spelled identically can pass; a partial overlap, a missing word or an
+extra one still fails.
+
+THE ORDERING TRAP, found the hard way. A first attempt compared the token sets
+by joining them in SORTED order. That only works when alphabetical order happens
+to match word order: IndiePlex and MoviePlex passed by that coincidence while
+RetroPlex, whose "plex" sorts before "retro", did not. Comparing the normalised
+STRINGS instead preserves word order and has no such accident in it.
 
 Admitting a pair is NOT matching it. The similarity threshold, the country
 restriction and the callsign rules all still apply afterwards. Verified on the
@@ -30,87 +36,6 @@ British streams newly eligible for the US channels Lifetime and Nicktoons are
 still dropped as foreign.
 """
 import pytest
-
-
-def _agree(plugin_module, channel, stream):
-    return plugin_module._tokens_agree_when_joined(set(channel), set(stream))
-
-
-# --------------------------------------------------------------------------- #
-# The real cases, taken from live data
-# --------------------------------------------------------------------------- #
-
-@pytest.mark.parametrize("channel_tokens,stream_tokens,label", [
-    ({"un", "xplained", "zone"}, {"unxplained", "zone"}, "UnXplained Zone"),
-    ({"magellan", "tv", "wildest"}, {"magellantv", "wildest"}, "MagellanTV Wildest"),
-    ({"indie", "plex"}, {"indieplex"}, "IndiePlex"),
-    ({"movie", "sphere"}, {"moviesphere"}, "MovieSphere"),
-    ({"accu", "weather"}, {"accuweather"}, "AccuWeather"),
-    ({"golf", "pass"}, {"golfpass"}, "GolfPass"),
-    ({"draft", "kings"}, {"draftkings"}, "DraftKings"),
-    ({"euro", "news"}, {"euronews"}, "EuroNews"),
-])
-def test_a_word_break_difference_is_admitted(plugin_module, channel_tokens,
-                                             stream_tokens, label):
-    assert _agree(plugin_module, channel_tokens, stream_tokens), label
-
-
-def test_it_works_when_the_stream_is_the_split_side(plugin_module):
-    """The channel Nicktoons against a stream named NICK TOONS."""
-    assert _agree(plugin_module, {"nicktoons"}, {"nick", "toons"})
-
-
-# --------------------------------------------------------------------------- #
-# What it must still reject
-# --------------------------------------------------------------------------- #
-
-def test_a_numbered_sibling_is_still_rejected(plugin_module):
-    """The exact false match the strict gate was written to prevent."""
-    assert not _agree(plugin_module, {"premier", "sports", "1"},
-                      {"premier", "sports", "2"})
-
-
-def test_an_extra_word_is_still_rejected(plugin_module):
-    """Game Show against Game Show Central: a real pair from live data that
-    must NOT be admitted, because they are different channels."""
-    assert not _agree(plugin_module, {"game", "show"},
-                      {"game", "show", "central"})
-
-
-def test_a_missing_word_is_still_rejected(plugin_module):
-    assert not _agree(plugin_module, {"sky", "sports", "news"}, {"sky", "sports"})
-
-
-def test_a_partial_overlap_is_still_rejected(plugin_module):
-    assert not _agree(plugin_module, {"discovery", "science"},
-                      {"discovery", "turbo"})
-
-
-def test_an_unrelated_name_is_rejected(plugin_module):
-    assert not _agree(plugin_module, {"amc"}, {"bbc"})
-
-
-def test_an_empty_side_is_rejected(plugin_module):
-    """A name that normalises to nothing must not match everything."""
-    assert not _agree(plugin_module, set(), {"amc"})
-    assert not _agree(plugin_module, {"amc"}, set())
-
-
-def test_identical_token_sets_are_admitted(plugin_module):
-    assert _agree(plugin_module, {"amc"}, {"amc"})
-
-
-# --------------------------------------------------------------------------- #
-# The gate call site
-# --------------------------------------------------------------------------- #
-
-def test_the_matching_loop_consults_the_helper(plugin_module):
-    """Source-level, because the surrounding loop needs the ORM. It proves the
-    call site exists, not that it runs; the live before-and-after measurement
-    recorded in this module's docstring covers that."""
-    import pathlib
-    src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
-    assert "_tokens_agree_when_joined(channel_tokens, stream_tokens)" in src
 
 
 # --------------------------------------------------------------------------- #
@@ -147,10 +72,42 @@ def test_an_empty_side_matches_nothing(plugin_module):
     assert not _breaks(plugin_module, "   ", "")
 
 
-def test_both_similarity_call_sites_consult_it(plugin_module):
-    """There are two places a similarity score is tested against the threshold.
-    Updating one and not the other would fix a channel on one code path and not
-    the other, which is worse than fixing neither."""
+def test_every_place_that_can_reject_the_pair_consults_it(plugin_module):
+    """THREE call sites, not two: the two places a similarity score is tested
+    against the threshold, plus the token gate that runs before them. Fixing
+    some and not others fixes a channel on one code path and not another, which
+    is how the first attempt at this shipped looking correct and changed
+    nothing."""
     import pathlib
     src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
-    assert src.count("_same_but_for_word_breaks(stream_lower, channel_lower)") == 2
+    assert src.count("_same_but_for_word_breaks(stream_lower, channel_lower)") == 3
+
+
+# --------------------------------------------------------------------------- #
+# The ordering trap
+# --------------------------------------------------------------------------- #
+
+def test_word_order_is_preserved(plugin_module):
+    """The case that exposed the flaw. A first attempt joined the token sets in
+    SORTED order, which only works when alphabetical order matches word order.
+    IndiePlex and MoviePlex passed by coincidence; RetroPlex did not, because
+    "plex" sorts before "retro". All three must pass."""
+    assert _breaks(plugin_module, "indie plex", "indieplex")
+    assert _breaks(plugin_module, "movie plex", "movieplex")
+    assert _breaks(plugin_module, "retro plex", "retroplex")
+
+
+def test_a_reordering_is_not_a_match(plugin_module):
+    """The other half of preserving order: the same words in a different order
+    are a different name, and must not be admitted."""
+    assert not _breaks(plugin_module, "plex retro", "retroplex")
+    assert not _breaks(plugin_module, "news sky", "skynews")
+
+
+def test_the_gate_uses_the_string_comparison_not_a_token_join(plugin_module):
+    """Source-level. A token join cannot preserve word order, so reintroducing
+    one would bring the same accident back."""
+    import pathlib
+    src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
+    assert "_tokens_agree_when_joined" not in src
+    assert src.count("_same_but_for_word_breaks(stream_lower, channel_lower)") == 3

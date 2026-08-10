@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2221156"
+    PLUGIN_VERSION = "1.26.2221613"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -586,40 +586,6 @@ def _same_but_for_word_breaks(left, right):
     if not left or not right:
         return False
     return left.replace(" ", "") == right.replace(" ", "")
-
-
-def _tokens_agree_when_joined(channel_tokens, stream_tokens):
-    """Do two token sets describe the same name once word breaks are ignored?
-
-    THE FAULT THIS EXISTS FOR. Normalisation splits a name at an internal
-    capital, so the channel "UnXplained Zone" becomes the tokens un, xplained
-    and zone. A provider writing the same channel in upper case as
-    "UNXPLAINED ZONE" yields unxplained and zone, because there is no capital
-    left to split on. The gate above then asks whether every channel token
-    appears in the stream, that subset test fails, and the similarity
-    comparison never runs even though the two names are identical. Measured on
-    a live installation: 17 channels, including two that had been reported as
-    matching nothing at all.
-
-    It runs in the other direction too, where the STREAM is the split side:
-    the channel "Nicktoons" against a stream named "NICK TOONS".
-
-    WHY JOINING RATHER THAN LOOSENING THE SUBSET TEST. Concatenating the sorted
-    tokens keeps every letter and every token, so this can only accept names
-    built from exactly the same characters in the same words. It does not admit
-    a partial overlap, a missing word or an extra one. "Premier Sports 1"
-    against "Premier Sports 2" still fails, which is the false match the strict
-    gate was written to prevent.
-
-    This decides only whether the pair is WORTH COMPARING. The similarity
-    threshold, the country restriction and the callsign rules all still apply
-    afterwards, so a pair admitted here is not thereby matched.
-    """
-    if not channel_tokens or not stream_tokens:
-        return False
-    if channel_tokens == stream_tokens:
-        return True
-    return "".join(sorted(channel_tokens)) == "".join(sorted(stream_tokens))
 
 
 def estimate_run_seconds(groups, streams, rate=None):
@@ -5159,9 +5125,16 @@ class Plugin:
                         # At lower thresholds (<90%): Use permissive matching (sufficient overlap OR all channel tokens)
                         # This prevents false matches like "Premier Sports 1" matching "Premier Sports 2" at 85%
                         # while still allowing flexibility at lower thresholds
+                        # The second test admits a name whose words are broken
+                        # differently. It compares the NORMALISED STRINGS, not the
+                        # token sets: an earlier version joined the tokens in
+                        # SORTED order, which only worked when alphabetical order
+                        # happened to match word order. IndiePlex and MoviePlex
+                        # passed by that coincidence and RetroPlex did not, because
+                        # "plex" sorts before "retro".
                         all_channel_tokens_present = (
                             channel_tokens.issubset(stream_tokens)
-                            or _tokens_agree_when_joined(channel_tokens, stream_tokens))
+                            or _same_but_for_word_breaks(stream_lower, channel_lower))
                         
                         if self.fuzzy_matcher.match_threshold >= 90:
                             # Strict mode: Only match if ALL channel tokens are present in stream
