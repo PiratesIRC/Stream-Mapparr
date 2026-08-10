@@ -111,3 +111,46 @@ def test_the_matching_loop_consults_the_helper(plugin_module):
     import pathlib
     src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
     assert "_tokens_agree_when_joined(channel_tokens, stream_tokens)" in src
+
+
+# --------------------------------------------------------------------------- #
+# The second obstacle: the similarity score
+# --------------------------------------------------------------------------- #
+
+def _breaks(plugin_module, left, right):
+    return plugin_module._same_but_for_word_breaks(left, right)
+
+
+def test_a_missing_space_is_treated_as_the_same_name(plugin_module):
+    """Widening the token gate alone fixed NOTHING, which is how this was found.
+    The pair reached the similarity comparison and the single missing space cost
+    enough score to fail: 0.938 measured for this pair against a threshold of
+    95, 0.947 for magellan tv wildest, 0.889 for euro news."""
+    assert _breaks(plugin_module, "un xplained zone", "unxplained zone")
+    assert _breaks(plugin_module, "magellan tv wildest", "magellantv wildest")
+    assert _breaks(plugin_module, "euro news", "euronews")
+
+
+def test_it_is_not_a_fuzzy_comparison(plugin_module):
+    """Removing spaces keeps every other character, so only names spelled
+    identically can pass. This must not become a back door around the
+    threshold."""
+    assert not _breaks(plugin_module, "premier sports 1", "premier sports 2")
+    assert not _breaks(plugin_module, "game show", "game show central")
+    assert not _breaks(plugin_module, "discovery science", "discovery turbo")
+    assert not _breaks(plugin_module, "amc", "bbc")
+
+
+def test_an_empty_side_matches_nothing(plugin_module):
+    assert not _breaks(plugin_module, "", "amc")
+    assert not _breaks(plugin_module, "amc", "")
+    assert not _breaks(plugin_module, "   ", "")
+
+
+def test_both_similarity_call_sites_consult_it(plugin_module):
+    """There are two places a similarity score is tested against the threshold.
+    Updating one and not the other would fix a channel on one code path and not
+    the other, which is worse than fixing neither."""
+    import pathlib
+    src = pathlib.Path(plugin_module.__file__).read_text(encoding="utf-8")
+    assert src.count("_same_but_for_word_breaks(stream_lower, channel_lower)") == 2

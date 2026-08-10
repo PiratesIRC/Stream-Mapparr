@@ -276,7 +276,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2221141"
+    PLUGIN_VERSION = "1.26.2221156"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -563,6 +563,29 @@ def _zone_affinity_rank(channel_zone, stream_zone):
 def _eta_from_progress(elapsed, progress):
     """Linear-extrapolated seconds remaining from elapsed time and percent done."""
     return elapsed * (100 - progress) / progress if 0 < progress < 100 else 0
+
+
+def _same_but_for_word_breaks(left, right):
+    """Are two names identical once spaces are removed?
+
+    THE FAULT THIS COMPLETES. Normalisation splits a name at an internal
+    capital, so the channel "UnXplained Zone" is compared as "un xplained zone"
+    while a provider writing it in upper case gives "unxplained zone". Widening
+    the token gate got the pair as far as the similarity comparison, and then
+    the single missing space cost enough score to fail: 0.938 for that pair,
+    0.947 for "magellan tv wildest" against "magellantv wildest", and 0.889 for
+    "euro news" against "euronews", all under a threshold of 95. MEASURED on the
+    deployed build, which is how it was found: the gate change alone fixed
+    nothing.
+
+    Removing the spaces keeps every other character, so this can only be true of
+    names spelled identically. It is not a fuzzy comparison and does not lower
+    the threshold for anything else: "premier sports 1" and "premier sports 2"
+    still differ, and "game show" is still not "game show central".
+    """
+    if not left or not right:
+        return False
+    return left.replace(" ", "") == right.replace(" ", "")
 
 
 def _tokens_agree_when_joined(channel_tokens, stream_tokens):
@@ -5081,7 +5104,11 @@ class Plugin:
                             similarity = self.fuzzy_matcher.calculate_similarity(
                                 stream_lower, channel_lower,
                                 min_ratio=self.fuzzy_matcher.match_threshold / 100.0)
-                            if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
+                            # A name spelled the same but broken into words
+                            # differently is the SAME name, not a near miss, so
+                            # it is not put through the threshold at all.
+                            if (int(similarity * 100) >= self.fuzzy_matcher.match_threshold
+                                    or _same_but_for_word_breaks(stream_lower, channel_lower)):
                                 matching_streams.append(stream)
                         continue
 
@@ -5151,7 +5178,11 @@ class Plugin:
                             similarity = self.fuzzy_matcher.calculate_similarity(
                                 stream_lower, channel_lower,
                                 min_ratio=self.fuzzy_matcher.match_threshold / 100.0)
-                            if int(similarity * 100) >= self.fuzzy_matcher.match_threshold:
+                            # A name spelled the same but broken into words
+                            # differently is the SAME name, not a near miss, so
+                            # it is not put through the threshold at all.
+                            if (int(similarity * 100) >= self.fuzzy_matcher.match_threshold
+                                    or _same_but_for_word_breaks(stream_lower, channel_lower)):
                                 matching_streams.append(stream)
 
                 if matching_streams:
