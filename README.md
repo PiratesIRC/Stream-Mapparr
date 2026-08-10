@@ -187,10 +187,17 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Rate Limiting** | select | None | None, Low, Medium or High |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams. Requires IPTV Checker |
 | **Restrict Matching To Same Country** | boolean | False | Only match streams whose detected country matches the channel's. `GB:` is accepted as well as `UK:`, and `DR:` as well as `DO:`. An unrecognised prefix is treated as unknown and the stream is kept, never dropped |
+| **Stream Prefix Countries** | string | (empty) | Tell the country filter what a provider prefix means, as comma-separated `PREFIX=COUNTRY` entries such as `NOW=UK, GO=US`. Use it when a prefix names a platform rather than a country, which the plugin cannot know: NOW is Sky's service in the United Kingdom and also in Italy, so no default is right for everyone. Consulted last, so it fills a gap and never overrules a country the provider stated. Matches only at the start of a name, never a word inside a title |
 | **Keep Same-Named Streams From One Source** | boolean | False | Enable if your provider publishes several genuinely different feeds under one identical name. By default those are treated as duplicates |
+| **Enable EPG-Based Placeholder Matching** | boolean | False | Match a placeholder-named channel or stream by the programme currently airing on it, taken from EPG data, instead of by its literal name. For providers that name event slots generically, such as `PPV EVENT 04`, and put the real event only in the guide. Channel and stream names are never modified |
+| **Placeholder Name Patterns** | string | (see plugin) | One regex per line. A name is only ever treated as a placeholder if it matches one of these, so nothing else changes behaviour |
+| **EPG Title Cleanup Rules** | string | (see plugin) | JSON list of `[find, replace]` pairs applied to the raw programme title before it is used for matching, for example stripping a `Next Event: X at 6:00AM` wrapper down to `X` |
+| **Skip Titles** | string | (see plugin) | Comma-separated. If the cleaned programme title matches one of these, the channel keeps its literal name for that pass, because an idle slot carries no useful event |
+| **Channel Schedule Suffix Cleanup Rules** | string | (see plugin) | JSON list of `[find, replace]` pairs that strip a schedule annotation such as `\| Monday @ 5` from the channel name before it is compared against a programme title |
+| **EPG Event Watch Source Streams** | string | (see plugin) | Comma-separated names of permanently-named source streams to watch for an event, rather than placeholder-named ones |
 | **Send notifications to Newsflasharr** | boolean | False | Emit notifications through the Newsflasharr plugin |
 | **Email A Report After** | select | Scheduled runs only | Which runs email a report: never, scheduled only, or every run |
-| **Email Report Format** | select | Both | HTML only, CSV only, or both. Both means two emails |
+| **Email Report Format** | select | Both | Which file is emailed. One report sends ONE email carrying one attachment, because a notification can carry only one. Both writes both files and emails the HTML page; the email names the file it did not attach |
 | **Scheduled Run Times** | string | (none) | Times in HHMM, comma-separated, for example `0400,1600` |
 | **Auto-match after M3U refresh** | boolean | False | Run Match and Assign after each M3U refresh. Requires a Channel Profile. Dispatcharr v0.27+ |
 | **Dry Run Mode** | boolean | False | Preview without making database changes |
@@ -210,6 +217,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 |:---|:---|
 | **Validate Settings** | Check configuration, profiles, groups and databases |
 | **Test Regex Rules** | Preview what your regex rules would change, with before and after samples and invisible characters made visible |
+| **Check Stream Country Labels** | Compare each stream's group country against its EPG identifier suffix and report where they disagree. Reads two database columns, opens no provider connection and changes nothing. A disagreement is not automatically a fault: a channel carried in one country and made in another is ordinary |
 | **Load/Process Channels** | Load channel and stream data from the database |
 | **Preview Changes** | Dry run with a CSV export |
 | **Match & Assign Streams** | Fuzzy match and assign streams to channels |

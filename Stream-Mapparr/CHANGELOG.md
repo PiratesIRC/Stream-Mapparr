@@ -1,5 +1,137 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2222318 (August 10, 2026)
+
+### Added
+- **Stream Prefix Countries, a setting that tells the country filter what a
+  provider prefix means.** Comma-separated `PREFIX=COUNTRY` entries, for example
+  `NOW=UK`. It exists because a prefix is often a PLATFORM rather than a country
+  and the same platform means different countries in different markets: NOW is
+  Sky's service in the United Kingdom and also in Italy, so no shipped default
+  can be right for everyone and the table is empty unless you fill it in.
+
+  It is consulted LAST, after the group label and the channel name, so an entry
+  fills a gap and can never overrule a country the provider stated. That order
+  matters because overruling would REMOVE streams: a typo naming the wrong
+  country would mark them foreign. An entry naming a country the plugin does not
+  know is dropped for the same reason, since an invented code compares unequal
+  to every real one. Matching is anchored, so `NOW` matches `NOW: Sky Sports`
+  and `(NOW) Sky Sports` but never the word inside `The Now Show`.
+
+- **Check Stream Country Labels, an action that compares two independent country
+  signals** without opening a single provider connection: the country prefix on
+  a stream's group name, which the country filter trusts, and the two-letter
+  suffix on its EPG identifier, written by whoever built the guide. It reports
+  where they disagree and never filters on the result, because a channel carried
+  in one country and made in another is ordinary rather than wrong. Measured on
+  one installation: 3,500 streams carry both signals and 3,449 agree.
+
+  The appeal is the cost. The only other way to verify a provider's country
+  claim is to open the stream and look at the picture, which spends one of a
+  small number of provider connections and can interrupt someone watching.
+
+### Fixed
+- **A stream whose name differs only in where the words break is now matched.**
+  Normalisation splits a name at an internal capital, so the channel
+  `UnXplained Zone` was compared as `un xplained zone` while a provider writing
+  the same channel in upper case gave `unxplained zone`. Two separate obstacles
+  rejected it: a fast token gate required every channel token to appear in the
+  stream, and then the similarity score fell below an Exact threshold because of
+  the single missing space. Both now treat a name spelled identically once
+  spaces are removed as the same name.
+
+  MEASURED across an installation of 1,440 channels and 25,323 streams: 17
+  channels affected, of which 11 had been matching NOTHING at all, including
+  `IndiePlex`, `MoviePlex`, `MovieSphere`, `GolfPass`, `DraftKings`,
+  `AccuWeather`, `HerSphere`, `GoTraveler`, `EuroNews` and `UnXplained Zone`.
+
+  Removing the spaces keeps every other character, so only names spelled the
+  same can pass: `Premier Sports 1` still does not match `Premier Sports 2`, and
+  `Game Show` is still not `Game Show Central`. Word ORDER is preserved. A first
+  attempt compared the two token sets joined in SORTED order, which agrees with
+  real word order only by accident of the alphabet: `IndiePlex` and `MoviePlex`
+  passed by that coincidence while `RetroPlex`, whose `plex` sorts before
+  `retro`, did not.
+
+- **A fast installation can now learn its own speed.** Every run records its real
+  cost so the next estimate uses the machine rather than a shipped guess, but the
+  reader rejected any rate below 0.01 and a live installation measured 0.008:
+  117 channel groups over 19,493 streams in 18.2 seconds. Its own correct timing
+  was thrown away on every run and the opening estimate read 1 hour 1 minute for
+  a job that took 18 seconds, permanently.
+
+  The floor moved rather than disappeared, because the bracket still has to
+  reject a reading from a run that was cut short. It is not arbitrary: a rate
+  small enough to predict under the synchronous-dispatch threshold would send a
+  real job inline, where a processor-bound matching loop freezes the whole worker
+  rather than one request.
+
+- **The dispatch decision now takes the pessimistic rate.** Believing the
+  measured rate is right for the number an operator reads and wrong for the
+  number that chooses synchronous versus background. Measured on one machine
+  minutes apart: 0.008 against a 1,899-entry channel database and 0.4849 against
+  a 31,823-entry one, sixty times apart, because the model has no term for the
+  database size. Under-estimating is the dangerous direction, so the gate uses
+  the slower of the measured rate and the shipped fallback while the progress
+  display keeps using the measured one.
+
+- **A run that matched but had nothing to add no longer reports zero as its
+  headline.** With Overwrite Existing Streams off, only streams a channel does
+  not already have are added, so a second run over an unchanged library
+  correctly adds none. Reporting "assigned 0 streams" for that reads as a
+  failure and sent an operator looking for a fault that was not there. The
+  message now says so and names the setting that would change it.
+
+- **The Report a Bug button no longer writes your M3U source names into a file
+  it tells you to paste in public.** Those names are commonly the provider's
+  hostname. Measured on a live installation, the file carried it three times.
+  The source list is now masked the way the webhook already was, keeping the
+  COUNT because that is the part a maintainer needs.
+
+- **Five settings that ask for one entry per line, or for JSON, now render as a
+  multi-line box.** They were declared as a single-line input, where a newline
+  cannot be typed at all, so the instructions described something the control
+  could not accept: Custom Aliases, Stream Name Regex Rules, Placeholder Name
+  Patterns, EPG Title Cleanup Rules and Channel Schedule Suffix Cleanup Rules.
+
+### Changed
+- **One report now sends ONE email, carrying the HTML page.** Choosing to email
+  both formats sent two separate emails per run, because a notification carries a
+  single attachment and the code emitted one event per file. Both files are still
+  written, and the email names the one it did not attach so it is not mistaken
+  for missing.
+
+- **The Report a Bug button can email the report** when notifications are
+  enabled, respecting the Email A Report After setting so never means never. The
+  report text rides in the body, because only `.html`, `.htm` and `.csv` can be
+  attached and a bug report is a text file. The single attachment slot carries a
+  freshly sanitised copy of the newest CSV export, never the export itself,
+  because those label every stream with its M3U source. If the account names
+  cannot be read the CSV is omitted rather than sent unsanitised.
+
+- **The HTML report is built from shared page furniture** rather than its own
+  private copy of the stylesheet, masthead, stat tiles, bar chart and footer.
+  The page now groups channels into collapsible sections with coloured dots and
+  a bar chart: channels where nothing matched, channels holding a stream demoted
+  as a probable placeholder, and channels matched cleanly. The problem cases
+  lead, which matters because assigning replaces a channel's whole stream list.
+  The masthead carries the plugin logo and version.
+
+- **The CSV export preamble records the Stream Prefix Countries map**, with the
+  count of accepted entries beside the raw text, so a reader comparing two
+  exports can see that it changed. Printed only when the country restriction is
+  on, since nothing else consumes it.
+
+- **The Channel Database setting moved to the top of the settings form**, above
+  Channel Profile. It was appended last, below the throughput probe options,
+  which is the wrong place for a setting that defines matching SCOPE: it decides
+  which country's channel list loads, and that list is the primary signal for a
+  channel's country, which is what Restrict Matching To Same Country filters on.
+  Measured on a live installation, the setting had never been touched, so it
+  fell back to the United States list while a United Kingdom group was being
+  processed, and enabling the country filter then classified 34 of 181 British
+  channels as American and dropped their British streams as foreign.
+
 ## v1.26.2141957 (August 2, 2026)
 
 ### Added

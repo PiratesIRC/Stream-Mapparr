@@ -17,11 +17,35 @@ notifications for every plugin that uses it.
 
 **Email Report Format** chooses between the HTML page, the CSV, or both.
 
-A notification carries one attachment, so choosing both sends two separate
-emails per run.
+One report sends ONE email, carrying one attachment. That is not a choice the
+plugin makes: a notification carries a single attachment, so both files on one
+message is not something it can express. Choosing both writes both files and
+emails the HTML page, which holds everything the CSV does and reads on a phone.
+Choosing CSV emails the CSV instead.
 
-Both files are written to `/data/stream_mapparr_reports` either way. The setting
-only decides which of them are emailed.
+Earlier versions emitted one notification per file, so choosing both produced
+two separate emails per run.
+
+Both files are written to `/data/stream_mapparr_reports` either way, and the
+email names the one it did not attach so it is not mistaken for missing.
+
+## The Report a Bug button can email too
+
+When notifications are enabled, pressing **Report a Bug or Request a Feature**
+also sends the report, respecting **Email A Report After** so never means never.
+
+The report text rides in the message body rather than as an attachment, because
+only `.html`, `.htm` and `.csv` files can be attached and a bug report is a text
+file. The single attachment slot carries a freshly sanitised copy of your newest
+CSV export.
+
+It is never the export itself. Every file in `/data/exports` labels each stream
+with its M3U source, and a source name is commonly your provider's hostname. If
+the account names cannot be read, no CSV is attached at all rather than an
+unsanitised one being sent.
+
+The written file masks your M3U source list for the same reason, because that
+file exists to be pasted into a public issue.
 
 ## These are not the CSV exports
 
