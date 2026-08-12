@@ -1,5 +1,39 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2241602 (August 12, 2026)
+
+### Fixed
+- **The schedule now comes from the database, so a stale cache file can no
+  longer silence it.** The background scheduler bootstrapped from
+  `/data/stream_mapparr_settings.json`, which is a copy of what the interface
+  last wrote, rather than from the plugin's saved settings in the database,
+  which is what the interface actually saved. The two can disagree, and on the
+  installation this was found on they did: the database held a daily 05:00 Sort
+  and the plugin was enabled, while the file held an empty string for the same
+  setting and had not been written since a month earlier. Every worker logged
+  "No scheduled times configured, scheduler not started" and the daily job had
+  not run in that whole time. Nothing reported a problem, because as far as the
+  scheduler could tell there was no schedule to run.
+
+  On startup the plugin now compares the two and takes the database, rewriting
+  the file so the disagreement does not come back. It wins in both directions:
+  adopting only a schedule that appears in the database would revive one the
+  operator had deliberately cleared.
+
+  Two things about the cost, because the plugin is rebuilt on Dispatcharr's
+  per-request path and an unconditional query there is what once made every
+  channel listing pay for scheduler work. The database is read at most once per
+  worker process, with the marker kept in the same reload-proof place the rest
+  of the scheduler state lives in. A read that FAILED is not recorded as done,
+  so it is tried again, because the plugin can be built before the database is
+  accepting connections during container start and giving up at that moment
+  would leave the schedule dead until the next restart, which is the same
+  failure arriving by a different route.
+
+  The whole reconciliation is wrapped so it can never be the reason a request
+  fails, and a plugin with no saved settings at all is treated as the database
+  answering rather than as a failed read.
+
 ## v1.26.2241529 (August 12, 2026)
 
 ### Fixed

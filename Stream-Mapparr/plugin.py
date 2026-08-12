@@ -73,6 +73,11 @@ def _scheduler_state():
                     schedule doesn't send every request down the locked path
       lock        — RLock serializing stop-then-start (bug-065 QA: concurrent
                     Plugin() construction must not orphan a thread)
+      db_checked  — whether this process has already read the schedule out of the
+                    plugin's database row. Plugin construction is on the
+                    per-request path, so that read happens once (bug-127), and it
+                    is only recorded once the read SUCCEEDS, so a database that
+                    was not ready during container start gets asked again
     """
     state = sys.modules.get(_SCHEDULER_STATE_MODULE)
     if state is None:
@@ -82,6 +87,7 @@ def _scheduler_state():
         candidate.stop_event = None
         candidate.signature = None
         candidate.armed_live = False
+        candidate.db_checked = False
         candidate.lock = threading.RLock()
         # setdefault is atomic under the GIL: concurrent first calls converge on one
         state = sys.modules.setdefault(_SCHEDULER_STATE_MODULE, candidate)
@@ -275,7 +281,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2241529"
+    PLUGIN_VERSION = "1.26.2241602"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -377,6 +383,10 @@ class PluginConfig:
     EXPORTS_DIR = "/data/exports"
     PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
+    # Dispatcharr keys a plugin by the DIRECTORY NAME it is deployed under, which
+    # is what PluginConfig.key holds. It is not derived from anything in this
+    # file, so it is written out rather than computed.
+    PLUGIN_DB_KEY = "stream-mapparr"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
     SCHEDULER_LOCK_FILE = "/data/stream_mapparr_scheduler.lock"               # flock guard for the claim
@@ -1553,20 +1563,91 @@ class Plugin:
         LOGGER.info(f"[Stream-Mapparr] Unloading {self.name}")
         self._stop_background_scheduler()
 
+    def _settings_from_db(self):
+        """Return the plugin's saved settings from the database row.
+
+        Returns a dict on success, INCLUDING an empty one when the row exists
+        with no settings or does not exist at all: that is the database
+        answering. Returns None only when it could not be asked, which covers
+        running outside Dispatcharr, where the model cannot be imported, and
+        being constructed before the database is accepting connections during
+        container start. The caller treats those two cases differently, so they
+        must not collapse into one value.
+        """
+        try:
+            from apps.plugins.models import PluginConfig as PluginConfigRow
+            row = PluginConfigRow.objects.filter(
+                key=PluginConfig.PLUGIN_DB_KEY).values_list('settings', flat=True).first()
+            if row is None:
+                return {}
+            return row if isinstance(row, dict) else {}
+        except Exception:
+            return None
+
+    def _reconcile_schedule_with_db(self):
+        """Make the schedule come from the DATABASE, not from a file that drifts.
+
+        `/data/stream_mapparr_settings.json` is a cache of what the interface
+        last wrote; the plugin row in the database is what the interface
+        actually saved. They can disagree, and on this installation they did:
+        measured 2026-08-12, the row held a daily 05:00 schedule while the file
+        held an empty string and had not been written since 2026-07-11, so every
+        worker logged "No scheduled times configured" and the daily job had not
+        run for a month. Nothing reported a problem, because as far as the
+        scheduler could tell there was no schedule to run.
+
+        The database wins in BOTH directions. Adopting only a schedule that
+        appears there would revive one the operator had deliberately cleared.
+
+        Cost is the reason for the once-per-process flag: the plugin is
+        re-instantiated on Dispatcharr's per-request path, and an unconditional
+        query there is the shape that once made every channels API call pay for
+        scheduler work (bug-127). The flag lives in the parked scheduler state so
+        it survives a module reload (bug-136). A read that FAILED is not
+        recorded, so it is retried: the plugin can be built before the database
+        is ready, and giving up then would leave the schedule dead until the next
+        restart, which is this same failure by another route.
+        """
+        state = _scheduler_state()
+        try:
+            if getattr(state, 'db_checked', False):
+                return
+            db_settings = self._settings_from_db()
+            if db_settings is None:
+                return                      # could not ask; try again next time
+            state.db_checked = True
+            if not db_settings:
+                return                      # asked, nothing configured
+            file_times = (self.saved_settings.get('scheduled_times') or '').strip()
+            db_times = (db_settings.get('scheduled_times') or '').strip()
+            if file_times == db_times:
+                return
+            LOGGER.warning(
+                f"[Stream-Mapparr] Schedule in the settings file ('{file_times}') disagrees with "
+                f"the database ('{db_times}'). Taking the database and rewriting the file.")
+            self.saved_settings = dict(db_settings)
+            self._save_settings(self.saved_settings)
+        except Exception as e:
+            # This runs while the plugin is being constructed, on a path
+            # Dispatcharr walks constantly, so it must never be the reason a
+            # request fails.
+            LOGGER.error(f"[Stream-Mapparr] Could not reconcile the schedule with the database: {e}")
+
     def _load_settings(self):
-        """Load saved settings from disk"""
+        """Load saved settings from disk, then let the database correct them."""
         try:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
                     self.saved_settings = json.load(f)
                     LOGGER.debug("[Stream-Mapparr] Loaded saved settings")
-                    # Start background scheduler with loaded settings
-                    self._start_background_scheduler(self.saved_settings)
             else:
                 self.saved_settings = {}
         except Exception as e:
             LOGGER.error(f"[Stream-Mapparr] Error loading settings: {e}")
             self.saved_settings = {}
+        self._reconcile_schedule_with_db()
+        if self.saved_settings:
+            self._start_background_scheduler(self.saved_settings)
 
     def _save_settings(self, settings):
         """Save settings to disk"""
