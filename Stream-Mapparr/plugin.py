@@ -19,9 +19,8 @@ try:
     import fcntl  # POSIX-only; provides the cross-worker scheduler flock (bug-069)
 except ImportError:  # Windows / non-Docker test host
     fcntl = None
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from django.utils import timezone
-from django.db import transaction
 import threading
 
 # Import FuzzyMatcher from the same directory
@@ -276,7 +275,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2222318"
+    PLUGIN_VERSION = "1.26.2241529"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -524,6 +523,10 @@ class PluginConfig:
     REGEX_PASS_BUDGET_S = 5.0          # cumulative wall-clock per application pass
     REGEX_YIELD_EVERY = 500            # names between time.sleep(0) yields
     REGEX_TEST_SAMPLES = 20
+    # What a Dispatcharr toast actually shows. It clips at roughly this many
+    # characters, takes the cut from the MIDDLE, adds no ellipsis and collapses
+    # newlines, so anything longer loses its middle and says nothing about it.
+    TOAST_BUDGET_CHARS = 280
 
 # ============================================================================
 # END CONFIGURATION
@@ -1595,7 +1598,11 @@ class Plugin:
                     time_list = [t.strftime('%H:%M') for t in times]
                     return {
                         "status": "success",
-                        "message": f"Schedule updated successfully!\n\nScheduled to run daily at: {', '.join(time_list)} ({tz_str})\n\nBackground scheduler is running."
+                        "message": self._fit_toast([
+                            "Schedule updated successfully!",
+                            f"Scheduled to run daily at: {', '.join(time_list)} ({tz_str})",
+                            "Background scheduler is running.",
+                        ])
                     }
                 else:
                     return {
@@ -1653,7 +1660,7 @@ class Plugin:
             
             return {
                 "status": "success",
-                "message": "\n".join(message_parts)
+                "message": self._fit_toast(message_parts)
             }
             
         except ImportError:
@@ -1920,7 +1927,7 @@ class Plugin:
             last_run = {}
 
             LOGGER.info(f"[Stream-Mapparr] Scheduler timezone: {tz_str}")
-            LOGGER.info(f"[Stream-Mapparr] Scheduler initialized - will run at next scheduled time (not immediately)")
+            LOGGER.info("[Stream-Mapparr] Scheduler initialized - will run at next scheduled time (not immediately)")
             
             while not stop_event.is_set():
                 try:
@@ -5179,7 +5186,6 @@ class Plugin:
 
         # Try exact channel name matching from JSON first
         if channel_info and channel_info.get('channel_name'):
-            json_channel_name = channel_info['channel_name']
             for stream in working_streams:
                 cleaned_stream_name = self._clean_channel_name(
                     _mname(stream), ignore_tags, ignore_quality, ignore_regional,
@@ -5334,10 +5340,6 @@ class Plugin:
                 )
 
                 if matched_stream_name or alias_streams:
-                    cleaned_channel_name = self._clean_channel_name(
-                        channel_name, ignore_tags, ignore_quality, ignore_regional,
-                        ignore_geographic, ignore_misc
-                    )
                     cleaned_matched = self._clean_channel_name(
                         matched_stream_name, ignore_tags, ignore_quality, ignore_regional,
                         ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
@@ -5610,7 +5612,7 @@ class Plugin:
                     return {"status": "error",
                             "message": "No rules configured — set Stream Name Regex Rules first."}
                 return {"status": "error",
-                        "message": "No valid rules.\n" + "\n".join(rule_lines)}
+                        "message": self._fit_toast(["No valid rules."] + rule_lines)}
 
             streams = self._get_all_streams(logger)
             if not streams:
@@ -5642,12 +5644,33 @@ class Plugin:
                 msg_parts.append(f"⚠ containment: {counters['skipped_long']} skipped (too long), "
                                  f"{counters['growth_reverted']} growth-capped"
                                  + (", time budget exceeded" if counters["budget_tripped"] else ""))
+            msg_parts.append("Note: normalization and ignore tags apply AFTER these rules — "
+                             "remaining quality tags etc. are cleaned downstream.")
             if samples:
                 msg_parts.append("Samples (non-printing chars escaped):")
                 msg_parts.extend(samples)
-            msg_parts.append("Note: normalization and ignore tags apply AFTER these rules — "
-                             "remaining quality tags etc. are cleaned downstream.")
-            return {"status": "success", "message": "\n".join(msg_parts)}
+
+            # The samples are the reason to run this action, and there can be
+            # twenty of them at up to about 165 characters each, so the readout
+            # does not fit a toast and never did. Write the whole thing to a file
+            # and let the toast carry the headline, the same way the country
+            # check and the bug report do. A failed write is reported rather than
+            # hidden: the readout still has to reach the operator somehow.
+            path = None
+            try:
+                os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+                path = os.path.join(self.BUG_REPORT_DIR, "test-regex-rules.txt")
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write("\n".join(msg_parts) + "\n")
+            except Exception as write_error:
+                logger.warning(
+                    f"[Stream-Mapparr] Could not write the regex rule test: {write_error}")
+                path = None
+
+            result = {"status": "success", "message": self._fit_toast(msg_parts)}
+            if path:
+                result["file"] = path
+            return result
         except Exception as e:
             logger.error(f"[Stream-Mapparr] test_regex_rules failed: {e}")
             return {"status": "error", "message": f"Test failed: {e}"}
@@ -5882,6 +5905,63 @@ class Plugin:
                 "message": f"Error: {str(e)}"
             }
 
+    @staticmethod
+    def _fit_toast(parts, budget=None):
+        """Join `parts` into a message a toast can show, and admit what was cut.
+
+        Dispatcharr clips a toast at roughly TOAST_BUDGET_CHARS, takes the cut
+        from the MIDDLE rather than the end, adds no ellipsis and collapses
+        newlines. An over-long message therefore loses its middle silently, and
+        the operator reads a beginning and an end that were never next to each
+        other with nothing on screen to say so.
+
+        Lines are dropped from the END, keeping the order the caller chose, so
+        put the summary first and the detail last. The count of dropped lines is
+        appended, because a truncation the reader can see is a different thing
+        from one they cannot.
+        """
+        budget = PluginConfig.TOAST_BUDGET_CHARS if budget is None else budget
+        lines = [str(part) for part in parts]
+        if not lines:
+            return ""
+        joined = "\n".join(lines)
+        if len(joined) <= budget:
+            return joined
+        kept = []
+        used = 0
+        for index, line in enumerate(lines):
+            note = f"\n(+{len(lines) - index} more line(s) not shown)"
+            if used + len(line) + len(note) > budget:
+                break
+            kept.append(line)
+            used += len(line) + 1
+        dropped = len(lines) - len(kept)
+        if not kept:
+            # One line on its own is longer than the whole budget, so there is
+            # nothing to drop and the only honest option is a hard cut.
+            return lines[0][:budget]
+        return "\n".join(kept) + f"\n(+{dropped} more line(s) not shown)"
+
+    @staticmethod
+    def _cooperative_yield():
+        """Hand the worker back between units of matching work.
+
+        Dispatcharr's uWSGI runs gevent with early monkey-patching, so a thread
+        here is a greenlet: it holds the whole worker until it yields, and a
+        greenlet doing arithmetic yields nowhere on its own. The consequence is
+        not that the run is slow, it is that every OTHER request served by that
+        worker waits for the run to finish (bug-117). Choosing the background
+        path does not help, because the background thread is a greenlet too.
+
+        Once monkey-patching has run, time.sleep is gevent.sleep, and sleeping
+        for zero returns to the hub and comes straight back, so any other
+        greenlet that is ready gets a turn. Where nothing has patched it, as in
+        the tests and in any plain Python import of this module, the call does
+        nothing and cannot fail. The regex pre-processing pass already uses this
+        and is the shape copied here.
+        """
+        time.sleep(0)
+
     def _should_run_sync(self, action, eta_seconds, lockable_actions):
         """Decide whether `action` may run inline in the HTTP request.
 
@@ -5983,12 +6063,43 @@ class Plugin:
             return None
         return max(measured, PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS)
 
+    def _estimate_scope_channels(self, channels, settings):
+        """Narrow a CACHED channel list to what the CURRENT settings would process.
+
+        The cache is whatever the previous load wrote, so an estimate taken
+        straight from it describes the job that ran last time. Changing the
+        Channel Groups setting and starting a run therefore sized the old
+        selection, and that number decides synchronous versus background
+        dispatch, so it is not a display-only error.
+
+        Filtering is by group NAME, not by id: the setting stores names and the
+        cached rows already carry them, so no database query is needed and this
+        stays cheap enough to run on the way into an action.
+
+        Returns None when the cache cannot answer the question, which happens
+        when the operator has named a group the previous load never saw. The
+        caller turns that into an unknown estimate, and an unknown estimate goes
+        to the background path. That is the safe direction: guessing low would
+        run a large job inside a request and make the worker unresponsive.
+        """
+        raw = settings.get("selected_groups") or ""
+        selected = [name.strip() for name in raw.split(',') if name.strip()]
+        if not selected:
+            return channels
+        mode = self._resolve_group_filter_mode(settings)
+        if mode != "exclude":
+            present = {channel.get('channel_group__name') for channel in channels}
+            if any(name not in present for name in selected):
+                return None
+        return self._filter_by_group_ids(channels, selected, mode, 'channel_group__name')
+
     def _estimate_eta_seconds(self, settings, logger):
         """Estimate runtime of a matching action in seconds.
 
-        Uses the cached processed_data to count distinct channel groups, then
-        multiplies by ESTIMATED_SECONDS_PER_ITEM. Returns None if the estimate
-        cannot be computed (e.g. first run before load_process_channels).
+        Counts the distinct channel groups the CURRENT settings would process,
+        out of the cached channel list, then prices them with the measured rate.
+        Returns None if the estimate cannot be computed, which covers a first run
+        before any load has happened and a group selection the cache predates.
         """
         try:
             if not os.path.exists(self.processed_data_file):
@@ -5996,6 +6107,9 @@ class Plugin:
             with open(self.processed_data_file, 'r') as f:
                 processed_data = json.load(f)
             channels = processed_data.get('channels', [])
+            if not channels:
+                return None
+            channels = self._estimate_scope_channels(channels, settings)
             if not channels:
                 return None
             ignore_tags = processed_data.get('ignore_tags', [])
@@ -6238,7 +6352,6 @@ class Plugin:
             else:
                 profile_names = [name.strip() for name in profile_names_str.split(',') if name.strip()]
                 profiles = self._get_all_profiles(logger)
-                available_profile_names = [p.get('name') for p in profiles if 'name' in p]
 
                 missing_profiles = []
                 found_profiles = []
@@ -6345,7 +6458,7 @@ class Plugin:
                 try:
                     import pytz
                     pytz.timezone(timezone_str)
-                    validation_results.append(f"✅ Timezone")
+                    validation_results.append("✅ Timezone")
                 except pytz.exceptions.UnknownTimeZoneError:
                     validation_results.append(f"❌ Timezone: Invalid '{timezone_str}'")
                     has_errors = True
@@ -6499,18 +6612,14 @@ class Plugin:
                 group_mode = self._resolve_group_filter_mode(settings)
                 channels_in_profile = self._filter_by_group_ids(
                     channels_in_profile, valid_group_ids, group_mode, 'channel_group_id')
-                if group_mode == "exclude":
-                    group_filter_info = f" excluding groups: {', '.join(selected_groups)}"
-                else:
-                    group_filter_info = f" in groups: {', '.join(selected_groups)}"
                 logger.info(f"[Stream-Mapparr] Channel group filter mode: {group_mode} "
-                            f"({len(channels_in_profile)} channel(s) in scope)")
+                            f"({len(channels_in_profile)} channel(s) in scope) "
+                            f"for groups: {', '.join(selected_groups)}")
             else:
                 selected_groups = []
-                group_filter_info = " (all groups)"
 
             if not channels_in_profile:
-                return {"status": "error", "message": f"No channels found in profile."}
+                return {"status": "error", "message": "No channels found in profile."}
 
             channels_to_process = channels_in_profile
 
@@ -6526,7 +6635,6 @@ class Plugin:
                 if not valid_stream_group_ids:
                     logger.warning("[Stream-Mapparr] None of the specified stream groups were found. Using all streams.")
                     selected_stream_groups = []
-                    stream_group_filter_info = " (all stream groups - specified groups not found)"
                 else:
                     # Streams carry their group id under 'channel_group', not
                     # 'channel_group_id' as channels do. The stream-group list has
@@ -6539,13 +6647,8 @@ class Plugin:
                                 f"{len(filtered_streams)} ({stream_group_mode} mode) based on stream "
                                 f"groups: {', '.join(selected_stream_groups)}")
                     all_streams_data = filtered_streams
-                    if stream_group_mode == "exclude":
-                        stream_group_filter_info = f" excluding stream groups: {', '.join(selected_stream_groups)}"
-                    else:
-                        stream_group_filter_info = f" in stream groups: {', '.join(selected_stream_groups)}"
             else:
                 selected_stream_groups = []
-                stream_group_filter_info = " (all stream groups)"
 
             # Filter streams by selected M3U sources and add priority metadata
             if selected_m3us_str:
@@ -6554,7 +6657,6 @@ class Plugin:
                 if not valid_m3u_ids:
                     logger.warning("[Stream-Mapparr] None of the specified M3U sources were found. Using all streams.")
                     selected_m3us = []
-                    m3u_filter_info = " (all M3U sources - specified M3Us not found)"
                     # Add default priority to all streams (no prioritization)
                     for stream in all_streams_data:
                         stream['_m3u_priority'] = 999  # Low priority for unspecified M3Us
@@ -6574,10 +6676,8 @@ class Plugin:
                     logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on M3U sources: {', '.join(selected_m3us)}")
                     logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(selected_m3us)])}")
                     all_streams_data = filtered_streams
-                    m3u_filter_info = f" in M3U sources: {', '.join(selected_m3us)}"
             else:
                 selected_m3us = []
-                m3u_filter_info = " (all M3U sources)"
                 # Add default priority to all streams (no prioritization when no M3U filter)
                 for stream in all_streams_data:
                     stream['_m3u_priority'] = 999  # Low priority for unspecified M3Us
@@ -6870,13 +6970,13 @@ class Plugin:
             header_lines.extend([
                 "# === RECOMMENDATIONS ===",
                 f"# {len(low_match_channels)} channel(s) have 3 or fewer matches.",
-                f"# Consider lowering Fuzzy Match Threshold for more results.",
+                "# Consider lowering Fuzzy Match Threshold for more results.",
                 "#"
             ])
             
             # Show up to 5 examples
             examples_to_show = min(5, len(low_match_channels))
-            header_lines.append(f"# Examples of channels with few matches:")
+            header_lines.append("# Examples of channels with few matches:")
             for i, ch in enumerate(low_match_channels[:examples_to_show]):
                 stream_list = ', '.join(ch['streams'][:3])
                 header_lines.append(f"#   - {ch['name']} ({ch['count']} match{'es' if ch['count'] != 1 else ''}): {stream_list}")
@@ -7055,13 +7155,12 @@ class Plugin:
             )
             progress_tracker.set_progress_range(30, 80)  # This phase handles 30-80% of progress
             
-            processed_groups = 0
-            total_groups = len(channel_groups)
             group_stats = {}  # Track stats for each group
             country_stats = {"engaged": 0, "skipped_unknown_channel": 0,
                              "foreign_dropped": 0, "unknown_kept": 0}
 
             for group_key, group_channels in channel_groups.items():
+                self._cooperative_yield()
                 # Update progress tracker (automatically sends updates every minute)
                 progress_tracker.update(items_processed=1)
 
@@ -7410,14 +7509,13 @@ class Plugin:
             )
             progress_tracker.set_progress_range(20, 80)  # This phase handles 20-80% of progress
 
-            processed_groups = 0
-            total_groups = len(channel_groups)
             group_stats = {}  # Track stats for each group
             # Cache matched streams per group so the CSV export phase can reuse
             # them instead of re-running the fuzzy-match pipeline.
             group_match_cache = {}
 
             for group_key, group_channels in channel_groups.items():
+                self._cooperative_yield()
                 limiter.wait() # Rate limit processing
                 sorted_channels = self._sort_channels_by_priority(group_channels)
                 matched_streams, _, _, _, _ = self._match_streams_to_channel(
@@ -7794,7 +7892,7 @@ class Plugin:
                             f"{scope_word} groups: {', '.join(selected_groups)}")
             else:
                 channels = channels_in_profile
-                logger.info(f"[Stream-Mapparr] Using all channels from profile (no group filter)")
+                logger.info("[Stream-Mapparr] Using all channels from profile (no group filter)")
 
             if not channels:
                 error_msg = "No channels found. Check profile and group filters."
@@ -7842,6 +7940,7 @@ class Plugin:
             skipped_no_streams = 0
             
             for idx, channel in enumerate(channels, 1):
+                self._cooperative_yield()
                 channel_name = channel.get('name', '')
                 channel_id = channel.get('id')
                 
@@ -7904,7 +8003,7 @@ class Plugin:
                 logger.debug(f"[Stream-Mapparr] Matched '{channel_name}' ({base_callsign}) with {len(sorted_streams)} stream(s)")
             
             # Log summary
-            logger.info(f"[Stream-Mapparr] ===== US OTA Matching Summary =====")
+            logger.info("[Stream-Mapparr] ===== US OTA Matching Summary =====")
             logger.info(f"[Stream-Mapparr] Total channels processed: {len(channels)}")
             logger.info(f"[Stream-Mapparr] Channels matched: {len(matched_channels)}")
             logger.info(f"[Stream-Mapparr] Skipped (no callsign): {skipped_no_callsign}")
@@ -7967,7 +8066,7 @@ class Plugin:
             
             # If dry run, stop here
             if dry_run:
-                logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING PREVIEW COMPLETED")
+                logger.info("✅ [Stream-Mapparr] US OTA MATCHING PREVIEW COMPLETED")
                 logger.info(f"[Stream-Mapparr] Matched {len(matched_channels)} channels")
                 logger.info(f"[Stream-Mapparr] CSV preview: {csv_filepath}")
 
@@ -8020,7 +8119,7 @@ class Plugin:
                     logger.error(f"[Stream-Mapparr] Error assigning streams to channel {channel_data['channel_name']}: {e}")
                     error_count += 1
             
-            logger.info(f"✅ [Stream-Mapparr] US OTA MATCHING COMPLETED")
+            logger.info("✅ [Stream-Mapparr] US OTA MATCHING COMPLETED")
             logger.info(f"[Stream-Mapparr] Successfully assigned: {success_count} channels")
             if error_count > 0:
                 logger.warning(f"[Stream-Mapparr] Errors: {error_count} channels")
@@ -8115,7 +8214,7 @@ class Plugin:
             # Fetch channel groups via ORM if filtering is needed
             group_name_to_id = {}
             if selected_groups_str:
-                logger.info(f"[Stream-Mapparr] Fetching channel groups for filtering...")
+                logger.info("[Stream-Mapparr] Fetching channel groups for filtering...")
                 all_groups = self._get_all_groups(logger)
                 group_name_to_id = {g['name']: g['id'] for g in all_groups if 'name' in g and 'id' in g}
 
@@ -8245,6 +8344,7 @@ class Plugin:
             already_sorted_count = 0
             
             for channel in channels_with_multiple_streams:
+                self._cooperative_yield()
                 channel_id = channel['id']
                 channel_name = channel['name']
                 streams = channel.get('streams', [])
@@ -8458,7 +8558,9 @@ class Plugin:
             ignore_regional = processed_data.get('ignore_regional', True)
             ignore_geographic = processed_data.get('ignore_geographic', True)
             ignore_misc = processed_data.get('ignore_misc', True)
-            filter_dead = processed_data.get('filter_dead_streams', PluginConfig.DEFAULT_FILTER_DEAD_STREAMS)
+            # No filter_dead here on purpose: this action groups and enables channels
+            # and never matches streams, so the setting has nothing to act on. It was
+            # copied in with the grouping arguments above and never read.
             # bug-158 review I1: resolved from LIVE settings (never processed_data,
             # never cached on self -- same shape as bug-139/_resolve_prioritize_quality)
             # and threaded into the SAME _build_channel_groups helper Match & Assign

@@ -308,19 +308,53 @@ def _fake_streams(plugin_module, monkeypatch, names):
                                               for i, n in enumerate(names)])
 
 
-def test_action_reports_counts_and_samples(plugin_module, monkeypatch):
+def test_action_reports_counts_and_samples(plugin_module, monkeypatch, tmp_path):
+    """The full readout goes to a file; the toast carries the headline.
+
+    It used to all go into the message, which a Dispatcharr toast clips at
+    roughly 280 characters taken from the middle. With up to twenty samples of
+    up to about 165 characters each, most of this action's output was being
+    discarded with nothing on screen to say so.
+    """
     import logging
     _fake_streams(plugin_module, monkeypatch,
                   ["UK ▎BBC 1", "UK ▎ITV", "CNN"] + [f"S{i}" for i in range(30)])
     p = _plugin(plugin_module)
+    p.BUG_REPORT_DIR = str(tmp_path)
     settings = {"stream_name_regex_rules": json.dumps([["\\s*▎\\s*", " "]])}
     out = p.test_regex_rules_action(settings, logging.getLogger("t"))
     assert out["status"] == "success"
+
+    # The headline stays inside what a toast can show, and says so when it cut.
     assert "2 of 33" in out["message"]
-    assert "\\u258e" in out["message"].lower()        # escaped rendering in samples
-    assert "→" in out["message"]
-    assert "normalization" in out["message"].lower()  # the after-this note
-    assert "all" in out["message"].lower()            # unscoped disclaimer
+    assert len(out["message"]) <= plugin_module.PluginConfig.TOAST_BUDGET_CHARS
+
+    # Everything the action produced is in the file, samples included.
+    body = open(out["file"], encoding="utf-8").read()
+    assert "2 of 33" in body
+    assert "\\u258e" in body.lower()        # escaped rendering in samples
+    assert "→" in body
+    assert "normalization" in body.lower()  # the after-this note
+    assert "all" in body.lower()            # unscoped disclaimer
+
+
+def test_action_still_answers_when_the_file_cannot_be_written(plugin_module, monkeypatch):
+    """An unwritable directory must not turn a working action into an error.
+
+    /config is writable here because of a bind mount and is root owned in the
+    stock image, so this is the ordinary case on someone else's installation,
+    not an edge case.
+    """
+    import logging
+    _fake_streams(plugin_module, monkeypatch, ["UK ▎BBC 1", "CNN"])
+    p = _plugin(plugin_module)
+    p.BUG_REPORT_DIR = "/nonexistent\x00dir"
+    out = p.test_regex_rules_action(
+        {"stream_name_regex_rules": json.dumps([["\\s*▎\\s*", " "]])},
+        logging.getLogger("t"))
+    assert out["status"] == "success"
+    assert "file" not in out
+    assert "1 of 2" in out["message"]
 
 
 def test_action_zero_streams_distinct_message(plugin_module, monkeypatch):

@@ -1,5 +1,67 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2241529 (August 12, 2026)
+
+### Fixed
+- **A run no longer holds a web worker to itself for its whole duration.**
+  Dispatcharr's uWSGI runs gevent with early monkey-patching, which means a
+  thread inside a plugin is a greenlet: it keeps the worker until it chooses to
+  step aside, and a greenlet doing arithmetic never chooses to. The matching
+  loops did arithmetic and nothing else, so while a run was in progress every
+  other request that worker was asked to serve waited for it. Choosing the
+  background path did not help, because the background thread is a greenlet too.
+
+  The four loops that do per-item matching work now hand the worker back on
+  every iteration, using the same mechanism the regular expression
+  pre-processing pass already used. Where nothing has monkey-patched the
+  runtime, as in the tests, the call does nothing and cannot fail. Tests pin one
+  call per loop and pin the count, because the way this kind of change usually
+  fails is by being applied to some of the places that need it.
+
+- **The runtime estimate now sizes the job the current settings describe.**
+  It counts channel groups out of the file written by the last load, and it was
+  counting all of them regardless of which groups are selected now. Changing the
+  Channel Groups setting and starting a run therefore produced an estimate for
+  the previous selection. That number decides whether the run happens inside the
+  request or in the background, so it was not a display-only error.
+
+  The cached list is now narrowed by the current selection, honouring include
+  and exclude mode, and matching on group name so no database query is needed.
+  When the selection names a group the last load never saw, the estimate reports
+  that it cannot tell rather than guessing, and an estimate that cannot tell
+  already sends the run to the background. That is the safe direction.
+
+- **The regex rule test writes its full readout to a file.** The action produces
+  up to twenty before-and-after samples of up to about 165 characters each, and
+  a Dispatcharr toast shows roughly 280 characters, clipped from the middle with
+  no ellipsis. So most of what the action produced was being discarded with
+  nothing on screen to say so. The complete readout now goes to
+  `/config/stream-mapparr/test-regex-rules.txt` and the toast carries the
+  headline, the same arrangement the country label check and the bug report
+  already use. If that file cannot be written the action still answers, and says
+  so, rather than failing.
+
+### Added
+- **A shared helper for messages assembled from a list**, used by the schedule
+  update, the periodic task cleanup and both regex rule test paths. A message
+  built from one line per item has no length bound, so it silently lost its
+  middle. The helper keeps whole lines from the start and states how many it
+  dropped, on the grounds that a truncation the reader can see is a different
+  thing from one they cannot.
+
+- **CODE_OF_CONDUCT.md**, covering conduct in issues, pull requests and
+  discussions, with private reporting and a note asking reporters not to paste
+  provider credentials or stream URLs into a public thread.
+
+### Removed
+- **Nine unused local variables and two unused imports in `plugin.py`.** Three
+  of them built sentences describing which channel group, stream group and M3U
+  source filters had been applied, and then displayed them nowhere; the group
+  filter log line now names the groups instead, so nothing is lost. The rest
+  were counters and lookups that nothing read. None of this changed behaviour,
+  and the point of removing it is that code which looks like it works, and does
+  not run, is harder to reason about than code that is absent.
+
 ## v1.26.2222318 (August 10, 2026)
 
 ### Added
