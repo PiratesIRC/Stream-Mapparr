@@ -56,6 +56,13 @@ with the full per-rule detail in the logs.
 currently loaded, without changing anything. Invisible characters are escaped in
 that output so they are actually visible.
 
+The full readout is written to `/config/stream-mapparr/test-regex-rules.txt` and
+the action returns that path, because the notification that appears in
+Dispatcharr shows only about 280 characters and cuts the middle out of anything
+longer without saying so. The notification carries the counts; the file carries
+the samples. If that directory cannot be written the action still reports its
+counts and tells you the file is missing.
+
 ## Guardrails
 
 A rule is rejected up front if it contains a nested unbounded quantifier or

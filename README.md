@@ -216,7 +216,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | Action | Description |
 |:---|:---|
 | **Validate Settings** | Check configuration, profiles, groups and databases |
-| **Test Regex Rules** | Preview what your regex rules would change, with before and after samples and invisible characters made visible |
+| **Test Regex Rules** | Preview what your regex rules would change, with before and after samples and invisible characters made visible. Writes the full readout to `/config/stream-mapparr/test-regex-rules.txt`, since a notification shows only about 280 characters |
 | **Check Stream Country Labels** | Compare each stream's group country against its EPG identifier suffix and report where they disagree. Reads two database columns, opens no provider connection and changes nothing. A disagreement is not automatically a fault: a channel carried in one country and made in another is ordinary |
 | **Load/Process Channels** | Load channel and stream data from the database |
 | **Preview Changes** | Dry run with a CSV export |
