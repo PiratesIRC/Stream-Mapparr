@@ -30,10 +30,10 @@ def _s(sid, name, account, url):
 # The reporter's four FORMULA 1 feeds: one name, one account, four URLs.
 def _dazn_f1():
     return [
-        _s(1, "DAZN F1", 7, "http://vacaionesenelmar.xo.je/live/a/b/1001.ts"),
-        _s(2, "DAZN F1", 7, "http://vacaionesenelmar.xo.je/live/a/b/1002.ts"),
-        _s(3, "DAZN F1", 7, "http://vacaionesenelmar.xo.je/live/a/b/1003.ts"),
-        _s(4, "DAZN F1", 7, "http://vacaionesenelmar.xo.je/live/a/b/1004.ts"),
+        _s(1, "DAZN F1", 7, "http://provider.tv/live/a/b/1001.ts"),
+        _s(2, "DAZN F1", 7, "http://provider.tv/live/a/b/1002.ts"),
+        _s(3, "DAZN F1", 7, "http://provider.tv/live/a/b/1003.ts"),
+        _s(4, "DAZN F1", 7, "http://provider.tv/live/a/b/1004.ts"),
     ]
 
 
