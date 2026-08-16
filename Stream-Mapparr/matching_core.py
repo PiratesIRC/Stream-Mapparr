@@ -466,8 +466,31 @@ class FuzzyMatcherCore:
         if ignore_misc and ignore_regional:
             patterns_to_apply.extend(MISC_PATTERNS)
 
+        # Replace with a SPACE, not '' (bug-102). Every pattern in this combined
+        # list also consumes the whitespace flanking its match, so deleting the
+        # match removes both spaces and joins the neighbours whenever the match
+        # sits in the MIDDLE of a name: "Big Ten Network (Southern California)
+        # Alternate" -> "Big 10 NetworkAlternate", "Penthouse (TEN) On Demand"
+        # -> "PenthouseOn Demand". A joined token matches nothing, and a
+        # single-word user ignore tag cannot reach it either, because there is
+        # no word boundary inside it. A match at the start or end just leaves an
+        # edge space, which the whitespace cleanup at the end of this method
+        # strips.
+        #
+        # This is the same defect and the same correction as the quality-tag
+        # loop above. That one was fixed first and this pattern list was missed,
+        # which is the reason the comment says: when a substitution bug is found
+        # in one pattern list, audit EVERY pattern list in this method.
         for pattern in patterns_to_apply:
-            name = re.sub(pattern, '', name, flags=re.IGNORECASE)
+            name = re.sub(pattern, ' ', name, flags=re.IGNORECASE)
+
+        # NOTE: do NOT collapse or strip whitespace here. It looks like the
+        # obvious tidy-up and it silently breaks the suffix rules below, which
+        # REQUIRE the space before the suffix: `\s+TV\s*$` cannot match a bare
+        # "TV". Measured while making this change: adding a `.strip()` here made
+        # "West TV" and "Slow TV" normalize to "TV" instead of to nothing, and
+        # they then matched each other at 100 percent. The leading-space case is
+        # handled by the anchored rule itself, below.
 
         # Apply user-configured ignored tags
         for tag in user_ignored_tags:
@@ -490,7 +513,12 @@ class FuzzyMatcherCore:
             name = re.sub(r'\([A-Z0-9]+\)', '', name)
 
         # Remove common suffixes/prefixes
-        name = re.sub(r'^The\s+', '', name, flags=re.IGNORECASE)
+        # `^\s*`, not `^`: the substitutions above replace their match with a
+        # space, so a stripped country or provider prefix leaves the name
+        # starting with a space and this rule would no longer fire. Measured:
+        # without the `\s*`, "DMX: The Playground" normalized to "The
+        # Playground" rather than "Playground".
+        name = re.sub(r'^\s*The\s+', '', name, flags=re.IGNORECASE)
         name = re.sub(r'\s+Network\s*$', '', name, flags=re.IGNORECASE)
         name = re.sub(r'\s+Channel\s*$', '', name, flags=re.IGNORECASE)
         name = re.sub(r'\s+TV\s*$', '', name, flags=re.IGNORECASE)

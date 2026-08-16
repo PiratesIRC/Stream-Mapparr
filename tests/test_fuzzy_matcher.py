@@ -581,3 +581,35 @@ def test_bein_4k_3840p_matches_after_resolution_fix(matcher):
     match, score = m.find_best_match("beIN Sports", ["### beIN " + "SP⚽RTS" + " 4K 3840P ###"])
     assert match is not None
     assert score == 100
+
+
+# --------------------------------------------------------------------------- #
+# normalize_name — a bracketed group must not join the words around it
+#
+# Every pattern applied in the shared core's combined substitution loop
+# (regional, geographic and the broad "(anything)" catch-all) also consumes the
+# whitespace flanking its match, so substituting the match with '' removed both
+# spaces and joined the neighbours: "Big Ten Network (Southern California)
+# Alternate" became "Big 10 NetworkAlternate". A joined token matches nothing.
+#
+# Same defect and same correction as the quality-tag one already fixed in the
+# core; this pattern group was missed. Found 2026-08-16 while reviewing the
+# sibling plugin EPG-Janitor, which carries its own copy of the same code.
+# --------------------------------------------------------------------------- #
+
+def test_bracket_group_in_the_middle_leaves_its_neighbours_separate(matcher):
+    m = matcher()
+    assert m.normalize_name("Big Ten Network (Southern California) Alternate") == \
+        "Big 10 Network Alternate"
+
+
+def test_bracket_group_between_two_words_does_not_join_them(matcher):
+    m = matcher()
+    assert m.normalize_name("Penthouse (TEN) On Demand") == "Penthouse On Demand"
+
+
+def test_bracket_group_at_the_end_still_leaves_no_trailing_space(matcher):
+    # Positive control: the whitespace cleanup must still absorb the separator
+    # when the removed group sits at an edge rather than in the middle.
+    m = matcher()
+    assert m.normalize_name("Discovery (US)") == "Discovery"
