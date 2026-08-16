@@ -29,6 +29,10 @@ NAMES = [
     "JusticeCentral.TV", "DangerTV", "NewsNation",
     "HBO East", "HBO West", "HBO (W)", "Fox Sports West", "ESPN Pacific",
     "(PRIME) FOX News", "(D1) CBS",
+    # bracket group in the MIDDLE of a name (bug-102): every pattern that
+    # removes the group also eats the spaces around it, so substituting the
+    # match with nothing joins the neighbours
+    "Big Ten Network (Southern California) Alternate", "Penthouse (TEN) On Demand",
     "Disney+", "Discovery+", "Paramount+", "Disney Channel", "Discovery Channel",
     "Justice Central", "Justice Central.TV", "Justice Central TV", "True Crime Network",
     "WABC-TV", "KCBS", "KING 5", "WAVE 3", "WOOD TV8", "WHO 13", "KOMO News",
