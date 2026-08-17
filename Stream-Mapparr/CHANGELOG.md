@@ -1,5 +1,28 @@
 # Stream-Mapparr CHANGELOG
 
+## v1.26.2291209 (August 17, 2026)
+
+### Fixed
+- **A bracketed group in the middle of a name no longer joins the words around
+  it.** The shared matcher core removed regional, geographic and bracketed
+  groups by substituting the match with an empty string, and every one of those
+  patterns also consumes the whitespace flanking its match. A group at the end
+  of a name showed nothing wrong, because nothing follows it, but a group in
+  the middle glued its neighbours together: "Big Ten Network (Southern
+  California) Alternate" normalized to "Big 10 NetworkAlternate", which matches
+  nothing. The substitution now leaves a space, the same correction the quality
+  tag loop in the same file received earlier; this pattern list had been
+  missed.
+
+  The leading "The" rule was re-anchored to tolerate a leading space, because
+  a stripped prefix now leaves one and the anchored rule had silently stopped
+  firing: "DMX: The Playground" normalized to "The Playground" instead of
+  "Playground".
+
+  Measured through this plugin's matcher against 25,231 real channel and guide
+  names: 156 names normalize differently, every one a pure space insertion,
+  with zero names gaining or losing any other text.
+
 ## v1.26.2241602 (August 12, 2026)
 
 ### Fixed
