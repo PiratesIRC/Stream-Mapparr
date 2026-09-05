@@ -1,0 +1,1327 @@
+{
+  "country_code": "PT",
+  "country_name": "Portugal",
+  "version": "2026-09-01",
+  "channels": [
+    {
+      "channel_name": "1+1 INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "1+1 UNITED NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL 11",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "180 MUSIC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "24 KITCHEN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "24H",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "3SAT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A BOLA TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AFRO MUSIC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AFRO TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ALJAZEERA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ALMA LUSA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC BREAK",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC CRIME",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AR TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARIRANG TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ARTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AXN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AXN MOVIES",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AXN WHITE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AZORES TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BABY TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC WORLD NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC WORLD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BENFICA TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM BUSINESS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BFM TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BIGGS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BLAZE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BLOOMBERG",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BNT 4",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BOMSOM TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BVN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CAÇA E PESCA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CAÇAVISION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL 180",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL HISTÓRIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL HOLLYWOOD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL NOS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL PANDA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL PORTO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANAL Q",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CANÇÃO NOVA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CAPE VERDE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CARTOON NETWORK",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CARTOONITO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CASA E COZINHA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CCTV4",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN DOCUMENTARY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CGTN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CHANNEL 1 RUSSIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CINEMUNDO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CMTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN PORTUGAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CONECTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CONTA LÁ",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CRIME INVESTIGATION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CUBAVISION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAYSTAR (ES)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAYSTAR (EN)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 3",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 4",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 5",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DAZN 6",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DISCOVERY CHANNEL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DISNEY CHANNEL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DISNEY JUNIOR",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DIZI CHANNEL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DOG TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DUCK TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DOCUBOX",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DW NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "E! ENTERTAINMENT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ENGLISH CLUB TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EURONEWS (EN)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EURONEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EUROSPORT 1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EUROSPORT 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EURONEWS (DE)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FASHION BOX",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FASHION TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FIGHT NETWORK",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FIGHT SPORTS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOOD NETWORK",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOX COMEDY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOX CRIME",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOX LIFE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOX MOVIES",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FOX",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FPTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 24",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 24 (EN)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 3",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 4",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE 5",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FRANCE INFO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FREEDOM",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FUEL TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GALERIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GAMETOON",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GINX ESPORTS TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GLOBO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GLOBO INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GLOBO NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GLOBO NOW",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HOME & GARDEN TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "I24 NEWS (FR)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "I24 NEWS (EN)",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ICONCERTS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "INVESTIGATION DISCOVERY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "INSIGHT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC K",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KANUCA TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KBS WORLD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KIKA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KOMBAT SPORT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KURIAKOS TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "KVARTAL TV INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LOCALVISÃO TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "LOLLY KIDS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "M6",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM POP",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MCM TOP",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MEO DESTAQUES",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MEZZO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MEZZO LIVE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MOTORVISION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 00S",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV 80s",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV LIVE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV PORTUGAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MUSIC TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NAT GEO WILD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NATIONAL GEOGRAPHIC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NATGEO WILD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NAUTICAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NBA TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NEW BRASIL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NEWS NOW",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK WORLD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NICK JR.",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NICKELODEON",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NOS Studio",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NOVO TEMPO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NOW",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ODISSEIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ONE TORO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "OPTO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PANDA KIDS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PFC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PHOENIX",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PORTO CANAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PRO TV INTERNACIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PROTV INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI 1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI 3",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI ITÁLIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI SCUOLA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI STORIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD EUROPA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RECORD NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP 1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP 3",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP MADEIRA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP AÇORES",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP ÁFRICA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTP MEMÓRIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RUSSIA TODAY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "S+",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SET ASIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SET MAX",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC Alta Definição",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC CARAS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC INTERNATIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC MULHER",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC NOTÍCIAS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC NOVELAS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC RADICAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SIC Replay",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SKY NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV +",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 2",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 3",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 4",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 5",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 6",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV 7",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORT TV NBA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SPORTING TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR CHANNEL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR CINEMA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR COMEDY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR CRIME",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR FAMILY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR LIFE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STAR MOVIES",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STINGRAY CLASSICA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STINGRAY DJAZZ",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STINGRAY ICONCERTS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STINGRAY LOUD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STINGRAY RETRO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "STUDIOS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SYFY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TAGESSCHAU24",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCV INTERNACIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCV NEWS",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELESUR",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TELEVISÃO ÁFRICA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TOROS TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TPA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE BRASIL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE TOCA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRACE URBAN",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRAVEL CHANNEL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRAVELXP",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TRT WORLD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV GALICIA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV CINE EMOTION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV EDITION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV MAANAIM",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV RECORD",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV VERDADE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 MONDE",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCINE ACTION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCINE EDITION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCINE EMOTION",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVCINE TOP",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE 24",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVEI",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVI",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVI INTERNACIONAL",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVI REALITY 24",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVI REALITY",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "UM EUROPA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "UNIFÉ TV",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "V+ TVI",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VEJA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VIVA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "W SPORT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "X SPORT",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZAP VIVA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF NEO",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZDF",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZEE CINEMA",
+      "category": "Portugal",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ZEE TV",
+      "category": "Portugal",
+      "type": "Regional"
+    }
+  ]
+}
