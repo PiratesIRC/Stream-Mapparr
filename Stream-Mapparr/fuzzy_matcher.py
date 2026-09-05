@@ -114,11 +114,76 @@ def _country_has_one_timezone(name):
     return code in _SINGLE_TIMEZONE_COUNTRIES
 
 
+
+# A channel DESIGNATOR is the short token that tells numbered siblings apart:
+# the 1 in "Fox Sports 1", and equally the F1 in "Sky Sports F1". The shared core
+# splits a letter from a following digit unconditionally, which turns F1 into
+# "F 1" and so manufactures a bare "1" that is indistinguishable from the sibling
+# it must be told apart from. Reported as issue #50 with a reproduction:
+# "Sky Sports F1 UHD" and "Sky Sports UHD 1" scored 0.857, over the 0.85 default.
+#
+# Two letters are allowed before the digits so TF1 survives as well as F1, and no
+# more, because rejoining longer stems would glue "ITV 4" into "ITV4" and change
+# far more names than this is about.
+_REJOIN_DESIGNATOR_RE = re.compile(
+    r"(?<![A-Za-z0-9])([A-Za-z]{1,2}) ([0-9]{1,2})(?![A-Za-z0-9])")
+# Which designators the RAW name actually had glued together. Only a split the
+# core made is undone; nothing the source wrote apart is ever joined. Measured
+# without this restriction: "High Street TV 1" became "High Street TV1",
+# "That's 60s" became "That's60 s" and "at 49ers" became "at49 ers", and the
+# guard changed its decision on thousands of candidate streams instead of the
+# handful this is about.
+_SOURCE_DESIGNATOR_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{1,2}[0-9]{1,2}")
+_DESIGNATOR_RE = re.compile(r"^(?:[0-9]{1,2}|[a-z]{1,3}[0-9]{1,2})$")
+
+
+def is_designator_token(token):
+    """True when a token is the part of a name that distinguishes siblings.
+
+    Digits alone (1, 12) or a short stem with digits (f1, e4, m6, tf1). A word
+    such as "sports" or "hd" is not one, and neither is a bare letter.
+    """
+    return bool(_DESIGNATOR_RE.match((token or "").strip().lower()))
+
 class FuzzyMatcher(FuzzyMatcherCore):
     """Stream-Mapparr matcher: the shared pure core (FuzzyMatcherCore) plus this
     plugin's layer — channel/broadcast DB loading, zone expansion, and the matching
     entry points (find_best_match / alias_lookup / fuzzy_match / OTA)."""
     
+    def normalize_name(self, name, *args, **kwargs):
+        """The shared core normalization, with channel designators kept whole.
+
+        The core splits a letter from a following digit unconditionally, so F1,
+        E4 and M6 become "F 1", "E 4", "M 6". That destroys the token that tells
+        a channel apart from its numbered siblings, and worse, it manufactures a
+        bare digit that then LOOKS like the sibling to the guard in
+        find_best_match, which is what let "Sky Sports F1 UHD" link to
+        "Sky Sports UHD 1" (issue #50).
+
+        Repairing the output rather than reimplementing the core keeps the
+        divergence to one line and leaves the vendored matching_core.py
+        byte-identical to the shared source, so this stays a change to ONE plugin
+        rather than to the four that share that file.
+
+        Rejoining alone does NOT fix the reported match: it raises that pair from
+        0.857 to 0.923, because the similarity is character-level and closing the
+        gap makes the strings more alike. It is the guard, reading the restored
+        designator, that refuses them.
+        """
+        out = super().normalize_name(name, *args, **kwargs)
+        if not out:
+            return out
+        glued = {m.group(0).lower()
+                 for m in _SOURCE_DESIGNATOR_RE.finditer(name or "")}
+        if not glued:
+            return out
+
+        def _repair(match):
+            joined = match.group(1) + match.group(2)
+            return joined if joined.lower() in glued else match.group(0)
+
+        return _REJOIN_DESIGNATOR_RE.sub(_repair, out)
+
     def __init__(self, plugin_dir=None, match_threshold=85, logger=None):
         """
         Initialize the fuzzy matcher.
@@ -569,7 +634,8 @@ class FuzzyMatcher(FuzzyMatcherCore):
         # the discriminating digit becomes a single-char edit under token-sort Levenshtein and
         # long shared prefixes mask it — FS1 vs FS2 scores 25/26 = 96% and slips past threshold 95.
         # Require any candidate with digits to share at least one with the query.
-        query_digit_tokens = {t for t in normalized_query.split() if t.isdigit()}
+        query_digit_tokens = {t.lower() for t in normalized_query.split()
+                             if is_designator_token(t)}
 
         best_score = -1.0
         best_match = None
@@ -578,7 +644,7 @@ class FuzzyMatcher(FuzzyMatcherCore):
             if query_digit_tokens:
                 candidate_lower, _ = self._get_cached_norm(candidate, user_ignored_tags)
                 if candidate_lower:
-                    cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                    cand_digit_tokens = {t.lower() for t in candidate_lower.split() if is_designator_token(t)}
                     if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
                         continue
 
@@ -733,7 +799,8 @@ class FuzzyMatcher(FuzzyMatcherCore):
         # the discriminating digit becomes a single-char edit under token-sort Levenshtein and
         # long shared prefixes mask it — FS1 vs FS2 scores 25/26 = 96% and slips past threshold 95.
         # Mirrors the inline guard in plugin.py (~2329). Applied to every stage for defense in depth.
-        query_digit_tokens = {t for t in normalized_query.split() if t.isdigit()}
+        query_digit_tokens = {t.lower() for t in normalized_query.split()
+                             if is_designator_token(t)}
 
         best_match = None
         best_ratio = 0
@@ -750,7 +817,7 @@ class FuzzyMatcher(FuzzyMatcherCore):
                 continue
 
             if query_digit_tokens:
-                cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                cand_digit_tokens = {t.lower() for t in candidate_lower.split() if is_designator_token(t)}
                 if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
                     continue
 
@@ -776,7 +843,7 @@ class FuzzyMatcher(FuzzyMatcherCore):
                 continue
 
             if query_digit_tokens:
-                cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                cand_digit_tokens = {t.lower() for t in candidate_lower.split() if is_designator_token(t)}
                 if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
                     continue
 
@@ -804,7 +871,7 @@ class FuzzyMatcher(FuzzyMatcherCore):
             if query_digit_tokens:
                 candidate_lower, _ = self._get_cached_norm(candidate, user_ignored_tags)
                 if candidate_lower:
-                    cand_digit_tokens = {t for t in candidate_lower.split() if t.isdigit()}
+                    cand_digit_tokens = {t.lower() for t in candidate_lower.split() if is_designator_token(t)}
                     if not cand_digit_tokens or not (query_digit_tokens & cand_digit_tokens):
                         continue
 

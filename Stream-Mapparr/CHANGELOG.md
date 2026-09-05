@@ -1,5 +1,31 @@
 # Stream-Mapparr CHANGELOG
 
+## Unreleased
+
+### Fixed
+- **Channel designators such as F1, E4 and M6 are no longer torn apart, so a
+  channel stops linking to its numbered siblings.** Reported as issue #50 with a
+  reproduction: on a UK lineup, "Sky Sports F1 UHD" linked to "Sky Sports UHD 1",
+  a different channel, because the shared matcher splits a letter from a
+  following digit unconditionally. That turns F1 into "F 1", which destroys the
+  token that tells the two apart and leaves a bare 1 on both sides.
+
+  The fix has two halves and needs both. The designator is put back together, but
+  only where the name was written that way to begin with, so a name like
+  "High Street TV 1" is left alone. And the guard that already existed to keep
+  numbered siblings apart now recognises a letter-plus-digit token as a
+  designator in its own right, so F1 against 1 is a mismatch rather than an
+  absence. Putting the designator back on its own is not enough: it raises that
+  pair's score rather than lowering it.
+
+  Measured against 8,568 live channel and stream names: 65 names normalize
+  differently, 7 channels are affected, 1,171 wrong pairings are refused, none is
+  newly allowed, and all 7 of those channels still match their own streams
+  exactly.
+
+  This change is confined to this plugin. The matcher file shared with three
+  other plugins is untouched.
+
 ## v1.26.2481620 (September 5, 2026)
 
 Version 1.26.2291209 was prepared in August and never released, so everything
