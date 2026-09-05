@@ -375,6 +375,7 @@ class PluginConfig:
     SCHEDULER_TIME_WINDOW = 30                  # ± seconds to trigger scheduled run
     SCHEDULER_ERROR_WAIT = 60                   # Seconds to wait after error
     SCHEDULER_STOP_TIMEOUT = 5                  # Seconds to wait for graceful shutdown
+    SCHEDULER_DB_REFRESH_INTERVAL = 300         # Seconds between re-reads of the saved schedule
 
     # === CACHE SETTINGS ===
 
@@ -1633,6 +1634,88 @@ class Plugin:
             # request fails.
             LOGGER.error(f"[Stream-Mapparr] Could not reconcile the schedule with the database: {e}")
 
+    def _refresh_schedule_from_db(self, settings, scheduled_times):
+        """Return the (settings, times) the scheduler loop should use from here on.
+
+        The loop closes over the settings dict and the parsed time list it was
+        handed when the thread was armed, and re-arming happens only when the
+        Plugin is constructed again. Dispatcharr 0.30.0 constructs it only inside
+        PluginManager.discover_plugins, which is cached per process and re-runs
+        only when the plugin reload token file is newer or a caller forces a
+        reload. A uWSGI worker reaches that through the plugins API; a Celery
+        worker discovers once, at worker_ready, and then never again. So without
+        this a worker keeps firing the schedule it was armed with at container
+        start, and only a restart clears it. Measured 2026-09-05: the job ran at
+        both 05:00 and 05:05 for two days after the schedule had been changed to
+        05:05 alone.
+
+        _reconcile_schedule_with_db cannot cover this. It is deliberately
+        performed at most once per process, on the per-request construction path,
+        so it can never see a change made later in that process's life.
+
+        The database is the authority for the same reason it is there: the
+        settings file is a cache of what the interface last wrote, and it drifts.
+        Nothing is WRITTEN back from here. Every worker process runs this on a
+        timer, so writing the file would put concurrent non-atomic writes of
+        identical content on a schedule for no gain; the worker that handles the
+        interface save already keeps the file current.
+
+        Returns its own arguments, unchanged and by identity, whenever there is
+        no reason to act, which is the overwhelmingly common case.
+        """
+        try:
+            db_settings = self._settings_from_db()
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Could not re-read the schedule: {e}")
+            return settings, scheduled_times
+        finally:
+            # This thread lives for the life of the process and sleeps between
+            # ticks, so a connection opened by the read above would otherwise sit
+            # checked out until the next scheduled run. Dispatcharr does the same
+            # after its own ORM work outside a request cycle.
+            try:
+                from django.db import close_old_connections
+                close_old_connections()
+            except Exception:
+                pass
+
+        # None means the read could not be PERFORMED and an empty dict means the
+        # row is absent or has never been saved. Neither is an instruction to
+        # change a schedule that is demonstrably running, and collapsing them
+        # into one value would make a database outage look like a cleared
+        # schedule. An explicitly empty scheduled_times inside a real settings
+        # dict IS such an instruction and is honoured below.
+        if not db_settings:
+            return settings, scheduled_times
+        if db_settings == settings:
+            return settings, scheduled_times
+
+        settings = settings or {}
+        db_times = (db_settings.get('scheduled_times') or '').strip()
+        current_times = (settings.get('scheduled_times') or '').strip()
+        if db_times == current_times:
+            LOGGER.info("[Stream-Mapparr] Scheduler adopted settings changed since it was "
+                        "armed. The scheduled times are unchanged.")
+            return dict(db_settings), scheduled_times
+
+        parsed = self._parse_scheduled_times(db_times)
+        if db_times and not parsed:
+            # _parse_scheduled_times drops anything that is not four digits in
+            # range, so a malformed value parses to no times at all. Adopting
+            # that would disarm the scheduler and look identical to a deliberate
+            # clear. Logged once rather than every refresh, because the settings
+            # ARE adopted and the next read therefore compares equal.
+            LOGGER.warning(
+                f"[Stream-Mapparr] Scheduler found an unusable schedule in the database "
+                f"('{db_times}'). Keeping the times it is already running.")
+            return dict(db_settings), scheduled_times
+
+        old = [t.strftime('%H:%M') for t in scheduled_times]
+        new = [t.strftime('%H:%M') for t in parsed]
+        LOGGER.info(f"[Stream-Mapparr] Scheduler adopted a schedule changed since it was "
+                    f"armed: {old or 'none'} is now {new or 'none'}.")
+        return dict(db_settings), parsed
+
     def _load_settings(self):
         """Load saved settings from disk, then let the database correct them."""
         try:
@@ -1993,6 +2076,11 @@ class Plugin:
         stop_event = threading.Event()
 
         def scheduler_loop():
+            # Rebind, not shadow: the loop re-reads the saved schedule and both
+            # names have to change for the thread that is running, otherwise the
+            # assignment creates locals and the closure keeps the stale values.
+            nonlocal settings, scheduled_times
+
             import pytz
 
             # Get timezone from settings
@@ -2009,9 +2097,31 @@ class Plugin:
 
             LOGGER.info(f"[Stream-Mapparr] Scheduler timezone: {tz_str}")
             LOGGER.info("[Stream-Mapparr] Scheduler initialized - will run at next scheduled time (not immediately)")
-            
+
+            # One interval out, not now: the settings this thread was armed with
+            # were read moments ago by the caller.
+            next_db_refresh = time.monotonic() + PluginConfig.SCHEDULER_DB_REFRESH_INTERVAL
+
             while not stop_event.is_set():
                 try:
+                    # Take the schedule from the database rather than from
+                    # whatever this thread was armed with, so a change made in
+                    # the interface reaches a long-lived worker process that
+                    # never constructs the Plugin again.
+                    #
+                    # state.signature is deliberately NOT updated to match what
+                    # is adopted here, and must not be: writing it means taking
+                    # state.lock, and _start_background_scheduler_locked holds
+                    # that same lock while it joins THIS thread, so acquiring it
+                    # from inside the loop can deadlock. Leaving the signature at
+                    # its arm-time value costs at most one extra thread restart
+                    # the next time the Plugin is constructed with settings that
+                    # differ from it, and that restart arms the same schedule.
+                    if time.monotonic() >= next_db_refresh:
+                        next_db_refresh = time.monotonic() + PluginConfig.SCHEDULER_DB_REFRESH_INTERVAL
+                        settings, scheduled_times = self._refresh_schedule_from_db(
+                            settings, scheduled_times)
+
                     now = datetime.now(local_tz)
                     current_date = now.date()
                     

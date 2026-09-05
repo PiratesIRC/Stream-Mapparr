@@ -3,6 +3,43 @@
 ## v1.26.2291209 (August 17, 2026)
 
 ### Fixed
+- **A schedule changed in the interface now reaches every worker process,
+  instead of waiting for a container restart.** The background scheduler thread
+  closed over the parsed time list and the settings dictionary it was handed
+  when it was armed, and never looked at either again. Re-arming happens only
+  when the Plugin is constructed, and Dispatcharr 0.30.0 constructs it only
+  inside PluginManager.discover_plugins, which is cached per process and re-runs
+  only when the plugin reload token file is newer or a caller forces a reload.
+  A uWSGI worker reaches that path through the plugins API. A Celery worker
+  discovers once, at worker_ready, and then never again. So a worker kept firing
+  the schedule it was armed with when the container started.
+
+  Measured on the live installation on 2026-09-05: the daily job ran at both
+  05:00 and 05:05 on two consecutive days, although the saved schedule held a
+  single time, 05:05, changed three days earlier. Both slots were recorded as
+  claimed in the cross-worker slot claim file and two report files were written
+  five minutes apart. The work was not duplicated, because the cross-worker slot
+  claim still held, but the second run was neither wanted nor visible as a
+  fault.
+
+  The loop now re-reads the saved settings from the database every five minutes
+  and adopts a changed schedule, including one the operator has cleared. The
+  settings the scheduled actions run with are adopted at the same time, because
+  they drift by the same mechanism and a stale channel group list produces a
+  successful run against the wrong scope. Nothing is written back to the
+  settings file: every worker runs this on a timer, so writing would put
+  concurrent non-atomic writes of identical content on a schedule for no gain.
+
+  The existing once-per-process database reconciliation could not cover this. It
+  is performed at most once per process, on the per-request construction path,
+  so it can never see a change made later in that process's life.
+
+  A read that could not be performed, and a plugin row that holds no settings at
+  all, both leave the running schedule alone: a database outage must not look
+  like a cleared schedule. A time string the parser cannot use is also refused,
+  because adopting it would disarm the scheduler and look identical to a
+  deliberate clear.
+
 - **A bracketed group in the middle of a name no longer joins the words around
   it.** The shared matcher core removed regional, geographic and bracketed
   groups by substituting the match with an empty string, and every one of those
