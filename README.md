@@ -189,6 +189,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Wait for IPTV Checker Completion** | boolean | False | Hold a scheduled run until IPTV Checker has finished, so matching sees fresh stats |
 | **IPTV Checker Max Wait (hours)** | number | 2 | How long to wait before running anyway |
 | **Enable CSV Export** | boolean | True | Write a CSV on a scheduled Match and Assign run. A dry run always writes one |
+| **Delete CSV Exports Older Than (Days)** | number | 0 | Remove this plugin's older reports after each new one is written. 0, the default, keeps everything. Only files this plugin wrote are ever considered, because that directory is shared with other plugins. The newest report and the one just written always survive |
 | **Tag Handling** | select | Strip All | Strip All, Keep Regional, or Keep All |
 | **Channel Database** | select | US | Which channel database to use. You choose this, never your provider's country prefix, so one database per country serves every provider and none needs duplicating |
 | **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams to |

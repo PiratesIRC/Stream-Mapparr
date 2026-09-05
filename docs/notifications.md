@@ -11,6 +11,11 @@ notifications for every plugin that uses it.
 2. Choose when a report is emailed with **Email A Report After**: never,
    scheduled runs only, or every run that produces one.
 
+**Only Match and Assign Streams builds a report.** Sorting alternate streams
+writes its CSV to `/data/exports` and sends nothing, so a schedule set to sort
+only will never email one however this setting is set. Validate Settings says so
+if that is how yours is configured.
+
 **Email Report Now** builds and queues one on demand.
 
 ## Which files are sent
