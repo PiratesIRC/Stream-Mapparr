@@ -186,6 +186,19 @@ def _escape_invisibles(text):
     return "".join(out)
 
 
+def _yes_no(value, default=False):
+    """Render a setting as Yes or No for a person, not as a Python boolean.
+
+    Dispatcharr stores some booleans as the strings "true" and "false", so the
+    same setting can arrive as either type. Both have to read the same way in a
+    report, and neither should reach the reader as True or False.
+    """
+    if value is None:
+        value = default
+    if isinstance(value, str):
+        value = value.strip().lower() in ("true", "yes", "1", "on")
+    return "Yes" if value else "No"
+
 def _mname(stream):
     """The name MATCHING should see: regex-transformed when the choke point ran,
     raw otherwise (structural degrade — Sort's self-built dicts etc. never pass
@@ -1268,7 +1281,7 @@ class Plugin:
                 "label": "🔄 Schedule: Sort Streams",
                 "type": "boolean",
                 "default": False,
-                "help_text": "When enabled, scheduled runs will sort existing alternate streams by quality (4K → UHD → FHD → HD → SD). Only affects channels that already have multiple streams assigned.",
+                "help_text": "When enabled, scheduled runs will sort existing alternate streams by quality (4K -> UHD -> FHD -> HD -> SD). Only affects channels that already have multiple streams assigned.",
             },
             {
                 "id": "scheduled_match_streams",
@@ -1435,7 +1448,7 @@ class Plugin:
         {
             "id": "sort_streams",
             "label": "🔄 Sort Alternate Streams",
-            "description": "Sort existing alternate streams by quality (4K → UHD → FHD → HD → SD). Only affects channels with multiple streams already assigned. Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
+            "description": "Sort existing alternate streams by quality (4K -> UHD -> FHD -> HD -> SD). Only affects channels with multiple streams already assigned. Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
             "button_color": "orange",
             "button_label": "🔄 Sort Streams",
             "confirm": {
@@ -2276,7 +2289,7 @@ class Plugin:
                                     # Step 2: Sort Streams (if enabled)
                                     if do_sort:
                                         LOGGER.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Sorting alternate streams...")
-                                        sort_result = self.sort_streams_action(settings, LOGGER)
+                                        sort_result = self.sort_streams_action(settings, LOGGER, is_scheduled=True)
                                         
                                         if sort_result.get("status") == "success":
                                             LOGGER.info(f"[Stream-Mapparr] {sort_result.get('message', 'Streams sorted successfully')}")
@@ -5087,9 +5100,9 @@ class Plugin:
         """Extract US callsign from channel name in US_channels.json.
         
         Handles formats:
-        - WKRG (CBS) → WKRG
-        - WKRG-DT (CBS) → WKRG-DT
-        - WKRG-DT2 (ION) → WKRG-DT2
+        - WKRG (CBS) -> WKRG
+        - WKRG-DT (CBS) -> WKRG-DT
+        - WKRG-DT2 (ION) -> WKRG-DT2
         
         Args:
             channel_name: Channel name from US_channels.json
@@ -5115,10 +5128,10 @@ class Plugin:
         """Normalize callsign to base form (remove suffixes and parentheses).
         
         Examples:
-        - WKRG-DT → WKRG
-        - WKRG-DT2 → WKRG
-        - WABC-TV → WABC
-        - WKRG → WKRG
+        - WKRG-DT -> WKRG
+        - WKRG-DT2 -> WKRG
+        - WABC-TV -> WABC
+        - WKRG -> WKRG
         
         Args:
             callsign: Full callsign with potential suffix
@@ -5923,7 +5936,7 @@ class Plugin:
                 after = s["match_name"][:80]
                 after = ("(empty — stream becomes unmatchable)"
                          if not after.strip() else _escape_invisibles(after))
-                samples.append(f"{before} → {after}")
+                samples.append(f"{before} -> {after}")
 
             rejected_lines = [f"rule {r['index'] + 1}: {r['status']}"
                               + (f" — {r['detail']}" if r["detail"] else "")
@@ -7090,10 +7103,26 @@ class Plugin:
             f"# FuzzyMatcher Version: {fuzzy_matcher.__version__}",
             f"# Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "#",
+            "# WHAT THIS FILE IS",
+            "# A report from the Stream-Mapparr plugin for Dispatcharr. Every line that",
+            "# starts with a hash is explanation rather than data. The table begins at the",
+            "# first line without one, so tell your spreadsheet to skip comment lines when",
+            "# importing, or delete them first.",
+            "#",
+            "# The settings listed below are the ones THIS run used, not the ones saved",
+            "# now. That is the point of recording them: two reports that disagree can be",
+            "# compared by reading these lines.",
+            "#",
             "# === Action Performed ===",
             f"# Action: {action_name}",
             f"# Execution Mode: {'Scheduled' if is_scheduled else 'Manual'}",
-            f"# Dry Run Mode: {settings.get('dry_run_mode', False)}",
+            f"# Dry Run Mode: {_yes_no(settings.get('dry_run_mode'))} (Yes means nothing was written to the database)",
+            "#",
+            "# === What This Run Did ===",
+            f"# Channels changed: {total_visible_channels}",
+            f"# Streams matched and assigned: {total_matched_streams}",
+            "#   Sorting alternate streams reorders the streams a channel already has,",
+            "#   so it changes channels while assigning none.",
             "#",
             "# === Profile & Group Settings ===",
             f"# Profile Name(s): {profile_name}",
@@ -7102,10 +7131,10 @@ class Plugin:
             f"# Selected M3U Sources: {', '.join(selected_m3us) if selected_m3us else '(all M3U sources)'}",
             "#",
             "# === Matching Settings ===",
-            f"# Fuzzy Match Threshold: {current_threshold}",
-            f"# Overwrite Streams: {settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)}",
-            f"# Prioritize Quality: {settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
-            f"# Restrict Matching To Same Country: {processed_data.get('restrict_matching_to_country', PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
+            f"# Name Match Threshold: {current_threshold} out of 100 (higher is stricter; a stream must score at least this to be considered a match)",
+            f"# Overwrite Streams: {_yes_no(settings.get('overwrite_streams'), PluginConfig.DEFAULT_OVERWRITE_STREAMS)} (Yes replaces a channel's whole stream list; No only adds)",
+            f"# Prioritize Quality Before Source: {_yes_no(settings.get('prioritize_quality'), PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
+            f"# Restrict Matching To Same Country: {_yes_no(processed_data.get('restrict_matching_to_country'), PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
         ]
         if processed_data.get('restrict_matching_to_country'):
             cs = processed_data.get('country_stats') or {}
@@ -7132,10 +7161,10 @@ class Plugin:
             f"# Visible Channel Limit: {processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)}",
             "#",
             "# === Tag Filter Settings ===",
-            f"# Ignore Quality Tags: {processed_data.get('ignore_quality', True)}",
-            f"# Ignore Regional Tags: {processed_data.get('ignore_regional', True)}",
-            f"# Ignore Geographic Tags: {processed_data.get('ignore_geographic', True)}",
-            f"# Ignore Misc Tags: {processed_data.get('ignore_misc', True)}",
+            f"# Ignore Quality Tags: {_yes_no(processed_data.get('ignore_quality'), True)}",
+            f"# Ignore Regional Tags: {_yes_no(processed_data.get('ignore_regional'), True)}",
+            f"# Ignore Geographic Tags: {_yes_no(processed_data.get('ignore_geographic'), True)}",
+            f"# Ignore Misc Tags: {_yes_no(processed_data.get('ignore_misc'), True)}",
             f"# Custom Ignore Tags: {', '.join(processed_data.get('ignore_tags', [])) if processed_data.get('ignore_tags') else '(none)'}",
             "#",
             "# === Database Settings ===",
@@ -7158,16 +7187,16 @@ class Plugin:
         header_lines.extend([
             "#",
             "# === IPTV Checker Integration ===",
-            f"# Filter Dead Streams: {processed_data.get('filter_dead_streams', False)}",
-            f"# Wait for IPTV Checker: {settings.get('wait_for_iptv_checker', PluginConfig.DEFAULT_WAIT_FOR_IPTV_CHECKER)}",
+            f"# Filter Dead Streams: {_yes_no(processed_data.get('filter_dead_streams'))}",
+            f"# Wait for IPTV Checker: {_yes_no(settings.get('wait_for_iptv_checker'), PluginConfig.DEFAULT_WAIT_FOR_IPTV_CHECKER)}",
             f"# IPTV Checker Max Wait (hours): {settings.get('iptv_checker_max_wait_hours', PluginConfig.DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS)}",
             "#",
             "# === Scheduling Settings ===",
             f"# Timezone (Dispatcharr): {self._get_system_timezone(settings)}",
-            f"# Scheduled Times: {settings.get('schedule_cron', '(none)')}",
-            f"# Schedule: Sort Streams: {settings.get('scheduled_sort_streams', False)}",
-            f"# Schedule: Match & Assign Streams: {settings.get('scheduled_match_streams', True)}",
-            f"# Enable CSV Export: {settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
+            f"# Scheduled Times: {(settings.get('scheduled_times') or '').strip() or '(none)'}",
+            f"# Schedule Runs Sort Alternate Streams: {_yes_no(settings.get('scheduled_sort_streams'))}",
+            f"# Schedule Runs Match and Assign: {_yes_no(settings.get('scheduled_match_streams'), True)}",
+            f"# Write A Report For Scheduled Runs: {_yes_no(settings.get('enable_scheduled_csv_export'), PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
             "#",
             "# === API Settings ===",
             f"# Rate Limiting: {settings.get('rate_limiting', PluginConfig.DEFAULT_RATE_LIMITING)}",
@@ -7257,7 +7286,7 @@ class Plugin:
                         mismatch = example['mismatch']
                         tokens_str = ', '.join(mismatch['tokens'])
                         header_lines.append(f"#   {example['channel']} vs {example['stream']}")
-                        header_lines.append(f"#     → Mismatched {mismatch['position']} token(s): {tokens_str}")
+                        header_lines.append(f"#     -> Mismatched {mismatch['position']} token(s): {tokens_str}")
                     
                     header_lines.append("#")
         
@@ -7851,7 +7880,7 @@ class Plugin:
                         channels_skipped += 1
                         continue
 
-                    # bug-068: zone-route this channel's streams (West feeds →
+                    # bug-068: zone-route this channel's streams (West feeds ->
                     # "STARZ Encore (W)"); non-routed channels keep quality order.
                     # bug-158: country tier outranks zone affinity within that reorder.
                     streams_for_channel = self._streams_for_channel(
@@ -8469,7 +8498,7 @@ class Plugin:
                 "match_us_ota_only", success_count,
                 ota_streams_assigned, dry_run=dry_run)
 
-    def sort_streams_action(self, settings, logger, context=None):
+    def sort_streams_action(self, settings, logger, context=None, is_scheduled=False):
         """Sort existing alternate streams by quality for all channels"""
         try:
             # Check dry run mode
@@ -8693,7 +8722,7 @@ class Plugin:
                     # Log the reordering
                     stream_names = [s['name'] for s in sorted_streams]
                     logger.info(f"[Stream-Mapparr] Channel '{channel_name}': Reordered {len(sorted_streams)} streams")
-                    logger.debug(f"[Stream-Mapparr]   Order: {' → '.join(stream_names[:3])}")
+                    logger.debug(f"[Stream-Mapparr]   Order: {' -> '.join(stream_names[:3])}")
 
                     # Per-stream throughput diagnostics (aligned with stream_names).
                     # Read directly from the in-memory cache that _sort_streams_by_quality
@@ -8776,7 +8805,7 @@ class Plugin:
                             settings,
                             processed_data_for_header,
                             action_name="Sort Alternate Streams",
-                            is_scheduled=False,  # Sort Streams is always manual
+                            is_scheduled=is_scheduled,
                             total_visible_channels=sorted_count,
                             total_matched_streams=0
                         )

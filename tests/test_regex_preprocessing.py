@@ -333,7 +333,12 @@ def test_action_reports_counts_and_samples(plugin_module, monkeypatch, tmp_path)
     body = open(out["file"], encoding="utf-8").read()
     assert "2 of 33" in body
     assert "\\u258e" in body.lower()        # escaped rendering in samples
-    assert "→" in body
+    # ASCII "->" rather than the arrow character U+2192, changed 2026-09-05 with
+    # the same change to the CSV export preamble. These readouts are opened by a
+    # person, and a CSV by a spreadsheet, where a non-ASCII character can arrive
+    # as mojibake if the file is read under a different codepage. The assertion
+    # is unchanged in intent: a sample shows a before and an after, paired.
+    assert "->" in body
     assert "normalization" in body.lower()  # the after-this note
     assert "all" in body.lower()            # unscoped disclaimer
 
