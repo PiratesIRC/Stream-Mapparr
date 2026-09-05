@@ -840,11 +840,24 @@ class Plugin:
                 "label": f"Current version: {self.version}",
             },
             {
+                "id": "_section_matching",
+                "label": "🎯 Matching and Run Behaviour",
+                "type": "info",
+                "description": "How a run treats the streams a channel already has, and how close a name has to be before it counts as a match. Overwrite Existing Streams is the setting with the largest effect here: with it on, Match and Assign replaces a channel's whole stream list rather than adding to it, so a channel can end a run with fewer streams than it started with. Dry Run Mode applies to manual actions and scheduled runs alike.",
+            },
+            {
                 "id": "overwrite_streams",
                 "label": "🔄 Overwrite Existing Streams",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_OVERWRITE_STREAMS,
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
+            },
+            {
+                "id": "dry_run_mode",
+                "label": "🧪 Dry Run Mode",
+                "type": "boolean",
+                "default": False,
+                "help_text": "When enabled, preview actions without making database changes. Exports CSV report only. When disabled, actually perform stream matching, sorting, and assignment. Applies to both manual actions and scheduled runs.",
             },
             {
                 "id": "auto_match_on_m3u_refresh",
@@ -865,6 +878,12 @@ class Plugin:
                     {"value": "exact", "label": "Exact (95) - near-exact matches only"},
                 ],
                 "help_text": "Controls how closely stream names must match channel names.",
+            },
+            {
+                "id": "_section_scope",
+                "label": "📌 Scope: What Gets Processed",
+                "type": "info",
+                "description": "Which channels a run touches, and which streams it is allowed to consider. The Channel Database is part of the scope rather than a tuning option: it decides which country list loads, and that list is the primary signal for a channel's country, so leaving it on the wrong country makes Restrict Matching To Same Country drop the streams you wanted. M3U Sources is ordered, and that order sets source priority; the channel and stream group lists can each act as an include list or an exclude list.",
             },
             {
                 "id": "profile_name",
@@ -921,6 +940,12 @@ class Plugin:
                 "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality.",
             },
             {
+                "id": "_section_name_preprocessing",
+                "label": "📝 Name Pre-processing",
+                "type": "info",
+                "description": "Rewrite rules applied to names before matching. Aliases map a channel name to the names a provider actually uses. Regex rules rewrite incoming stream names for matching only: the rewritten name is never saved, it is recomputed on every run, and country detection, zone detection and the duplicate check all still read the original name, so a rule that strips a country prefix does not blind those.",
+            },
+            {
                 "id": "custom_aliases",
                 "label": "🔤 Custom Aliases (JSON)",
                 "type": "text",
@@ -941,6 +966,12 @@ class Plugin:
                              "sorting, zone routing, country restriction and duplicate "
                              "detection still read the original name. Use the Test Regex "
                              "Rules action to preview the effect.",
+            },
+            {
+                "id": "_section_notifications",
+                "label": "📧 Notifications",
+                "type": "info",
+                "description": "Sending run reports out through Newsflasharr. The report is built from raw stream names rather than from a CSV export, because an export labels every stream with its M3U account name and that name is the provider hostname. One attachment is sent per notification, so choosing both formats sends two emails. Note that the report is produced by Match and Assign only, so a schedule that runs Sort alone sends nothing.",
             },
             {
                 "id": "notify_enabled",
@@ -989,7 +1020,7 @@ class Plugin:
             },
             {
                 "id": "_section_epg_matching",
-                "label": "EPG-Aware Placeholder Matching",
+                "label": "📡 EPG-Aware Placeholder Matching",
                 "type": "info",
                 "description": (
                     "Some providers give PPV/event slots generic placeholder names "
@@ -997,7 +1028,7 @@ class Plugin:
                     "the real event title only ever appears in EPG programme data. When "
                     "enabled, a channel or stream whose name matches one of the patterns "
                     "below is matched using its CURRENTLY AIRING EPG programme title "
-                    "instead of its literal name — so a channel you've named for a "
+                    "instead of its literal name, so a channel you have named for a "
                     "specific event (e.g. 'AEW Redemption') can match a generically-named "
                     "incoming stream once that event is the one airing on it. "
                     "Matching only: Channel.name and Stream.name are never modified."
@@ -1081,6 +1112,12 @@ class Plugin:
                              "its current programme title actually contains the target channel's "
                              "name. Empty disables this (default). Requires EPG-based placeholder "
                              "matching to be enabled above.",
+            },
+            {
+                "id": "_section_stream_selection",
+                "label": "🔀 Stream Selection and Ordering",
+                "type": "info",
+                "description": "Which streams a channel is given and the order they are placed in. These settings decide the failover order, so the first entry is the one that plays. Quality, audio layout and codec preferences are applied within a channel, while Restrict Matching To Same Country and the tag settings decide which streams are eligible at all. Rate Limiting paces the database writes rather than the matching itself.",
             },
             {
                 "id": "prioritize_quality",
@@ -1185,6 +1222,12 @@ class Plugin:
                 "help_text": "Controls delay between operations. None=No delays, Low=Fast, Medium=Standard, High=Slow/Safe.",
             },
             {
+                "id": "_section_iptv_checker",
+                "label": "🔌 IPTV Checker Integration",
+                "type": "info",
+                "description": "Working alongside the IPTV Checker plugin, which marks streams it finds dead. A scheduled run can wait for a check that is already in progress so it does not assign streams the checker is about to condemn. The wait has a cap, and when the cap expires the run proceeds anyway and says so in the log. A scheduled run claims its time slot before the wait begins, so a wait that times out still uses up that slot for the day.",
+            },
+            {
                 "id": "filter_dead_streams",
                 "label": "🚫 Filter Dead Streams",
                 "type": "boolean",
@@ -1206,11 +1249,10 @@ class Plugin:
                 "help_text": "Maximum hours to wait for IPTV Checker to complete. If IPTV Checker is still running after this time, Stream-Mapparr will proceed anyway. Default: 6 hours.",
             },
             {
-                "id": "dry_run_mode",
-                "label": "🧪 Dry Run Mode",
-                "type": "boolean",
-                "default": False,
-                "help_text": "When enabled, preview actions without making database changes. Exports CSV report only. When disabled, actually perform stream matching, sorting, and assignment. Applies to both manual actions and scheduled runs.",
+                "id": "_section_scheduling",
+                "label": "⏰ Scheduling",
+                "type": "info",
+                "description": "When the plugin runs on its own, and which steps a scheduled run performs. Sort Streams and Match and Assign Streams are independent toggles, so a schedule that only reorders a channel's existing streams is a valid schedule. Times use Dispatcharr's configured Time Zone from General Settings, not this machine's clock. A schedule saved here is picked up by every worker process within five minutes, so a change does not need a container restart.",
             },
             {
                 "id": "scheduled_times",
@@ -1240,6 +1282,12 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_ENABLE_CSV_EXPORT,
                 "help_text": "If enabled, a CSV file will be created when streams are matched, sorted, or assigned (both manual and scheduled runs). Always creates CSV in dry run mode regardless of this setting.",
+            },
+            {
+                "id": "_section_throughput",
+                "label": "📈 Throughput Probe and Placeholder Demotion",
+                "type": "info",
+                "description": "Measuring streams to inform the ordering above. Probing opens a real connection to the provider and therefore consumes one of your connection slots, which is why the rate is capped and results are cached. Placeholder demotion is separate and needs no probe: it ranks last any stream that claims a high resolution while carrying too little video to be one, which a speed measurement cannot detect because a still image arrives faster than realtime.",
             },
             {
                 "id": "enable_throughput_sorting",
@@ -1356,13 +1404,14 @@ class Plugin:
             "label": "👁️ Preview Changes (Dry Run)",
             "button_label": "👁️ Preview",
             "description": "Dry run: show which channels would be updated and write a CSV report. Makes no changes.",
+            "button_color": "blue",
         },
         {
             "id": "add_streams_to_channels",
             "label": "✅ Match & Assign Streams",
             "description": "Match and assign streams to channels using fuzzy matching. Respects 'Dry Run Mode' setting - preview only if enabled, actually assigns if disabled. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
             "button_variant": "filled",
-            "button_color": "blue",
+            "button_color": "red",
             "button_label": "▶️ Match & Assign",
             "confirm": {
                 "required": True,
@@ -1374,7 +1423,7 @@ class Plugin:
             "id": "probe_throughput",
             "label": "🚀 Probe Stream Throughput",
             "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting. Probes are serialized per M3U account and capped by 'Probe Rate'. Monitor Docker logs for progress.",
-            "button_color": "blue",
+            "button_color": "green",
             "button_label": "🚀 Probe Throughput",
             "confirm": {
                 "required": True,
@@ -1398,7 +1447,7 @@ class Plugin:
             "id": "match_us_ota_only",
             "label": "📡 Match US OTA Only",
             "description": "Match ONLY US Over-The-Air broadcast channels by callsign. Uses US_channels.json as authoritative source. Searches streams for uppercase callsigns only (e.g., WKRG, WABC). Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
-            "button_color": "orange",
+            "button_color": "red",
             "button_label": "📡 Match OTA",
             "confirm": {
                 "required": True,
@@ -1410,7 +1459,7 @@ class Plugin:
             "id": "manage_channel_visibility",
             "label": "👁️ Manage Channel Visibility",
             "description": "Disable all channels, then enable only channels with 1 or more streams. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
-            "button_color": "orange",
+            "button_color": "red",
             "button_label": "👁️ Manage Visibility",
             "confirm": {
                 "required": True,
@@ -1488,7 +1537,7 @@ class Plugin:
             "id": "clear_csv_exports",
             "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
-            "button_color": "red",
+            "button_color": "orange",
             "button_label": "🗑️ Clear Exports",
             "confirm": {
                 "required": True,
@@ -1513,6 +1562,7 @@ class Plugin:
             "label": "🐛 Report a Bug or Request a Feature",
             "button_label": "🐛 Report a Bug",
             "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+            "button_color": "cyan",
         },
         {
             "id": "on_m3u_refresh",

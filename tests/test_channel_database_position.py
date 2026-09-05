@@ -46,9 +46,21 @@ def test_channel_database_sits_immediately_before_channel_profile(plugin_module)
 
 def test_channel_database_is_near_the_top_of_the_form(plugin_module):
     """A number rather than a name, because the failure being guarded against is
-    the operator never scrolling far enough to see it."""
+    the operator never scrolling far enough to see it.
+
+    Counts SETTINGS rather than list positions. The form gained section headings
+    on 2026-09-05, and a heading is a line of text rather than a control, so
+    counting raw positions would report the field as having moved further from
+    the top when nothing an operator has to read or decide was added above it.
+    Counting settings is also the stricter test of the two: the old raw limit of
+    8 positions permitted 7 preceding entries of any kind, and this permits 5
+    actual settings.
+    """
     ids = _ids(plugin_module)
-    assert ids.index("channel_database") < 8
+    fields = _fields(plugin_module)
+    settings_before = [f.get("id") for f in fields[:ids.index("channel_database")]
+                       if f.get("type") != "info"]
+    assert len(settings_before) < 6, settings_before
 
 
 def test_channel_database_precedes_the_country_filter_it_feeds(plugin_module):

@@ -37,7 +37,14 @@
     {
       "id": "cleanup_periodic_tasks",
       "label": "🧹 Cleanup Orphaned Tasks",
-      "description": "Remove any orphaned Celery periodic tasks from old plugin versions"
+      "description": "Remove any orphaned Celery periodic tasks from old plugin versions",
+      "button_label": "🧹 Cleanup Tasks",
+      "button_color": "orange",
+      "confirm": {
+        "required": true,
+        "title": "Cleanup Orphaned Tasks?",
+        "message": "This will remove any old Celery Beat tasks created by previous versions of this plugin. Continue?"
+      }
     },
     {
       "id": "preview_changes",
@@ -45,17 +52,19 @@
       "description": "Generate a CSV preview without making changes.",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "📊 Preview"
+      "button_label": "👁️ Preview"
     },
     {
       "id": "add_streams_to_channels",
       "label": "✅ Match & Assign Streams",
       "description": "Match and assign streams to channels.",
       "button_variant": "filled",
-      "button_color": "blue",
+      "button_color": "red",
       "button_label": "▶️ Match & Assign",
       "confirm": {
-        "message": "This will modify channel-stream assignments based on the current settings. Continue?"
+        "required": true,
+        "title": "Match & Assign Streams?",
+        "message": "This will match and assign (or preview if dry run enabled) streams to channels. Continue?"
       }
     },
     {
@@ -65,26 +74,32 @@
       "button_color": "orange",
       "button_label": "🔄 Sort Streams",
       "confirm": {
-        "message": "This will reorder alternate streams on matched channels. Continue?"
+        "required": true,
+        "title": "Sort Alternate Streams?",
+        "message": "This will sort (or preview if dry run enabled) existing alternate streams by quality for all channels. Continue?"
       }
     },
     {
       "id": "match_us_ota_only",
       "label": "📡 Match US OTA Only",
       "description": "Match US OTA channels by callsign.",
-      "button_color": "orange",
-      "button_label": "📺 Match OTA",
+      "button_color": "red",
+      "button_label": "📡 Match OTA",
       "confirm": {
-        "message": "This will modify channel-stream assignments for US OTA channels. Continue?"
+        "required": true,
+        "title": "Match US OTA Only?",
+        "message": "This will match and assign (or preview if dry run enabled) streams to US OTA channels using callsign matching only. Channels without valid US callsigns will be skipped. Continue?"
       }
     },
     {
       "id": "probe_throughput",
       "label": "🚀 Probe Stream Throughput",
       "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting.",
-      "button_color": "blue",
+      "button_color": "green",
       "button_label": "🚀 Probe Throughput",
       "confirm": {
+        "required": true,
+        "title": "Probe Stream Throughput?",
         "message": "This will open short HTTP connections to streams currently assigned to channels in the selected profile (one at a time per M3U account). Continue?"
       }
     },
@@ -92,10 +107,12 @@
       "id": "manage_channel_visibility",
       "label": "👁️ Manage Channel Visibility",
       "description": "Enable or disable channels based on stream count.",
-      "button_color": "orange",
+      "button_color": "red",
       "button_label": "👁️ Manage Visibility",
       "confirm": {
-        "message": "This will enable or disable channels based on the current settings. Continue?"
+        "required": true,
+        "title": "Manage Channel Visibility?",
+        "message": "This will disable ALL channels in the profile, then enable only channels with 1 or more streams that are not attached to other channels. Continue?"
       }
     },
     {
@@ -120,7 +137,7 @@
       "description": "Preview what Stream Name Regex Rules would do, against all streams (read-only).",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "🧠 Test Rules"
+      "button_label": "🧪 Test Rules"
     },
     {
       "id": "check_stream_countries",
@@ -133,22 +150,28 @@
     {
       "id": "email_report_now",
       "label": "📧 Email Report Now",
-      "description": "Build the report now and queue it for email as two attachments, an HTML page and a CSV. Checks that Newsflasharr can actually deliver it first."
+      "description": "Build the report now and queue it for email as two attachments, an HTML page and a CSV. Checks that Newsflasharr can actually deliver it first.",
+      "button_label": "📧 Email Now",
+      "button_color": "cyan"
     },
     {
       "id": "clear_csv_exports",
       "label": "🗑️ Clear CSV Exports",
       "description": "Delete all CSV export files created by this plugin.",
-      "button_color": "red",
+      "button_color": "orange",
       "button_label": "🗑️ Clear Exports",
       "confirm": {
-        "message": "This will delete all CSV files in /data/exports/. This action cannot be undone. Continue?"
+        "required": true,
+        "title": "Clear CSV Exports?",
+        "message": "This will delete all CSV export files created by this plugin. Continue?"
       }
     },
     {
       "id": "report_a_bug",
       "label": "🐛 Report a Bug or Request a Feature",
-      "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address."
+      "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+      "button_label": "🐛 Report a Bug",
+      "button_color": "cyan"
     },
     {
       "id": "clear_operation_lock",
@@ -157,7 +180,9 @@
       "button_color": "orange",
       "button_label": "🔓 Clear Lock",
       "confirm": {
-        "message": "Only clear the lock if you are sure no operation is currently running. Continue?"
+        "required": true,
+        "title": "Clear Operation Lock?",
+        "message": "This will clear the operation lock. Only do this if you're certain no operation is currently running. Continue?"
       }
     }
   ]

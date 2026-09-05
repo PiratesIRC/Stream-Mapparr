@@ -2,6 +2,47 @@
 
 ## v1.26.2291209 (August 17, 2026)
 
+### Changed
+- **The settings form is divided into ten sections, so a setting can be found by
+  the group it belongs to.** The form served 49 settings with a single topical
+  heading, "EPG-Aware Placeholder Matching", and nothing closed it, so the 32
+  settings after it read as part of that one optional feature. The setting
+  directly beneath it was Prioritize Quality Before Source, which has nothing to
+  do with EPG data. A heading that is never closed is worse than no heading at
+  all, because it actively misinforms.
+
+  Nothing was reordered except Dry Run Mode, which sat alone between the IPTV
+  Checker settings and the scheduling settings and so read as a scheduling
+  option. Its own help text says it applies to manual actions and scheduled runs
+  alike, and it now sits with the other run-behaviour settings at the top. Its
+  setting name is unchanged, so a saved value is unaffected.
+
+  Each heading says what its section governs and adds one thing that is not
+  obvious from the field labels, such as the M3U source list being ordered and
+  that order setting source priority, or the throughput probe opening real
+  provider connections and therefore using a connection slot.
+
+- **Action button colour now reflects what an action does.** Match and Assign
+  Streams was blue, the same colour as View Last Results, which only reads a
+  file. Match and Assign replaces a channel's entire stream list when Overwrite
+  Existing Streams is on, so a channel can finish with fewer streams than it
+  started with. Clear CSV Exports, which deletes export files and no channel
+  data, was the only red button on the page.
+
+  Red is now reserved for the three actions that can remove streams or take a
+  channel off air: Match and Assign Streams, Match US OTA Only, and Manage
+  Channel Visibility. Orange marks actions that write data or clear state but
+  remove nothing, green marks operations that write no channel data, cyan marks
+  actions that send something outward, and blue marks actions that only read and
+  report. Sort Alternate Streams is orange rather than red on purpose: it
+  rebuilds a channel's stream rows, but the set of streams is unchanged and only
+  the order differs, so it cannot empty a channel.
+
+  Two actions that had no colour at all, Preview Changes and Report a Bug, now
+  have one. The action list in the manifest had also drifted from the list the
+  plugin serves, disagreeing in both directions on labels, colours and
+  confirmation prompts, and the two are now checked against each other by a test.
+
 ### Fixed
 - **A schedule changed in the interface now reaches every worker process,
   instead of waiting for a container restart.** The background scheduler thread
