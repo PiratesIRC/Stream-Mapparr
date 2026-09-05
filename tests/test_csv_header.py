@@ -42,6 +42,12 @@ PLUGIN_SOURCE = os.path.join(
     "Stream-Mapparr", "plugin.py")
 
 
+@pytest.fixture(scope="module")
+def plugin_ast():
+    with open(PLUGIN_SOURCE, encoding="utf-8") as handle:
+        return ast.parse(handle.read())
+
+
 def _plugin(plugin_module):
     inst = plugin_module.Plugin.__new__(plugin_module.Plugin)
     inst.version = "test"
@@ -90,7 +96,7 @@ def test_the_sort_action_passes_on_whether_it_was_scheduled(plugin_module):
     Reads the source, because the value has to travel from the action's argument
     into the header call, and a test on the header alone cannot see that.
     """
-    with io.open(PLUGIN_SOURCE, encoding="utf-8") as handle:
+    with open(PLUGIN_SOURCE, encoding="utf-8") as handle:
         tree = ast.parse(handle.read())
     func = next(n for n in ast.walk(tree)
                 if isinstance(n, ast.FunctionDef) and n.name == "sort_streams_action")
@@ -114,6 +120,79 @@ def test_the_header_states_what_the_run_actually_did(plugin_module):
     results = "\n".join(line for line in header.splitlines()
                         if line.startswith("# Channels") or line.startswith("# Streams"))
     assert "12" in results and "37" in results, header
+
+
+def test_the_result_section_is_omitted_when_the_caller_cannot_supply_counts(plugin_module):
+    """Two of the four callers do not have the numbers when the header is built.
+
+    match_us_ota_only_action writes its CSV BEFORE the loop that assigns the
+    streams, so the counts do not exist yet, and preview_changes_action does not
+    pass them either. Printing 0 under a heading that reads "What This Run Did"
+    states a measured fact that is false: a live OTA run assigning streams to
+    hundreds of channels shipped a report claiming it changed none, directly
+    above a table listing every one of those changes.
+
+    Absent must therefore be distinguishable from zero, which a default of 0
+    cannot do.
+    """
+    header = _header(plugin_module)
+    assert "What This Run Did" not in header, header
+    assert "Channels changed" not in header
+
+
+def test_a_genuine_zero_is_still_reported(plugin_module):
+    """A run that really did change nothing must say so, not fall silent."""
+    header = _header(plugin_module, total_visible_channels=0, total_matched_streams=0)
+    assert "What This Run Did" in header
+    assert "# Channels changed: 0" in header
+
+
+def test_no_caller_supplies_only_one_of_the_two_counts(plugin_ast):
+    """Half the result is worse than none: the missing half reads as a zero."""
+    offenders = []
+    for node in ast.walk(plugin_ast):
+        if isinstance(node, ast.FunctionDef):
+            for call in ast.walk(node):
+                if (isinstance(call, ast.Call)
+                        and ast.unparse(call.func).endswith("_generate_csv_header_comment")):
+                    passed = {k.arg for k in call.keywords}
+                    got = passed & {"total_visible_channels", "total_matched_streams"}
+                    if len(got) == 1:
+                        offenders.append((node.name, sorted(got)))
+    assert offenders == [], offenders
+
+
+# --------------------------------------------------------------------------- #
+# The preamble has to name the setting the reader must go and change
+# --------------------------------------------------------------------------- #
+def _field_label(plugin_module, field_id):
+    """The field's label with any leading icon and spacing removed."""
+    inst = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    inst.version = "test"
+    field = next(f for f in inst.fields if f.get("id") == field_id)
+    return "".join(ch for ch in field["label"] if ord(ch) < 128).strip()
+
+
+@pytest.mark.parametrize("field_id", [
+    "scheduled_sort_streams", "scheduled_match_streams", "enable_scheduled_csv_export",
+])
+def test_the_preamble_uses_the_label_the_setting_has_in_the_interface(plugin_module, field_id):
+    """Renaming a setting only in the report leaves the reader unable to find it.
+
+    The rule was written into this file's own change and then broken by it: the
+    preamble said "Schedule Runs Sort Alternate Streams" while the form said
+    "Schedule: Sort Streams".
+    """
+    label = _field_label(plugin_module, field_id)
+    header = _header(plugin_module)
+    assert any(line.startswith("# " + label + ":") for line in header.splitlines()), \
+        "no preamble line is titled %r" % label
+
+
+def test_the_threshold_line_names_the_setting_that_controls_it(plugin_module):
+    """The number is derived from a dropdown, and the dropdown is what to change."""
+    line = _line(_header(plugin_module), "# Name Match Threshold:")
+    assert "Match Sensitivity" in line, line
 
 
 # --------------------------------------------------------------------------- #

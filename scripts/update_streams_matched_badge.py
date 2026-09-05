@@ -53,9 +53,13 @@ GIST_FILENAME = "stream-mapparr-streams-matched.json"
 GIST_DESCRIPTION = "Stream-Mapparr streams matched badge (Shields.io endpoint)"
 
 # The GitHub CLI is installed and authenticated here but is NOT on PATH in either
-# shell, so `command -v gh` reports it missing and is not evidence. Pin the path.
-GH = ("C:/Users/User/AppData/Local/Microsoft/WinGet/Packages/"
-      "GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/gh.exe")
+# shell, so `command -v gh` reports it missing and is not evidence. The path has
+# to be pinned, but it is BUILT from LOCALAPPDATA rather than written out: this
+# repository is public, and a literal path names the Windows account.
+GH = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet",
+                  "Packages",
+                  "GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe",
+                  "bin", "gh.exe")
 
 # Where the Gist id is remembered between runs. Committed, so a re-clone updates
 # the same document rather than silently creating a second one. The id is not a

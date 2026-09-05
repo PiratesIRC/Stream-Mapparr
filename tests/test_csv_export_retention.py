@@ -240,7 +240,7 @@ EXPORTING_ACTIONS = ["preview_changes_action", "add_streams_to_channels_action",
 
 @pytest.fixture(scope="module")
 def plugin_ast():
-    with io.open(PLUGIN_SOURCE, encoding="utf-8") as handle:
+    with open(PLUGIN_SOURCE, encoding="utf-8") as handle:
         return ast.parse(handle.read())
 
 
@@ -250,7 +250,23 @@ def test_every_action_that_writes_an_export_prunes_afterwards(plugin_ast, action
     func = next(n for n in ast.walk(plugin_ast)
                 if isinstance(n, ast.FunctionDef) and n.name == action)
     calls = {ast.unparse(c.func) for c in ast.walk(func) if isinstance(c, ast.Call)}
-    assert "self._prune_csv_exports" in calls
+    assert "self._prune_exports_after_write" in calls
+
+
+def test_the_export_sites_do_not_each_repeat_the_settings_lookup(plugin_ast):
+    """Four copies is four chances for one to drift.
+
+    The one that matters is `protect`: the argument that stops the file just
+    written from being deleted. A site that forgot it would delete the report it
+    had that moment produced, and only under a retention setting nobody has on
+    by default.
+    """
+    reads = [n for n in ast.walk(plugin_ast)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "get" and n.args
+             and isinstance(n.args[0], ast.Constant)
+             and n.args[0].value == "csv_export_retention_days"]
+    assert len(reads) == 1, "the retention setting is read in %d places" % len(reads)
 
 
 def test_clear_all_exports_still_clears_everything(plugin_ast):

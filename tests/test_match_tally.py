@@ -52,7 +52,7 @@ def _lines(tmp_path):
     path = tmp_path / "tally.jsonl"
     if not path.exists():
         return []
-    with io.open(str(path), encoding="utf-8") as handle:
+    with open(str(path), encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
 
@@ -130,7 +130,7 @@ def test_a_non_numeric_count_does_not_raise(plugin_module, tmp_path, monkeypatch
 # --------------------------------------------------------------------------- #
 @pytest.fixture(scope="module")
 def plugin_ast():
-    with io.open(PLUGIN_SOURCE, encoding="utf-8") as handle:
+    with open(PLUGIN_SOURCE, encoding="utf-8") as handle:
         return ast.parse(handle.read())
 
 

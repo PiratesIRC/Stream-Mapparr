@@ -87,13 +87,55 @@ def test_no_csv_is_attached_when_the_account_names_cannot_be_read(plugin_module,
     inst = _plugin(plugin_module, tmp_path)
     exports = tmp_path / "exports"
     exports.mkdir()
-    (exports / "e.csv").write_text("name\nBBC One [%s]\n" % ACCOUNT, encoding="utf-8")
+    (exports / "stream_mapparr_20260101_000000.csv").write_text("name\nBBC One [%s]\n" % ACCOUNT, encoding="utf-8")
     plugin_module.PluginConfig.EXPORTS_DIR = str(exports)
 
     def _boom(logger):
         raise RuntimeError("no database here")
 
     inst._get_all_m3u_accounts = _boom
+    assert inst._build_sanitised_bug_csv(_Logger()) is None
+
+
+def test_another_plugins_export_is_never_attached(plugin_module, tmp_path):
+    """/data/exports is shared, and this picked the newest file in it.
+
+    Measured on the live installation 2026-09-05: the newest CSV in that
+    directory belonged to iptv_checker. So pressing Report a Bug attached and
+    emailed another project's file, sanitised only against THIS plugin's M3U
+    account names, which say nothing about what another plugin put in its own
+    report. The directory holds files from seven plugins.
+    """
+    inst = _plugin(plugin_module, tmp_path)
+    exports = tmp_path / "shared"
+    exports.mkdir()
+    ours = exports / "stream_mapparr_sorted_20260101_000000.csv"
+    ours.write_text("name\nBBC One\n", encoding="utf-8")
+    theirs = exports / "iptv_checker_results_20260102_000000.csv"
+    theirs.write_text("name\nANOTHER PROJECTS DATA\n", encoding="utf-8")
+    os.utime(str(ours), (1_000_000, 1_000_000))
+    os.utime(str(theirs), (2_000_000, 2_000_000))     # theirs is NEWER
+    plugin_module.PluginConfig.EXPORTS_DIR = str(exports)
+    inst._get_all_m3u_accounts = lambda logger: [{"name": ACCOUNT}]
+
+    out = inst._build_sanitised_bug_csv(_Logger())
+
+    assert out is not None, "our own export was available and should have been used"
+    text = open(out, encoding="utf-8").read()
+    assert "ANOTHER PROJECTS DATA" not in text
+    assert "BBC One" in text
+
+
+def test_no_csv_is_attached_when_only_other_plugins_have_exports(plugin_module, tmp_path):
+    """Attaching nothing is correct. Attaching someone else's file is not."""
+    inst = _plugin(plugin_module, tmp_path)
+    exports = tmp_path / "theirs_only"
+    exports.mkdir()
+    (exports / "epg_janitor_results_20260101_000000.csv").write_text(
+        "name\nANOTHER PROJECTS DATA\n", encoding="utf-8")
+    plugin_module.PluginConfig.EXPORTS_DIR = str(exports)
+    inst._get_all_m3u_accounts = lambda logger: [{"name": ACCOUNT}]
+
     assert inst._build_sanitised_bug_csv(_Logger()) is None
 
 
@@ -110,7 +152,7 @@ def test_the_account_name_is_removed_from_the_copied_csv(plugin_module, tmp_path
     inst = _plugin(plugin_module, tmp_path)
     exports = tmp_path / "exports2"
     exports.mkdir()
-    (exports / "e.csv").write_text(
+    (exports / "stream_mapparr_20260101_000000.csv").write_text(
         "# Selected M3U Sources: %s\nname\nBBC One [%s]\n" % (ACCOUNT, ACCOUNT),
         encoding="utf-8")
     plugin_module.PluginConfig.EXPORTS_DIR = str(exports)
@@ -130,7 +172,7 @@ def test_the_original_export_is_not_modified(plugin_module, tmp_path):
     inst = _plugin(plugin_module, tmp_path)
     exports = tmp_path / "exports3"
     exports.mkdir()
-    src = exports / "e.csv"
+    src = exports / "stream_mapparr_20260101_000000.csv"
     original = "name\nBBC One [%s]\n" % ACCOUNT
     src.write_text(original, encoding="utf-8")
     plugin_module.PluginConfig.EXPORTS_DIR = str(exports)

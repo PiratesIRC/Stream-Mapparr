@@ -2,6 +2,48 @@
 
 ## v1.26.2291209 (August 17, 2026)
 
+### Fixed
+- **Report a Bug no longer attaches another plugin's file.** It selected the
+  newest CSV in /data/exports and emailed it, but that directory is shared:
+  measured on one installation, the newest file in it belonged to a different
+  plugin. So the button could attach and send a file this plugin did not write,
+  sanitised only against this plugin's own M3U account names, which say nothing
+  about what another plugin recorded in its own report. Both the attachment and
+  the file list in the report body now consider only this plugin's exports.
+
+- **The export preamble no longer claims a result it was not given.** Two of the
+  four actions that write a report do not know the counts at the moment the
+  preamble is built, so the section headed "What This Run Did" printed zero for
+  them. A live run assigning streams to hundreds of channels shipped a report
+  saying it had changed none, directly above a table listing every change. The
+  section is now written only when the numbers are known, and a run that really
+  did change nothing still says so.
+
+- **The preamble now uses the same names as the settings page.** Three lines had
+  been reworded, so a reader could not find the setting they described, and the
+  match threshold gave a number without naming the dropdown that sets it.
+
+- **A setting stored as text now reads in the report the way the run treats it.**
+  There were two spellings of the rule that turns a stored value into a yes or
+  no, and they disagreed on one input, so a setting could print as on in a report
+  while the run treated it as off. There is now one rule.
+
+- **The scheduler picks up a change to Dispatcharr's Time Zone.** It re-reads its
+  schedule every few minutes but resolved the timezone only once, when it
+  started, so a worker could keep running on the old zone indefinitely.
+
+- **Preview Changes renders with the button style it advertises.** The two places
+  actions are declared disagreed about it.
+
+- **The badge refresh no longer reports failure for a successful run.** Its
+  scheduled-task wrapper treated a single line of ordinary output on the error
+  stream as a fatal error, discarded the real output, and recorded a failure for
+  a run that had worked.
+
+- **Cleaning up old exports costs nothing when it is switched off**, which is the
+  default. It listed and inspected every file in a shared directory of over a
+  hundred before checking whether it had anything to do.
+
 ### Added
 - **A new setting, "Delete CSV Exports Older Than (Days)", tidies up old
   reports.** Zero, the default, keeps everything, so nothing is deleted by

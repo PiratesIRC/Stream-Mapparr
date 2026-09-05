@@ -186,18 +186,27 @@ def _escape_invisibles(text):
     return "".join(out)
 
 
-def _yes_no(value, default=False):
-    """Render a setting as Yes or No for a person, not as a Python boolean.
+def _coerce_bool(value, default=False):
+    """The ONE place a stored setting becomes a boolean.
 
     Dispatcharr stores some booleans as the strings "true" and "false", so the
-    same setting can arrive as either type. Both have to read the same way in a
-    report, and neither should reach the reader as True or False.
+    same setting can arrive as either type. This existed in several spellings,
+    and they disagreed: the report renderer accepted "on" and the resolvers did
+    not, so a setting stored that way printed Yes in an export preamble while
+    the run treated it as off. The preamble exists to record what the run did,
+    so a renderer that can disagree with the run is worse than no renderer.
+    The accepted set is the one the resolvers have always used.
     """
     if value is None:
         value = default
     if isinstance(value, str):
-        value = value.strip().lower() in ("true", "yes", "1", "on")
-    return "Yes" if value else "No"
+        return value.strip().lower() in ("true", "yes", "1")
+    return bool(value)
+
+
+def _yes_no(value, default=False):
+    """Render a setting as Yes or No for a person, not as a Python boolean."""
+    return "Yes" if _coerce_bool(value, default) else "No"
 
 def _mname(stream):
     """The name MATCHING should see: regex-transformed when the choke point ran,
@@ -294,7 +303,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2291209"
+    PLUGIN_VERSION = "1.26.2481620"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1072,7 +1081,7 @@ class Plugin:
                 "help_text": "A channel or stream name is only ever treated as a generic "
                              "placeholder (eligible for EPG substitution) if it matches one "
                              "of these regexes. Anything else (e.g. 'Dodgers', 'AEW "
-                             "Redemption') is matched exactly as it is today — no behavior "
+                             "Redemption') is matched exactly as it is today, no behavior "
                              "change. One Python regex per line.",
             },
             {
@@ -1094,7 +1103,7 @@ class Plugin:
                 "placeholder": "Signing Off",
                 "help_text": "If the cleaned current EPG title matches one of these "
                              "(case-insensitive), the channel/stream is left on its literal "
-                             "placeholder name for this pass — there's no useful event "
+                             "placeholder name for this pass, there's no useful event "
                              "signal available (e.g. the slot is idle).",
             },
             {
@@ -1108,7 +1117,7 @@ class Plugin:
                              "placeholder matching is enabled, before it's compared against a "
                              "resolved EPG title. Without provider-assigned channel numbers, a "
                              "natural convention is to name event channels with an inline "
-                             "schedule, e.g. 'WWE Monday Night Raw | Monday @ 5' — the default "
+                             "schedule, e.g. 'WWE Monday Night Raw | Monday @ 5', the default "
                              "rule strips that trailing '| Weekday @ Time' annotation so the "
                              "channel compares as 'WWE Monday Night Raw' against the real EPG "
                              "title instead of losing the match to score dilution from the "
@@ -1116,12 +1125,12 @@ class Plugin:
             },
             {
                 "id": "epg_watch_source_streams",
-                "label": "📡 EPG Event Watch — Source Streams (comma-separated exact names)",
+                "label": "📡 EPG Event Watch, Source Streams (comma-separated exact names)",
                 "type": "string",
                 "default": PluginConfig.DEFAULT_EPG_WATCH_SOURCE_STREAMS,
                 "placeholder": "ESPN, ESPN 2, ESPN News",
                 "help_text": "Some events (e.g. a WWE PPV with ESPN pre-show coverage) never get "
-                             "their own dedicated placeholder stream — they only ever appear as "
+                             "their own dedicated placeholder stream, they only ever appear as "
                              "time-boxed programming on a real, permanently-named channel like "
                              "'ESPN'. List those channels' exact stream names here (case-"
                              "insensitive, comma-separated) to make them eligible as an EXTRA "
@@ -1129,7 +1138,7 @@ class Plugin:
                              "contained in that stream's current EPG programme title (e.g. "
                              "channel 'WWE SummerSlam' matches while ESPN's guide currently reads "
                              "'WWE SummerSlam Special'). A watched stream's own identity is never "
-                             "touched — it keeps matching its own literally-named channel exactly "
+                             "touched, it keeps matching its own literally-named channel exactly "
                              "as before; this only adds it as a candidate elsewhere, only while "
                              "its current programme title actually contains the target channel's "
                              "name. Empty disables this (default). Requires EPG-based placeholder "
@@ -1323,7 +1332,7 @@ class Plugin:
                 "label": "🚀 Enable Throughput-Based Sorting",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_ENABLE_THROUGHPUT_SORTING,
-                "help_text": "When enabled, alternate streams are sorted by a measured-throughput tier (healthy/marginal/unknown/insufficient) before the existing resolution/FPS sort. Probes run via the 'Probe Stream Throughput' action — sorting falls back to resolution/FPS only for streams without a fresh probe.",
+                "help_text": "When enabled, alternate streams are sorted by a measured-throughput tier (healthy/marginal/unknown/insufficient) before the existing resolution/FPS sort. Probes run via the 'Probe Stream Throughput' action, sorting falls back to resolution/FPS only for streams without a fresh probe.",
             },
             {
                 "id": "probe_duration_seconds",
@@ -1431,6 +1440,7 @@ class Plugin:
         {
             "id": "preview_changes",
             "label": "👁️ Preview Changes (Dry Run)",
+            "button_variant": "outline",
             "button_label": "👁️ Preview",
             "description": "Dry run: show which channels would be updated and write a CSV report. Makes no changes.",
             "button_color": "blue",
@@ -2255,6 +2265,26 @@ class Plugin:
                         settings, scheduled_times = self._refresh_schedule_from_db(
                             settings, scheduled_times)
 
+                        # The timezone was resolved once, before this loop, and
+                        # never again. It comes from Dispatcharr's global Time
+                        # Zone setting, so a worker that never reconstructs the
+                        # plugin kept firing on the old zone for as long as it
+                        # lived. That is the same staleness this refresh exists
+                        # to remove, and the schedule help text promises a change
+                        # needs no restart. Re-resolved here rather than every
+                        # tick because it costs a database read.
+                        current_tz = self._get_system_timezone(settings)
+                        if current_tz != tz_str:
+                            try:
+                                local_tz = pytz.timezone(current_tz)
+                                LOGGER.info(f"[Stream-Mapparr] Scheduler adopted a timezone "
+                                            f"changed since it was armed: {tz_str} is now "
+                                            f"{current_tz}.")
+                                tz_str = current_tz
+                            except pytz.exceptions.UnknownTimeZoneError:
+                                LOGGER.error(f"[Stream-Mapparr] Ignoring an unusable timezone "
+                                             f"({current_tz}); staying on {tz_str}.")
+
                     now = datetime.now(local_tz)
                     current_date = now.date()
                     
@@ -2559,6 +2589,22 @@ class Plugin:
             result["file"] = path
         return result
 
+    def _own_csv_exports(self):
+        """Full paths of the CSV exports THIS plugin wrote, newest first not implied.
+
+        /data/exports is shared: measured 2026-09-05 it held 126 files belonging
+        to seven plugins, and the newest was not ours. Every place that reaches
+        into that directory has to say which files are its own, so the rule lives
+        here once rather than being spelled out at each call site.
+        """
+        try:
+            names = os.listdir(PluginConfig.EXPORTS_DIR)
+        except OSError:
+            return []
+        return [os.path.join(PluginConfig.EXPORTS_DIR, name) for name in names
+                if name.startswith(PluginConfig.CSV_EXPORT_PREFIX)
+                and name.endswith(PluginConfig.CSV_EXPORT_SUFFIX)]
+
     def _build_sanitised_bug_csv(self, logger):
         """Copy the newest CSV export with every M3U account name removed.
 
@@ -2579,9 +2625,13 @@ class Plugin:
         anywhere in the text rather than only in a stream-name column.
         """
         try:
-            from glob import glob as _glob
+            # OUR OWN exports only. /data/exports is shared: measured on the
+            # live installation the NEWEST csv in it belonged to another plugin,
+            # so this attached and emailed that plugin's file, sanitised only
+            # against this plugin's M3U account names, which say nothing about
+            # what another plugin wrote in its own report.
             newest = sorted(
-                _glob(os.path.join(PluginConfig.EXPORTS_DIR, "*.csv")),
+                self._own_csv_exports(),
                 key=os.path.getmtime, reverse=True)
         except Exception as e:
             logger.warning(f"[Stream-Mapparr] Could not list CSV exports: {e}")
@@ -2665,9 +2715,9 @@ class Plugin:
 
             exports = []
             try:
-                from glob import glob as _glob
+                # Our own exports only, for the same reason as the attachment.
                 exports = sorted(
-                    _glob(os.path.join(PluginConfig.EXPORTS_DIR, "*.csv")),
+                    self._own_csv_exports(),
                     key=os.path.getmtime, reverse=True
                 )[:3]
             except Exception:
@@ -2783,10 +2833,7 @@ class Plugin:
 
     def _get_bool_setting(self, settings, key, default=False):
         """Coerce a setting that may be a bool or a string ('true'/'yes'/'1', case-insensitive)."""
-        val = settings.get(key, default)
-        if isinstance(val, str):
-            return val.strip().lower() in ("true", "yes", "1")
-        return bool(val)
+        return _coerce_bool(settings.get(key, default), default)
 
     def _should_auto_match_on_refresh(self, settings):
         """Pure gate for the m3u_refresh auto-match: enabled AND a profile is selected.
@@ -3161,10 +3208,7 @@ class Plugin:
         # Absent means the scheduled run WOULD match: the scheduler itself
         # defaults this to True, so the default has to agree with it or this
         # warns about a schedule that is in fact fine.
-        match_on = settings.get("scheduled_match_streams", True)
-        if isinstance(match_on, str):
-            match_on = match_on.strip().lower() in ("true", "yes", "1", "on")
-        if match_on:
+        if self._get_bool_setting(settings, "scheduled_match_streams", True):
             return None
 
         if trigger == "scheduled":
@@ -7229,6 +7273,19 @@ class Plugin:
         return sorted(name for name, stamp in mine
                       if stamp < cutoff and name != survivor)
 
+    def _prune_exports_after_write(self, settings, filepath):
+        """Prune old exports after writing `filepath`, which is never deleted.
+
+        The settings lookup and the protected name were repeated at all four
+        export sites. Four copies is four chances for one to drift to a
+        different default, or to forget `protect`, which is the argument that
+        guarantees the file just written survives.
+        """
+        return self._prune_csv_exports(
+            settings.get('csv_export_retention_days',
+                         PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
+            protect=os.path.basename(filepath))
+
     def _prune_csv_exports(self, retention_days, protect=None):
         """Delete this plugin's CSV exports older than retention_days.
 
@@ -7241,6 +7298,16 @@ class Plugin:
         directory bounded at all times, and a separate schedule would need its
         own cross-worker election and duplicate-fire handling for no benefit.
         """
+        # Off is the default, and the shared export directory held 126 files.
+        # Listing it and stat-ing every entry only to throw the result away is
+        # work on every export for nothing, and os.stat is not gevent-patched,
+        # so it blocks the worker rather than yielding.
+        try:
+            if int(retention_days) <= 0:
+                return 0
+        except (TypeError, ValueError):
+            return 0
+
         directory = PluginConfig.EXPORTS_DIR
         try:
             names = os.listdir(directory)
@@ -7249,6 +7316,12 @@ class Plugin:
 
         entries = []
         for name in names:
+            # Only our own files can ever be selected, so only our own are worth
+            # a stat. The selector checks this again; it is pure and must not
+            # rely on its caller having filtered.
+            if not (name.startswith(PluginConfig.CSV_EXPORT_PREFIX)
+                    and name.endswith(PluginConfig.CSV_EXPORT_SUFFIX)):
+                continue
             try:
                 entries.append((name, os.path.getmtime(os.path.join(directory, name))))
             except OSError:
@@ -7268,7 +7341,7 @@ class Plugin:
                 LOGGER.warning(f"[Stream-Mapparr] Could not delete old CSV export {name}: {exc}")
         return removed
 
-    def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
+    def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=None, total_matched_streams=None, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
         LOGGER.debug(f"[Stream-Mapparr] CSV generation - All settings keys: {list(settings.keys())}")
@@ -7300,12 +7373,24 @@ class Plugin:
             f"# Execution Mode: {'Scheduled' if is_scheduled else 'Manual'}",
             f"# Dry Run Mode: {_yes_no(settings.get('dry_run_mode'))} (Yes means nothing was written to the database)",
             "#",
-            "# === What This Run Did ===",
-            f"# Channels changed: {total_visible_channels}",
-            f"# Streams matched and assigned: {total_matched_streams}",
-            "#   Sorting alternate streams reorders the streams a channel already has,",
-            "#   so it changes channels while assigning none.",
-            "#",
+        ]
+        # Only stated when the caller actually knows. Two of the four callers do
+        # not: match_us_ota_only_action writes its CSV BEFORE the loop that
+        # assigns the streams, so the numbers do not exist yet. Printing 0 under
+        # a heading that reads "What This Run Did" states a measured fact that is
+        # false, and a live OTA run shipped a report claiming it changed nothing
+        # directly above a table listing every change it made. A default of 0
+        # cannot tell absent from zero, so the default is None.
+        if total_visible_channels is not None and total_matched_streams is not None:
+            header_lines += [
+                "# === What This Run Did ===",
+                f"# Channels changed: {total_visible_channels}",
+                f"# Streams matched and assigned: {total_matched_streams}",
+                "#   Sorting alternate streams reorders the streams a channel already has,",
+                "#   so it changes channels while assigning none.",
+                "#",
+            ]
+        header_lines += [
             "# === Profile & Group Settings ===",
             f"# Profile Name(s): {profile_name}",
             f"# Selected Channel Groups: {', '.join(selected_groups) if selected_groups else '(all groups)'}",
@@ -7313,7 +7398,7 @@ class Plugin:
             f"# Selected M3U Sources: {', '.join(selected_m3us) if selected_m3us else '(all M3U sources)'}",
             "#",
             "# === Matching Settings ===",
-            f"# Name Match Threshold: {current_threshold} out of 100 (higher is stricter; a stream must score at least this to be considered a match)",
+            f"# Name Match Threshold: {current_threshold} out of 100, set by Match Sensitivity (higher is stricter; a stream must score at least this to count as a match)",
             f"# Overwrite Streams: {_yes_no(settings.get('overwrite_streams'), PluginConfig.DEFAULT_OVERWRITE_STREAMS)} (Yes replaces a channel's whole stream list; No only adds)",
             f"# Prioritize Quality Before Source: {_yes_no(settings.get('prioritize_quality'), PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
             f"# Restrict Matching To Same Country: {_yes_no(processed_data.get('restrict_matching_to_country'), PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
@@ -7376,9 +7461,9 @@ class Plugin:
             "# === Scheduling Settings ===",
             f"# Timezone (Dispatcharr): {self._get_system_timezone(settings)}",
             f"# Scheduled Times: {(settings.get('scheduled_times') or '').strip() or '(none)'}",
-            f"# Schedule Runs Sort Alternate Streams: {_yes_no(settings.get('scheduled_sort_streams'))}",
-            f"# Schedule Runs Match and Assign: {_yes_no(settings.get('scheduled_match_streams'), True)}",
-            f"# Write A Report For Scheduled Runs: {_yes_no(settings.get('enable_scheduled_csv_export'), PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
+            f"# Schedule: Sort Streams: {_yes_no(settings.get('scheduled_sort_streams'))}",
+            f"# Schedule: Match & Assign Streams: {_yes_no(settings.get('scheduled_match_streams'), True)}",
+            f"# Enable CSV Export: {_yes_no(settings.get('enable_scheduled_csv_export'), PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
             "#",
             "# === API Settings ===",
             f"# Rate Limiting: {settings.get('rate_limiting', PluginConfig.DEFAULT_RATE_LIMITING)}",
@@ -7821,10 +7906,7 @@ class Plugin:
             # Log CSV creation prominently
             logger.info(f"[Stream-Mapparr] 📄 CSV PREVIEW REPORT CREATED: {filepath}")
             logger.info(f"[Stream-Mapparr] Preview shows {total_channels_to_update} channels will be updated")
-            self._prune_csv_exports(
-                settings.get('csv_export_retention_days',
-                             PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
-                protect=os.path.basename(filepath))
+            self._prune_exports_after_write(settings, filepath)
 
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
             if regex_rejected > 0:
@@ -8258,10 +8340,7 @@ class Plugin:
                     logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
                     logger.info(f"[Stream-Mapparr] Export contains {len(csv_data)} channel updates")
                     csv_created = filepath
-                    self._prune_csv_exports(
-                        settings.get('csv_export_retention_days',
-                                     PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
-                        protect=os.path.basename(filepath))
+                    self._prune_exports_after_write(settings, filepath)
                 except Exception as e:
                     logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
                     csv_created = None
@@ -8594,10 +8673,7 @@ class Plugin:
                         ])
                 
                 logger.info(f"📄 [Stream-Mapparr] CSV export created: {csv_filepath}")
-                self._prune_csv_exports(
-                    settings.get('csv_export_retention_days',
-                                 PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
-                    protect=os.path.basename(csv_filepath))
+                self._prune_exports_after_write(settings, csv_filepath)
                 
             except Exception as csv_error:
                 logger.error(f"[Stream-Mapparr] Error creating CSV: {str(csv_error)}")
@@ -9023,10 +9099,7 @@ class Plugin:
                     
                     logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
                     csv_created = filepath
-                    self._prune_csv_exports(
-                        settings.get('csv_export_retention_days',
-                                     PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
-                        protect=os.path.basename(filepath))
+                    self._prune_exports_after_write(settings, filepath)
                 except Exception as e:
                     logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
             

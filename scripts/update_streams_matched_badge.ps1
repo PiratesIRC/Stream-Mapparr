@@ -21,8 +21,10 @@ is no need to run this often; once or twice a day is plenty.
 #>
 $ErrorActionPreference = 'Stop'
 
-$Python = 'C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe'
-$DockerBin = 'C:\Program Files\Docker\Docker\resources\bin'
+# Built from the environment rather than written out in full: this repository is
+# public, and a literal path names the Windows account it runs under.
+$Python = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'
+$DockerBin = Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin'
 $Repo = Split-Path -Parent $PSScriptRoot
 $Script = Join-Path $PSScriptRoot 'update_streams_matched_badge.py'
 $LogDir = Join-Path $Repo 'dist'
@@ -46,12 +48,26 @@ $env:PATH = "$DockerBin;$env:PATH"
 # example when the pinned python path is wrong after an interpreter upgrade.
 # Without this catch the wrapper dies with the reason on a console nobody is
 # watching, leaving a log that ends mid-run and says nothing about why.
+# ErrorActionPreference is dropped to Continue for the invocation ONLY. In
+# Windows PowerShell 5.1, redirecting a native executable's stderr with 2>&1
+# wraps each line in a NativeCommandError record, and under 'Stop' that record is
+# a TERMINATING error. Measured in this environment: a process that writes one
+# line to stderr and exits 0 throws. So the first line Python wrote to stderr
+# aborted the pipeline, the catch below logged "wrapper FAILED before the script
+# ran" (which was untrue, it had already run), every line of real output was
+# discarded, and Task Scheduler recorded a failure for a successful badge
+# update. The script's own normal "nothing to publish yet" path prints to stderr,
+# so this fired on an ordinary run rather than an exceptional one.
 try {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     $output = & $Python $Script 2>&1
     $code = $LASTEXITCODE
+    $ErrorActionPreference = $previous
     foreach ($line in $output) { Add-Content -Path $Log -Encoding utf8 -Value $line }
 } catch {
-    Add-Content -Path $Log -Encoding utf8 -Value "wrapper FAILED before the script ran: $($_.Exception.Message)"
+    $ErrorActionPreference = 'Stop'
+    Add-Content -Path $Log -Encoding utf8 -Value "wrapper FAILED: $($_.Exception.Message)"
     $code = 1
 }
 

@@ -31,8 +31,8 @@ cleanup_periodic_tasks colours that plugin.json did not. Reading either one
 alone gave a false picture of the interface, which is how the first problem was
 originally described wrongly.
 """
-import json
 import io
+import json
 import os
 
 import pytest
@@ -77,7 +77,7 @@ def _actions(plugin_module):
 
 
 def _manifest_actions():
-    with io.open(MANIFEST, encoding="utf-8") as handle:
+    with open(MANIFEST, encoding="utf-8") as handle:
         return json.load(handle)["actions"]
 
 
@@ -135,7 +135,8 @@ def test_the_manifest_and_the_served_list_hold_the_same_actions(plugin_module):
     assert served == manifest
 
 
-@pytest.mark.parametrize("key", ["button_label", "button_color", "confirm"])
+@pytest.mark.parametrize("key", ["button_label", "button_color", "confirm",
+                                 "button_variant"])
 def test_the_manifest_and_the_served_list_agree_on_button_metadata(plugin_module, key):
     """They drifted in BOTH directions, so reading either alone misled.
 
