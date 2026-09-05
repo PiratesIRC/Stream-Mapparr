@@ -3,6 +3,23 @@
 ## v1.26.2291209 (August 17, 2026)
 
 ### Added
+- **Validate Settings now says when the report settings cannot produce a
+  report.** Notifications could be switched on, with "Email A Report After" set,
+  and no report would ever be sent, because the emailed report is built only by
+  Match and Assign Streams and a schedule can be set to run Sort Alternate
+  Streams alone. Nothing said so. Measured on one installation, no report had
+  been produced for nearly a month while every setting read as switched on.
+
+  The existing delivery check made that harder to spot rather than easier: it
+  inspects the route to the mail server, found it healthy, and reported that
+  reports route to email. True, and misleading, because no report was ever going
+  to be handed over to be delivered. The two questions are now asked separately.
+
+  It is a warning, not an error. Running Sort on a schedule while keeping
+  notifications on for manual runs is a legitimate choice. Warnings also now
+  appear in the message Validate Settings returns, rather than only in the
+  container log where nobody would see them.
+
 - **A lifetime tally of the streams this plugin has assigned, behind a badge on
   the repository page.** Match and Assign Streams and Match US OTA Only each
   append one line to `/data/stream_mapparr_match_counts.jsonl` recording how

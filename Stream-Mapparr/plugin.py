@@ -3117,6 +3117,54 @@ class Plugin:
             logger.error(f"[Stream-Mapparr] Email Report Now failed: {e}")
             return {"status": "error", "error": f"Email Report Now failed: {e}"}
 
+    def _report_delivery_gap(self, settings):
+        """Return a plain warning when the report settings cannot produce a report.
+
+        Measured on this installation on 2026-09-05: notifications were on and
+        the report trigger was set to every run, and no report had been produced
+        since 10 August. Nothing was broken. The emailed report is built at
+        exactly ONE place, inside add_streams_to_channels_action, and the
+        schedule here runs Sort Alternate Streams only, so the setting could
+        never do anything and nothing said so.
+
+        _newsflasharr_readiness made that worse rather than catching it: it
+        checks DELIVERY, found it healthy, and reported that reports route to
+        email. True, and misleading, because no report was ever going to be
+        handed over to be delivered.
+
+        Reported as a warning, never an error. Running Sort on a schedule while
+        keeping notifications on for manual runs is a legitimate choice, and
+        Validate Settings must not call a deliberate configuration a failure.
+        """
+        bridge = self._notify_bridge()
+        if not bridge.is_enabled(settings):
+            return None
+        trigger = bridge.resolve_report_trigger(settings)
+        if trigger == "never":
+            return None
+
+        # Absent means the scheduled run WOULD match: the scheduler itself
+        # defaults this to True, so the default has to agree with it or this
+        # warns about a schedule that is in fact fine.
+        match_on = settings.get("scheduled_match_streams", True)
+        if isinstance(match_on, str):
+            match_on = match_on.strip().lower() in ("true", "yes", "1", "on")
+        if match_on:
+            return None
+
+        if trigger == "scheduled":
+            return ("Email A Report After is set to scheduled runs, but the schedule does "
+                    "not run Match and Assign, and only Match and Assign builds the report. "
+                    "No report will be sent.")
+
+        # Trigger is every run. A manual Match and Assign still sends one, so the
+        # wording must not claim nothing will ever arrive.
+        if str(settings.get("scheduled_times") or "").strip():
+            return ("The schedule runs Sort Alternate Streams only, and only Match and "
+                    "Assign builds the report, so a scheduled run sends nothing. Running "
+                    "Match and Assign by hand still sends one.")
+        return None
+
     def _newsflasharr_readiness(self):
         """Everything that must be true for an emailed report to actually arrive.
 
@@ -6753,6 +6801,15 @@ class Plugin:
                         has_errors = True
                     else:
                         validation_results.append("✅ Email delivery: reports route to email")
+
+                    # Delivery being healthy says nothing about whether a report
+                    # will ever be BUILT. Checked second and reported as a
+                    # warning, because the two answer different questions and a
+                    # healthy delivery path with nothing to deliver reads as
+                    # success without this.
+                    gap = self._report_delivery_gap(settings)
+                    if gap:
+                        validation_results.append(f"⚠ Email report: {gap}")
             except Exception as notify_err:
                 logger.debug(f"[Stream-Mapparr] Could not read notification health: {notify_err}")
 
@@ -6821,7 +6878,18 @@ class Plugin:
             errors = [item for item in validation_results if item.startswith("❌")]
             message = f"Validation failed with {len(errors)} error(s). See logs for details."
             return {"status": "error", "message": message}
-        return {"status": "success", "message": f"All settings valid ({len(validation_results)} check(s) passed)."}
+
+        # A warning that stays in validation_results reaches the container log
+        # and nothing else, which is barely more visible than the silence it
+        # replaced. The returned message is the only part the operator actually
+        # reads, so warnings go in it. _fit_toast keeps whole lines and says how
+        # many it dropped, because a toast is clipped from the MIDDLE with no
+        # ellipsis.
+        warnings = [item for item in validation_results if item.startswith("⚠")]
+        headline = f"All settings valid ({len(validation_results)} check(s) passed)."
+        if not warnings:
+            return {"status": "success", "message": headline}
+        return {"status": "success", "message": self._fit_toast([headline] + warnings)}
 
     def load_process_channels_action(self, settings, logger, context=None):
         """Load and process channels from specified profile and groups."""
