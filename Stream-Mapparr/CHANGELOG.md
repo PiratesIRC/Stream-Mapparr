@@ -1,6 +1,9 @@
 # Stream-Mapparr CHANGELOG
 
-## v1.26.2291209 (August 17, 2026)
+## v1.26.2481620 (September 5, 2026)
+
+Version 1.26.2291209 was prepared in August and never released, so everything
+written under it ships here instead.
 
 ### Fixed
 - **Report a Bug no longer attaches another plugin's file.** It selected the
