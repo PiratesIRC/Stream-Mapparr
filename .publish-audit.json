@@ -71,6 +71,18 @@
     {
       "pattern": "superpowers",
       "reason": "a gitignore entry for a local planning directory, not a published path"
+    },
+    {
+      "pattern": "[C]:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Python",
+      "reason": "the pinned Python interpreter in scripts/update_streams_matched_badge.ps1, which Task Scheduler runs. It is pinned on purpose: a scheduled task starts with a minimal environment, so resolving python from PATH fails there. The path names only a stock install location and the generic Windows account name User. No credential, provider host or LAN address. The sibling plugin iptv_checker publishes the same path in the same file on its public remote. The drive letter is written as a character class so this rules file does not itself contain the path."
+    },
+    {
+      "pattern": "[C]:\\\\Program Files\\\\Docker\\\\Docker\\\\resources\\\\bin",
+      "reason": "the pinned Docker binary directory in scripts/update_streams_matched_badge.ps1, prepended to PATH for the same scheduled-task reason. It is Docker Desktop's default install location and reveals nothing about this installation. The drive letter is written as a character class so this rules file does not itself contain the path."
+    },
+    {
+      "pattern": "/Users/User/AppData/Local/Microsoft/WinGet",
+      "reason": "the pinned GitHub CLI path in scripts/update_streams_matched_badge.py. gh is installed and authenticated here but is not on PATH in either shell, which is recorded in the workspace notes, so the absolute path is the only reliable way to call it. Names a stock WinGet location and the generic account name User."
     }
   ]
 }
