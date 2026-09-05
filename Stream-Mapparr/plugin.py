@@ -395,6 +395,14 @@ class PluginConfig:
     # === FILE PATHS ===
     DATA_DIR = "/data"
     EXPORTS_DIR = "/data/exports"
+    # /data/exports is SHARED. Measured 2026-09-05 it held 130 files from at
+    # least seven plugins, so anything that DELETES in there must select on
+    # this plugin's own prefix AND the suffix. A glob of *.csv destroys other
+    # projects' reports, and one file in there has no suffix at all.
+    CSV_EXPORT_PREFIX = "stream_mapparr_"
+    CSV_EXPORT_SUFFIX = ".csv"
+    SECONDS_PER_DAY = 86400
+    DEFAULT_CSV_EXPORT_RETENTION_DAYS = 0   # 0 keeps everything
     PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
     # Dispatcharr keys a plugin by the DIRECTORY NAME it is deployed under, which
@@ -1296,6 +1304,13 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_ENABLE_CSV_EXPORT,
                 "help_text": "If enabled, a CSV file will be created when streams are matched, sorted, or assigned (both manual and scheduled runs). Always creates CSV in dry run mode regardless of this setting.",
+            },
+            {
+                "id": "csv_export_retention_days",
+                "label": "🗓 Delete CSV Exports Older Than (Days)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS,
+                "help_text": "After each report is written, delete this plugin's older reports from /data/exports. Zero, the default, keeps everything and is what you have until you change it. Only files this plugin wrote are ever considered: that directory is shared with several other plugins and their reports are never touched. The newest report always survives, and so does the one just written, so a small number here cannot empty the directory. Age is taken from the file's modification time. This applies to manual runs as well as scheduled ones; the Clear CSV Exports button still clears everything regardless of this setting.",
             },
             {
                 "id": "_section_throughput",
@@ -7154,6 +7169,105 @@ class Plugin:
             'country_foreign_dropped': country_stats["foreign_dropped"],
         }
 
+    @staticmethod
+    def _csv_exports_to_delete(entries, retention_days, now, protect=None):
+        """Which of this plugin's CSV exports are old enough to remove.
+
+        entries is a sequence of (filename, modification time) pairs, normally
+        the whole export directory. Returns the names to delete, sorted.
+
+        Pure on purpose: no filesystem, no clock, no settings. Every rule below
+        is testable here, which matters because the cost of getting selection
+        wrong is another project's reports.
+
+        SELECTION IS THE WHOLE RISK. /data/exports is shared: measured on this
+        installation it held 130 files belonging to at least seven plugins, so a
+        match on the suffix alone would delete over a hundred files that are not
+        ours. The name must START with this plugin's prefix AND end with .csv.
+
+        Nothing is deleted unless a positive number of days is configured, so an
+        installation that never asked for this keeps every file. The file just
+        written is never deleted. At least one of this plugin's files always
+        survives, so a small number cannot empty the directory.
+
+        The modification time is used rather than the timestamp in the filename,
+        which can be malformed or absent. A time that is not a number is skipped
+        rather than kept: every comparison against a not-a-number value is false,
+        so keeping it would make it win the "which is newest" test, become the one
+        file preserved, and let every real file be deleted instead.
+        """
+        try:
+            days = int(retention_days)
+        except (TypeError, ValueError):
+            return []
+        if days <= 0:
+            return []
+
+        mine = []
+        for name, mtime in entries:
+            if not (name.startswith(PluginConfig.CSV_EXPORT_PREFIX)
+                    and name.endswith(PluginConfig.CSV_EXPORT_SUFFIX)):
+                continue
+            try:
+                stamp = float(mtime)
+            except (TypeError, ValueError):
+                continue
+            if stamp != stamp:      # not a number, so its age is unknown
+                continue
+            mine.append((name, stamp))
+        if not mine:
+            return []
+
+        # One file is guaranteed to survive. The file just written is the natural
+        # choice when it is here, otherwise the most recent one.
+        survivor = protect if any(name == protect for name, _ in mine) else None
+        if survivor is None:
+            survivor = max(mine, key=lambda pair: (pair[1], pair[0]))[0]
+
+        # Strictly older. Exactly N days old is not OLDER than N days.
+        cutoff = float(now) - days * PluginConfig.SECONDS_PER_DAY
+        return sorted(name for name, stamp in mine
+                      if stamp < cutoff and name != survivor)
+
+    def _prune_csv_exports(self, retention_days, protect=None):
+        """Delete this plugin's CSV exports older than retention_days.
+
+        Returns how many were removed. NEVER raises: this runs immediately after
+        a successful export, and a failure to tidy up must not turn a successful
+        export into a reported error.
+
+        Called at each point an export is written rather than on a schedule.
+        Files only accumulate when one is written, so pruning there keeps the
+        directory bounded at all times, and a separate schedule would need its
+        own cross-worker election and duplicate-fire handling for no benefit.
+        """
+        directory = PluginConfig.EXPORTS_DIR
+        try:
+            names = os.listdir(directory)
+        except OSError:
+            return 0
+
+        entries = []
+        for name in names:
+            try:
+                entries.append((name, os.path.getmtime(os.path.join(directory, name))))
+            except OSError:
+                # It vanished between listing and asking, so there is nothing
+                # left to delete.
+                continue
+
+        removed = 0
+        for name in self._csv_exports_to_delete(entries, retention_days,
+                                                time.time(), protect):
+            try:
+                os.remove(os.path.join(directory, name))
+                removed += 1
+                LOGGER.info(f"[Stream-Mapparr] Deleted CSV export older than "
+                            f"{retention_days} day(s): {name}")
+            except OSError as exc:
+                LOGGER.warning(f"[Stream-Mapparr] Could not delete old CSV export {name}: {exc}")
+        return removed
+
     def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=0, total_matched_streams=0, low_match_channels=None, threshold_data=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
@@ -7707,6 +7821,10 @@ class Plugin:
             # Log CSV creation prominently
             logger.info(f"[Stream-Mapparr] 📄 CSV PREVIEW REPORT CREATED: {filepath}")
             logger.info(f"[Stream-Mapparr] Preview shows {total_channels_to_update} channels will be updated")
+            self._prune_csv_exports(
+                settings.get('csv_export_retention_days',
+                             PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
+                protect=os.path.basename(filepath))
 
             message = f"Preview complete. {total_channels_to_update} channels will be updated. Report saved to {filepath}"
             if regex_rejected > 0:
@@ -8140,6 +8258,10 @@ class Plugin:
                     logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
                     logger.info(f"[Stream-Mapparr] Export contains {len(csv_data)} channel updates")
                     csv_created = filepath
+                    self._prune_csv_exports(
+                        settings.get('csv_export_retention_days',
+                                     PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
+                        protect=os.path.basename(filepath))
                 except Exception as e:
                     logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
                     csv_created = None
@@ -8472,6 +8594,10 @@ class Plugin:
                         ])
                 
                 logger.info(f"📄 [Stream-Mapparr] CSV export created: {csv_filepath}")
+                self._prune_csv_exports(
+                    settings.get('csv_export_retention_days',
+                                 PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
+                    protect=os.path.basename(csv_filepath))
                 
             except Exception as csv_error:
                 logger.error(f"[Stream-Mapparr] Error creating CSV: {str(csv_error)}")
@@ -8897,6 +9023,10 @@ class Plugin:
                     
                     logger.info(f"[Stream-Mapparr] 📄 CSV EXPORT CREATED: {filepath}")
                     csv_created = filepath
+                    self._prune_csv_exports(
+                        settings.get('csv_export_retention_days',
+                                     PluginConfig.DEFAULT_CSV_EXPORT_RETENTION_DAYS),
+                        protect=os.path.basename(filepath))
                 except Exception as e:
                     logger.error(f"[Stream-Mapparr] Failed to create CSV export: {e}")
             

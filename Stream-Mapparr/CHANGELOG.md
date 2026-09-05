@@ -3,6 +3,29 @@
 ## v1.26.2291209 (August 17, 2026)
 
 ### Added
+- **A new setting, "Delete CSV Exports Older Than (Days)", tidies up old
+  reports.** Zero, the default, keeps everything, so nothing is deleted by
+  upgrading. Set a number and this plugin's older reports are removed from
+  /data/exports after each new one is written, on manual runs as well as
+  scheduled ones.
+
+  That directory is shared. Measured on one installation it held 126 files
+  belonging to seven plugins, and only 65 of them were this plugin's. So only
+  files whose name both starts with this plugin's prefix and ends with .csv are
+  ever considered, and a dry run of a seven day rule against that real directory
+  selected 58 files, none of which belonged to another plugin.
+
+  Three things always survive. The report just written, whatever its age says.
+  The newest report, so a small number here cannot empty the directory. And any
+  file whose modification time cannot be read, since its age is unknown rather
+  than old. Age comes from the modification time rather than the timestamp in
+  the filename, which can be malformed or missing, and a file exactly the
+  retention age is kept, because that is not older than the limit.
+
+  Tidying up can never fail a run: a delete that is refused is logged and the
+  export still reports success. The Clear CSV Exports button is unchanged and
+  still clears everything, because that is what pressing it means.
+
 - **Validate Settings now says when the report settings cannot produce a
   report.** Notifications could be switched on, with "Email A Report After" set,
   and no report would ever be sent, because the emailed report is built only by
