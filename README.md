@@ -12,6 +12,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/PiratesIRC/Stream-Mapparr?include_prereleases&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 [![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
+[![Streams Matched](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PiratesIRC/d2f83a59177de51f920f47b41150894b/raw/stream-mapparr-streams-matched.json)](#features)
 
 ![Top Language](https://img.shields.io/github/languages/top/PiratesIRC/Stream-Mapparr)
 ![Repo Size](https://img.shields.io/github/repo-size/PiratesIRC/Stream-Mapparr)
@@ -20,6 +21,13 @@
 
 A Dispatcharr plugin that automatically matches and assigns streams to channels
 using fuzzy matching, quality prioritization, and OTA callsign recognition.
+
+The "streams matched" badge counts stream-to-channel assignments this plugin has
+written on the maintainer's own installation, added up since the counter was
+added on 5 September 2026. It measures work done rather than distinct streams: a
+daily schedule matches the same library again and counts it again. Dry runs are
+not counted, and neither is sorting alternate streams, which reorders
+assignments that already exist.
 
 ## Backup Your Database
 
