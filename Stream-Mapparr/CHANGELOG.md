@@ -1,6 +1,6 @@
 # Stream-Mapparr CHANGELOG
 
-## Unreleased
+## v1.26.2481756 (September 5, 2026)
 
 ### Fixed
 - **Channel designators such as F1, E4 and M6 are no longer torn apart, so a
