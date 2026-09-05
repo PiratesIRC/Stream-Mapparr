@@ -2,6 +2,28 @@
 
 ## v1.26.2291209 (August 17, 2026)
 
+### Added
+- **A lifetime tally of the streams this plugin has assigned, behind a badge on
+  the repository page.** Match and Assign Streams and Match US OTA Only each
+  append one line to `/data/stream_mapparr_match_counts.jsonl` recording how
+  many stream-to-channel assignments that run wrote. The file is appended to and
+  never rewritten, because the number cannot be recovered afterwards: the
+  last-results file holds only the most recent run, and a CSV export exists only
+  when CSV export is switched on.
+
+  The number counts assignments written, which is work done rather than distinct
+  streams, since a daily schedule re-matches the same library and counts it
+  again. A dry run records nothing, because it writes nothing to the database,
+  and neither does a run that assigned nothing, which is the correct outcome
+  with Overwrite Existing Streams off and an unchanged library. Sorting
+  alternate streams records nothing either, because it reorders assignments that
+  already exist rather than making new ones.
+
+  The line is written from a finally block, so a run that fails part way still
+  records what it managed to assign. Recording it can never fail a run: any
+  error while writing is swallowed and logged at debug level. Only integers are
+  stored, so no channel name, stream name or provider host is written.
+
 ### Changed
 - **The settings form is divided into ten sections, so a setting can be found by
   the group it belongs to.** The form served 49 settings with a single topical

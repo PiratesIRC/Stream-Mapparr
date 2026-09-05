@@ -390,6 +390,7 @@ class PluginConfig:
     PLUGIN_DB_KEY = "stream-mapparr"
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
+    MATCH_TALLY_FILE = "/data/stream_mapparr_match_counts.jsonl"  # append-only lifetime tally behind the public badge
     SCHEDULER_LOCK_FILE = "/data/stream_mapparr_scheduler.lock"               # flock guard for the claim
     M3U_REFRESH_LOCK_FILE = "/data/stream_mapparr_m3u_refresh.lock"       # flock: serialize event-driven auto-match (whole run)
     M3U_REFRESH_PENDING_FILE = "/data/stream_mapparr_m3u_refresh_pending" # dirty-flag: a later account arrived mid-run -> rerun once
@@ -1779,6 +1780,46 @@ class Plugin:
         LOGGER.info(f"[Stream-Mapparr] Scheduler adopted a schedule changed since it was "
                     f"armed: {old or 'none'} is now {new or 'none'}.")
         return merged, parsed
+
+    def _record_streams_matched(self, action_id, channels, streams, dry_run):
+        """Append one line to the lifetime tally the public badge is built from.
+
+        Recorded as it happens because it cannot be reconstructed afterwards.
+        /data/stream_mapparr_last_results.json holds only the most recent run,
+        and a CSV export in /data/exports exists only when the operator has CSV
+        export switched on, so neither is a record of what the plugin has done.
+
+        Counts stream-to-channel ASSIGNMENTS WRITTEN, which is work done rather
+        than distinct streams: a daily schedule re-matches the same streams and
+        counts them again. Anything describing this number in public has to say
+        so rather than implying a count of distinct streams.
+
+        A dry run records nothing, because it writes nothing to the database. A
+        run that assigned nothing records nothing either: with Overwrite off and
+        an unchanged library that is the correct and common outcome on a daily
+        schedule, and a line a day carrying a zero would grow the file forever
+        while adding nothing to the total.
+
+        Never raises. This exists to feed a badge and must not be capable of
+        failing a run that has already done its work.
+        """
+        try:
+            if dry_run:
+                return
+            streams = int(streams)
+            channels = int(channels)
+            if streams <= 0:
+                return
+            line = json.dumps({
+                "ts": time.time(),
+                "action": action_id,
+                "channels": channels,
+                "streams": streams,
+            }, sort_keys=True)
+            with open(PluginConfig.MATCH_TALLY_FILE, "a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+        except Exception as e:
+            LOGGER.debug(f"[Stream-Mapparr] Could not record the streams-matched tally: {e}")
 
     def _load_settings(self):
         """Load saved settings from disk, then let the database correct them."""
@@ -7674,6 +7715,13 @@ class Plugin:
         if load_result.get('status') != 'success':
             return load_result
 
+        # Pre-initialised so the finally below can record what a run actually
+        # assigned even when it fails part way. A tally that records only the
+        # runs that finished cleanly understates the published number, and does
+        # so silently, which is the shape that makes a public number wrong.
+        channels_updated = 0
+        total_streams_added = 0
+
         try:
             self._send_progress_update("add_streams_to_channels", 'running', 5, 'Initializing stream assignment...', context)
             limiter = SmartRateLimiter(settings.get("rate_limiting", "none"), logger)
@@ -8051,6 +8099,10 @@ class Plugin:
         except Exception as e:
             logger.error(f"[Stream-Mapparr] Error adding streams: {str(e)}")
             return {"status": "error", "message": f"Error adding streams: {str(e)}"}
+        finally:
+            self._record_streams_matched(
+                "add_streams_to_channels", channels_updated,
+                total_streams_added, dry_run=dry_run)
 
     def match_us_ota_only_action(self, settings, logger, context=None):
         """Match and assign streams to US OTA channels using callsign matching only.
@@ -8062,6 +8114,14 @@ class Plugin:
         4. Searches streams for uppercase callsign occurrences only
         5. Assigns matched streams (or previews if dry run enabled)
         """
+        # Pre-initialised so the finally below can record what a run actually
+        # assigned even when it fails part way. A tally that records only the
+        # runs that finished cleanly understates the published number, and does
+        # so silently, which is the shape that makes a public number wrong.
+        dry_run = False
+        success_count = 0
+        ota_streams_assigned = 0
+
         try:
             allow_same_name_streams = self._resolve_allow_same_name_streams(settings)
             # Check dry run mode
@@ -8342,6 +8402,7 @@ class Plugin:
                 overwrite = overwrite.lower() in ('true', 'yes', '1')
             
             success_count = 0
+            ota_streams_assigned = 0
             error_count = 0
             
             for idx, channel_data in enumerate(matched_channels, 1):
@@ -8367,6 +8428,7 @@ class Plugin:
                     ]
                     if rows:
                         ChannelStream.objects.bulk_create(rows)
+                        ota_streams_assigned += len(rows)
 
                     success_count += 1
                     
@@ -8402,6 +8464,10 @@ class Plugin:
             import traceback
             logger.error(traceback.format_exc())
             return {"status": "error", "message": f"Error in US OTA matching: {str(e)}"}
+        finally:
+            self._record_streams_matched(
+                "match_us_ota_only", success_count,
+                ota_streams_assigned, dry_run=dry_run)
 
     def sort_streams_action(self, settings, logger, context=None):
         """Sort existing alternate streams by quality for all channels"""
