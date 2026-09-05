@@ -30,6 +30,16 @@
   settings file: every worker runs this on a timer, so writing would put
   concurrent non-atomic writes of identical content on a schedule for no gain.
 
+  The database row is OVERLAID onto the settings the scheduler already holds,
+  never substituted for them. Measured on the live installation: the settings
+  file the scheduler arms from held 23 keys the database row does not carry at
+  all, 17 of them with real values, and no key existed in both and disagreed.
+  Substituting would have dropped those 17 and made every scheduled run fall
+  back to code defaults for them without saying so. Where the row has a value it
+  is the authority; where it says nothing that is not evidence of anything, and
+  Dispatcharr never prunes a stored setting, so a key missing from the row is
+  not a key the operator removed.
+
   The existing once-per-process database reconciliation could not cover this. It
   is performed at most once per process, on the per-request construction path,
   so it can never see a change made later in that process's life.

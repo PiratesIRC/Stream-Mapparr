@@ -98,6 +98,61 @@ def test_settings_that_changed_without_the_times_changing_are_adopted(plugin_mod
 
 
 # --------------------------------------------------------------------------- #
+# Overlaying, not replacing
+# --------------------------------------------------------------------------- #
+# Measured on the live installation on 2026-09-05, after the first version of this
+# refresh had been deployed: the settings FILE the scheduler arms from held 23 keys
+# that the plugin's database row does not carry at all, 17 of them with real values
+# including tag_handling, visible_channel_limit, rate_limiting, filter_dead_streams
+# and allow_same_name_streams. No key existed in both and disagreed; the file is a
+# strict superset. Replacing the loop's settings with the database row therefore
+# DROPPED those 17 values, and the scheduled run would have fallen back to code
+# defaults for every one of them. The database has to be overlaid onto what the loop
+# already holds, not substituted for it.
+def test_settings_the_database_row_does_not_carry_are_kept(plugin_module, monkeypatch):
+    """The live shape: the row is a strict subset of the file the loop armed from."""
+    plugin = _plugin_with_db(plugin_module, monkeypatch, {"scheduled_times": "0505"})
+
+    settings, times = plugin._refresh_schedule_from_db(
+        {"scheduled_times": "0500", "tag_handling": "keep_regional",
+         "visible_channel_limit": 3, "allow_same_name_streams": True},
+        [dtime(5, 0)])
+
+    assert times == [dtime(5, 5)]
+    assert settings["tag_handling"] == "keep_regional"
+    assert settings["visible_channel_limit"] == 3
+    assert settings["allow_same_name_streams"] is True
+
+
+def test_a_value_the_database_carries_wins_over_the_one_in_hand(plugin_module, monkeypatch):
+    """Overlay direction: where the row HAS an opinion, the row is the authority."""
+    plugin = _plugin_with_db(
+        plugin_module, monkeypatch, {"scheduled_times": "0500", "tag_handling": "strip_all"})
+
+    settings, _times = plugin._refresh_schedule_from_db(
+        {"scheduled_times": "0500", "tag_handling": "keep_regional"}, [dtime(5, 0)])
+
+    assert settings["tag_handling"] == "strip_all"
+
+
+def test_a_row_that_only_repeats_what_is_already_held_changes_nothing(plugin_module, monkeypatch):
+    """A subset row carrying no new information must be a silent no-op.
+
+    This is the steady state on the live installation, and the first version of
+    this code treated it as a change on every single refresh, logging each time
+    and rebuilding the settings dict for no reason.
+    """
+    original = {"scheduled_times": "0500", "tag_handling": "keep_regional"}
+    plugin = _plugin_with_db(plugin_module, monkeypatch, {"scheduled_times": "0500"})
+    original_times = [dtime(5, 0)]
+
+    settings, times = plugin._refresh_schedule_from_db(original, original_times)
+
+    assert settings is original
+    assert times is original_times
+
+
+# --------------------------------------------------------------------------- #
 # Refusing to adopt
 # --------------------------------------------------------------------------- #
 def test_the_current_schedule_is_kept_when_the_database_cannot_be_asked(plugin_module, monkeypatch):

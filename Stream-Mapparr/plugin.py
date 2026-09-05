@@ -1687,16 +1687,30 @@ class Plugin:
         # dict IS such an instruction and is honoured below.
         if not db_settings:
             return settings, scheduled_times
-        if db_settings == settings:
+
+        # OVERLAY the row onto what the loop already holds; do NOT substitute it.
+        # Measured 2026-09-05 on the live installation: the settings FILE the
+        # scheduler arms from held 23 keys the database row does not carry AT ALL,
+        # 17 of them with real values (tag_handling, visible_channel_limit,
+        # rate_limiting, filter_dead_streams, allow_same_name_streams and the EPG
+        # settings among them), and NO key existed in both and disagreed. The row is
+        # a strict subset. Replacing would have dropped those 17 and made every
+        # scheduled run fall back to code defaults for them, silently. Where the row
+        # HAS a value it is the authority; where it says nothing it is not evidence
+        # of anything. Dispatcharr never prunes a stored setting either, so a key
+        # missing from the row is not a key the operator removed.
+        current = settings or {}
+        merged = dict(current)
+        merged.update(db_settings)
+        if merged == current:
             return settings, scheduled_times
 
-        settings = settings or {}
-        db_times = (db_settings.get('scheduled_times') or '').strip()
-        current_times = (settings.get('scheduled_times') or '').strip()
+        db_times = (merged.get('scheduled_times') or '').strip()
+        current_times = (current.get('scheduled_times') or '').strip()
         if db_times == current_times:
             LOGGER.info("[Stream-Mapparr] Scheduler adopted settings changed since it was "
                         "armed. The scheduled times are unchanged.")
-            return dict(db_settings), scheduled_times
+            return merged, scheduled_times
 
         parsed = self._parse_scheduled_times(db_times)
         if db_times and not parsed:
@@ -1708,13 +1722,13 @@ class Plugin:
             LOGGER.warning(
                 f"[Stream-Mapparr] Scheduler found an unusable schedule in the database "
                 f"('{db_times}'). Keeping the times it is already running.")
-            return dict(db_settings), scheduled_times
+            return merged, scheduled_times
 
         old = [t.strftime('%H:%M') for t in scheduled_times]
         new = [t.strftime('%H:%M') for t in parsed]
         LOGGER.info(f"[Stream-Mapparr] Scheduler adopted a schedule changed since it was "
                     f"armed: {old or 'none'} is now {new or 'none'}.")
-        return dict(db_settings), parsed
+        return merged, parsed
 
     def _load_settings(self):
         """Load saved settings from disk, then let the database correct them."""
