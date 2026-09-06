@@ -185,6 +185,24 @@ def suggested_pattern(template):
     return ascii_safe("^" + "".join(out) + "$")
 
 
+# A family at or above this share of members carrying an EPG identifier is more
+# likely to be an ordinary numbered channel lineup than a provider event slot,
+# so the readout warns before suggesting a pattern for it. MEASURED: a pattern
+# over such a family REPLACES the name that is matching today with whatever
+# programme is airing, which changes as programming does, whereas a pattern over
+# a family carrying no identifiers cannot change matching at all.
+MOSTLY_EPG_SHARE = 0.5
+
+
+def _mostly_carries_epg(family):
+    """True when at least MOSTLY_EPG_SHARE of the family's streams carry an
+    EPG identifier."""
+    count = family.get("count") or 0
+    if not count:
+        return False
+    return (family.get("with_epg_id") or 0) >= MOSTLY_EPG_SHARE * count
+
+
 def _has_epg_identifier(stream):
     return bool((stream.get("tvg_id") or "").strip())
 
@@ -293,7 +311,14 @@ def scan_families(streams, patterns, on_yield=None, yield_every=YIELD_EVERY,
             "uncovered": family["count"] - family["covered"],
             "suggested": suggested_pattern(family["template"]),
         })
-    families.sort(key=lambda f: (-f["with_epg_id"], -f["count"], f["template"]))
+    # Largest first. The EPG identifier count is NOT a ranking key. It was, and
+    # MEASURED on 25,068 live stream names that ranked 16 families above the
+    # other 115, of which exactly one held a stream whose identifier matched a
+    # guide row and none could resolve a programme at all, while the largest
+    # family on the installation, at 273 streams, was pushed to a single line.
+    # The signal is kept as an annotation on each family, where it says what it
+    # actually is.
+    families.sort(key=lambda f: (-f["count"], f["template"]))
     return families
 
 
@@ -363,67 +388,63 @@ def render_report(families, total_streams, pattern_count, feature_enabled,
             "",
         ]
 
-    actionable = [f for f in uncovered if f["with_epg_id"] > 0]
-    no_epg = [f for f in uncovered if f["with_epg_id"] == 0]
-
-    if uncovered:
-        word = "family" if len(actionable) == 1 else "families"
-        lines.append(f"{len(actionable)} likely placeholder {word} not covered by your "
-                     f"current patterns")
-        lines.append("whose streams carry EPG data, best candidate first. The ranking is")
-        lines.append("how many streams in the family carry an EPG identifier, because a")
-        lines.append("placeholder can only ever be resolved when its streams carry EPG")
-        lines.append("data to resolve it from.")
-        lines.append("")
-        if not actionable:
-            lines.append("  None. Every uncovered family is listed below instead.")
-            lines.append("")
-        for family in actionable[:DETAIL_LIMIT]:
-            lines.append("  " + ascii_safe(family["template"]))
-            lines.append(f"      streams                : {family['count']}"
-                         f" ({family['uncovered']} not covered)")
-            lines.append(f"      different slot numbers : {family['distinct_numbers']}")
-            lines.append(f"      carrying an EPG id     : {family['with_epg_id']}")
-            lines.append("      example                : " + ascii_safe(family["example"]))
-            suffix = ("   (TOO LONG for the setting, it will be skipped)"
-                      if len(family["suggested"]) > SUGGESTION_MAX_LEN else "")
-            lines.append(f"      pattern to paste       : {family['suggested']}{suffix}")
-            lines.append("")
-        if len(actionable) > DETAIL_LIMIT:
-            lines.append(f"  and {len(actionable) - DETAIL_LIMIT} more, not described here.")
-            lines.append("")
-
-    if no_epg:
-        lines.append(f"{len(no_epg)} further uncovered families carry no EPG data at all.")
-        lines.append("A placeholder pattern for one of these could not resolve anything")
-        lines.append("today, so no pattern is suggested. They are listed because a family")
-        lines.append("can start carrying EPG data later, and because a numbered channel")
-        lines.append("family whose names are already informative belongs here rather than")
-        lines.append("in the list above.")
-        lines.append("")
-        for family in no_epg[:DETAIL_LIMIT * 4]:
-            lines.append("  " + ascii_safe(family["template"]) + f"   ({family['count']} streams)")
-        if len(no_epg) > DETAIL_LIMIT * 4:
-            lines.append(f"  and {len(no_epg) - DETAIL_LIMIT * 4} more, not listed here.")
-        lines.append("")
-
     too_long = [f for f in families if len(f["suggested"]) > SUGGESTION_MAX_LEN]
     if too_long:
         lines.append(f"{len(too_long)} of the suggested patterns are too long for the")
-        lines.append(f"Placeholder Name Patterns setting, which refuses anything over")
+        lines.append("Placeholder Name Patterns setting, which refuses anything over")
         lines.append(f"{SUGGESTION_MAX_LEN} characters. Those are marked below and would")
         lines.append("be skipped in silence if pasted. Shorten the name or write a")
         lines.append("shorter pattern by hand.")
         lines.append("")
 
-    if not uncovered:
+    if uncovered:
+        word = "family" if len(uncovered) == 1 else "families"
+        lines.append(f"{len(uncovered)} numbered {word} that no pattern of yours covers,")
+        lines.append("largest first. Size is the ordering because a large family is the")
+        lines.append("one most likely to be worth your attention, and because it is what")
+        lines.append("a person auditing the list by hand would sort by.")
+        lines.append("")
+        lines.append("Each entry says how many of its streams carry an EPG identifier.")
+        lines.append("Read that as a note, not as a score. A family carrying none cannot")
+        lines.append("be resolved from guide data today, and adding its pattern changes")
+        lines.append("nothing until that data arrives, which costs nothing meanwhile. A")
+        lines.append("family where most streams carry one is more likely to be an ordinary")
+        lines.append("numbered channel lineup than an event slot, and a pattern there")
+        lines.append("REPLACES a working name with whatever is airing. Those are marked.")
+        lines.append("")
+        for family in uncovered[:DETAIL_LIMIT]:
+            lines.append("  " + ascii_safe(family["template"]))
+            lines.append(f"      streams                : {family['count']}"
+                         f" ({family['uncovered']} not covered)")
+            lines.append(f"      different slot numbers : {family['distinct_numbers']}")
+            lines.append(f"      carrying an EPG id     : {family['with_epg_id']}"
+                         f" of {family['count']}")
+            lines.append("      example                : " + ascii_safe(family["example"]))
+            suffix = ("   (TOO LONG for the setting, it will be skipped)"
+                      if len(family["suggested"]) > SUGGESTION_MAX_LEN else "")
+            lines.append(f"      pattern to paste       : {family['suggested']}{suffix}")
+            if _mostly_carries_epg(family):
+                lines.append("      CAUTION                : most of these streams carry an")
+                lines.append("                               EPG identifier, so this looks like")
+                lines.append("                               a numbered channel lineup rather")
+                lines.append("                               than an event slot. A pattern here")
+                lines.append("                               replaces the name that is matching")
+                lines.append("                               today with the programme airing,")
+                lines.append("                               which changes as programming does.")
+            lines.append("")
+        if len(uncovered) > DETAIL_LIMIT:
+            lines.append(f"  and {len(uncovered) - DETAIL_LIMIT} more, not described here.")
+            lines.append("")
+    else:
         lines.append("No uncovered numbered families were found.")
         lines.append("")
 
     if covered:
         lines.append("Families your patterns already cover in full:")
-        for family in covered:
+        for family in covered[:DETAIL_LIMIT * 4]:
             lines.append("  " + ascii_safe(family["template"]) + f"   ({family['count']} streams)")
+        if len(covered) > DETAIL_LIMIT * 4:
+            lines.append(f"  and {len(covered) - DETAIL_LIMIT * 4} more, not listed here.")
         lines.append("")
 
     return "\n".join(lines)

@@ -182,18 +182,22 @@ def test_coverage_uses_fullmatch_like_the_matcher_does():
 # Ranking
 # --------------------------------------------------------------------------- #
 
-def test_families_whose_streams_carry_epg_identifiers_rank_first():
-    """`BBC RED BUTTON #` is bigger, but its streams carry no EPG identifier, so
-    a placeholder pattern for it could never resolve anything."""
-    red_button = _streams("UK: BBC RED BUTTON #", list(range(1, 11)), tvg="")
-    events = _streams("PPV EVENT #", [1, 2, 3], tvg="ppv.uk", start_id=100)
-    families = scan_families(red_button + events, [])
-    assert [f["template"] for f in families] == ["PPV EVENT #", "UK: BBC RED BUTTON #"]
-    assert families[0]["with_epg_id"] == 3
-    assert families[1]["with_epg_id"] == 0
+def test_the_largest_family_ranks_first_whatever_its_epg_data():
+    """Ranking by EPG identifiers was tried and reversed. MEASURED on 25,068 live
+    stream names: it promoted 16 families above the other 115, of which exactly
+    one held a stream whose identifier matched a guide row and none could resolve
+    a programme, while the largest family on the installation, at 273 streams,
+    was reduced to a single line. Size is what a person auditing the list by hand
+    sorts by, and it is what the reporter of the issue actually did."""
+    big_without = _streams("UK: BBC RED BUTTON #", list(range(1, 11)), tvg="")
+    small_with = _streams("PPV EVENT #", [1, 2, 3], tvg="ppv.uk", start_id=100)
+    families = scan_families(big_without + small_with, [])
+    assert [f["template"] for f in families] == ["UK: BBC RED BUTTON #", "PPV EVENT #"]
+    assert families[0]["with_epg_id"] == 0
+    assert families[1]["with_epg_id"] == 3
 
 
-def test_equal_epg_evidence_ranks_by_size():
+def test_ranking_is_by_size():
     small = _streams("A #", [1, 2, 3], tvg="")
     big = _streams("B #", [1, 2, 3, 4, 5], tvg="", start_id=50)
     families = scan_families(small + big, [])
@@ -222,26 +226,45 @@ def test_the_report_leads_with_uncovered_families_and_gives_a_pasteable_regex():
     families = scan_families(streams, _pat(r"^PPV EVENT \d+$"))
     text = render_report(families, total_streams=len(streams), pattern_count=1,
                          feature_enabled=True)
-    assert "1 likely placeholder famil" in text
+    assert "1 numbered family that no pattern of yours covers" in text
     assert r"^MAX \d+$" in text
     assert text.index("MAX #") < text.index("PPV EVENT #")
     assert "Streams scanned" in text
 
 
-def test_families_carrying_no_epg_data_are_separated_not_mixed_in():
-    """MEASURED on 25,068 live stream names: 131 families are uncovered and
-    only 16 hold a stream carrying an EPG identifier. A pattern for one of the
-    other 115 could never resolve anything, so listing all 131 together is the
-    long, mostly unactionable report this feature exists to avoid."""
+def test_every_uncovered_family_gets_a_pattern_regardless_of_epg_data():
+    """The two-section split withheld a suggested pattern from any family whose
+    streams carried no EPG identifier. On the maintainer's installation that was
+    115 of 131 families, including the largest. A pattern over such a family
+    cannot change matching until guide data arrives, so withholding it protected
+    against nothing."""
     with_epg = _streams("PPV #", [1, 2, 3], tvg="ppv.us")
     without = _streams("KARAOKE #", list(range(1, 21)), tvg="", start_id=50)
     text = render_report(scan_families(with_epg + without, []),
                          total_streams=23, pattern_count=0, feature_enabled=True)
-    assert "pattern to paste" in text
-    head, tail = text.split("carry no EPG data", 1)
-    assert "PPV #" in head
-    assert "KARAOKE #" in tail
-    assert "pattern to paste" not in tail
+    assert text.count("pattern to paste") == 2
+    assert text.index("KARAOKE #") < text.index("PPV #")
+    assert "carrying an EPG id     : 0 of 20" in text
+    assert "carrying an EPG id     : 3 of 3" in text
+
+
+def test_a_family_whose_streams_mostly_carry_epg_data_is_marked_as_a_risk():
+    """A pattern over a family carrying no identifiers cannot change matching.
+    A pattern over one where the identifiers resolve REPLACES the name that is
+    matching today with the programme airing. The readout has to say which it is
+    looking at, because the reader cannot tell from the name."""
+    lineup = _streams("UK: ITV # HD", [1, 2, 3, 4], tvg="itv.uk")
+    text = render_report(scan_families(lineup, []), total_streams=4,
+                         pattern_count=0, feature_enabled=True)
+    assert "CAUTION" in text
+    assert "replaces the name" in text
+
+
+def test_a_family_carrying_no_epg_data_is_not_marked_as_a_risk():
+    slots = _streams("PPV EVENT #", [1, 2, 3], tvg="")
+    text = render_report(scan_families(slots, []), total_streams=3,
+                         pattern_count=0, feature_enabled=True)
+    assert "CAUTION" not in text
 
 
 def test_the_detailed_list_is_capped_and_says_how_many_it_left_out():
@@ -486,16 +509,17 @@ def test_the_header_numbers_are_the_numbers_and_not_labels_alone():
     assert "Families no pattern covers      : 1" in text
 
 
-def test_the_second_listing_is_capped_and_says_how_many_it_left_out():
-    """On live data this is the 115-family list, the one most likely to run long.
-    A silent cut is the thing this readout exists to avoid."""
+def test_the_covered_listing_is_capped_and_says_how_many_it_left_out():
+    """A silent cut is the thing this readout exists to avoid, and the list of
+    families the patterns already cover can run long too."""
     limit = DETAIL_LIMIT * 4
     labels = [a + b for a in string.ascii_uppercase for b in string.ascii_uppercase]
     streams = []
     for i, label in enumerate(labels[:limit + 3]):
-        streams += _streams("NOEPG %s #" % label, [1, 2, 3], tvg="", start_id=100 * i)
-    text = render_report(scan_families(streams, []), total_streams=len(streams),
-                         pattern_count=0, feature_enabled=True)
+        streams += _streams("COV %s #" % label, [1, 2, 3], tvg="", start_id=100 * i)
+    families = scan_families(streams, _pat(r"^COV [A-Z]+ " + chr(92) + r"d+$"))
+    text = render_report(families, total_streams=len(streams),
+                         pattern_count=1, feature_enabled=True)
     assert text.count("(3 streams)") == limit
     assert "3 more" in text
 
@@ -575,18 +599,31 @@ def test_the_action_says_when_every_family_is_covered(
     assert "cover them all" in result["message"]
 
 
-def test_the_action_counts_the_families_that_carry_epg_data_not_all_of_them(
+def test_the_action_leads_with_the_largest_family_not_the_one_with_epg_data(
         plugin_module, tmp_path, monkeypatch):
-    """MEASURED on this installation: 131 uncovered families and 16 carrying an
-    EPG identifier. Counting all of them reports a problem eight times larger
-    than the one worth acting on."""
-    with_epg = _streams("PPV #", [1, 2, 3], tvg="ppv.us")
-    without = _streams("KARAOKE #", [1, 2, 3], tvg="", start_id=50)
-    plugin = _plugin(plugin_module, tmp_path, monkeypatch, with_epg + without)
+    """The notification shows about 280 characters, so what it leads with is
+    most of what the operator reads. It led with the family carrying the most
+    EPG identifiers, which MEASURED on this installation meant a numbered
+    channel lineup, while the largest family went unmentioned."""
+    small_with_epg = _streams("PPV #", [1, 2, 3], tvg="ppv.us")
+    large_without = _streams("KARAOKE #", list(range(1, 21)), tvg="", start_id=50)
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch,
+                     small_with_epg + large_without)
     result = plugin.scan_placeholder_names_action({}, _Logger())
-    assert "1 uncovered placeholder family carrying EPG data" in result["message"]
-    assert "out of 2 uncovered in total" in result["message"]
-    assert "PPV #" in result["message"]
+    assert "2 numbered families that no pattern of yours covers" in result["message"]
+    assert "Largest: KARAOKE #" in result["message"]
+    assert "20 streams, 0 carrying an EPG id" in result["message"]
+
+
+def test_the_action_warns_when_its_top_family_is_a_channel_lineup(
+        plugin_module, tmp_path, monkeypatch):
+    """A pattern over a family whose streams carry EPG identifiers replaces the
+    name that is matching today. The warning has to survive into the toast,
+    because that is where the pattern is offered."""
+    lineup = _streams("UK: ITV # HD", [1, 2, 3, 4], tvg="itv.uk")
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch, lineup)
+    result = plugin.scan_placeholder_names_action({}, _Logger())
+    assert "CAUTION" in result["message"]
 
 
 def test_the_action_says_so_when_the_readout_could_not_be_written(
@@ -603,3 +640,15 @@ def test_the_action_says_so_when_the_readout_could_not_be_written(
     result = plugin.scan_placeholder_names_action({}, _Logger())
     assert "file" not in result
     assert "could NOT be written" in result["message"]
+
+
+def test_the_caution_predicate_refuses_an_empty_family():
+    """Zero streams carrying zero identifiers satisfies "at least half" on the
+    arithmetic alone, so an empty family would be marked as a channel lineup.
+    No such family reaches the readout today, which is exactly why the guard
+    needs its own test rather than relying on a caller."""
+    from placeholder_scan import _mostly_carries_epg
+    assert _mostly_carries_epg({"count": 0, "with_epg_id": 0}) is False
+    assert _mostly_carries_epg({}) is False
+    assert _mostly_carries_epg({"count": 4, "with_epg_id": 2}) is True
+    assert _mostly_carries_epg({"count": 4, "with_epg_id": 1}) is False

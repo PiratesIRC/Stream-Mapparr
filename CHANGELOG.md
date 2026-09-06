@@ -80,6 +80,38 @@
   exists only in that file, so the notification now says the file is missing,
   and says it first, because the notification drops lines from the end.
 
+  **The ranking was reversed after four independent reviews and a measurement
+  of the live database.** The first version ranked uncovered families by how
+  many of their streams carried an EPG identifier, and split the readout into
+  families that carried one and families that did not, suggesting a pattern only
+  for the first group. Measured against the live installation, that was wrong in
+  both directions.
+
+  Reading the code settles which direction the risk runs. A stream with no EPG
+  identifier returns from the resolver immediately, so adding a pattern for such
+  a family cannot change matching at all. A stream that does resolve has its
+  matching name replaced by the programme currently airing. So the old ranking
+  promoted the families where a pattern changes behaviour and demoted the ones
+  where it cannot.
+
+  Measured on the database rather than argued: 3,700 streams carry an EPG
+  identifier, only 218 of those identifiers match a guide row, and 28 streams
+  could resolve a programme at the moment of measurement. Of the 16 families the
+  old ranking promoted, one contained a stream whose identifier matched a guide
+  row, and none could resolve a programme. That one was a numbered channel
+  lineup, which is the case a pattern harms. Meanwhile the largest family on the
+  installation, at 273 streams, was reduced to a single line with no suggested
+  pattern.
+
+  Families are now ranked by size, largest first, which is what the reporter of
+  the issue did by hand. Every uncovered family gets a suggested pattern. The
+  EPG identifier count stays as a note on each family, saying how many of its
+  streams carry one out of how many, and a family where at least half of them do
+  is marked with a caution explaining that a pattern there replaces a working
+  name with whatever is airing. On the live data that caution fires on 13
+  families, every one a recognisable channel lineup such as ITV or BeIN Sports,
+  and those families moved from the top of the list to ranks 31 to 60.
+
   Also from those reviews: distinct slot numbers are counted within one slot
   rather than across slots, a resolution tag groups regardless of the case of
   its K, a suggestion too long for the setting to accept is marked as such

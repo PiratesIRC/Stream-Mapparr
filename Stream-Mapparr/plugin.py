@@ -2680,26 +2680,23 @@ class Plugin:
             parts = [f"{len(families)} numbered families found, and your "
                      f"{len(patterns)} pattern(s) cover them all."]
         else:
-            # The headline counts the families whose streams carry EPG data,
-            # because only those can ever be resolved. MEASURED on this
-            # installation: 131 families are uncovered and 16 of them hold a
-            # stream with an EPG identifier, so counting all of them would
-            # report a problem eight times larger than the one worth acting on.
-            actionable = [f for f in uncovered if f["with_epg_id"] > 0]
-            word = "family" if len(actionable) == 1 else "families"
+            # The headline leads with the LARGEST uncovered family, not with the
+            # one carrying the most EPG identifiers. Ranking by identifiers was
+            # tried and reversed: MEASURED on this installation it put 16
+            # families ahead of the other 115, of which one held a stream whose
+            # identifier matched a guide row and none could resolve a programme,
+            # while the largest family at 273 streams was reduced to one line.
+            top = uncovered[0]
+            word = "family" if len(uncovered) == 1 else "families"
             parts = [
-                f"{len(actionable)} uncovered placeholder {word} carrying EPG data, "
-                f"out of {len(uncovered)} uncovered in total.",
+                f"{len(uncovered)} numbered {word} that no pattern of yours covers.",
+                f"Largest: {scan.ascii_safe(top['template'])} ({top['count']} streams, "
+                f"{top['with_epg_id']} carrying an EPG id).",
+                f"Pattern to paste: {top['suggested']}",
             ]
-            if actionable:
-                top = actionable[0]
-                # ascii_safe here too, not only in the file: a provider name can
-                # carry characters the readout deliberately escapes, and the
-                # toast should show the same text the file does.
-                parts.append(f"Best candidate: {scan.ascii_safe(top['template'])} "
-                             f"({top['count']} streams, "
-                             f"{top['with_epg_id']} with an EPG id).")
-                parts.append(f"Pattern to paste: {top['suggested']}")
+            if scan._mostly_carries_epg(top):
+                parts.append("CAUTION: most of its streams carry an EPG id, so a "
+                             "pattern here replaces a working name.")
         if not enabled:
             parts.append("EPG-Based Placeholder Matching is currently off.")
         if stats.get("budget_tripped"):
