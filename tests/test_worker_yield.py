@@ -90,6 +90,40 @@ def test_hot_loop_yields(plugin_ast, action, iterated):
         f"handing the worker back")
 
 
+# Not a loop in plugin.py. The placeholder family scan walks the stream names
+# inside placeholder_scan.py, which has no Django import and no knowledge of
+# gevent, so the action hands it the yield as a callback instead. It is counted
+# here because the pinned total below must account for every call site.
+CALLBACK_SITES = [
+    ("scan_placeholder_names_action", "scan.scan_families"),
+]
+
+
+@pytest.mark.parametrize("action,called", CALLBACK_SITES)
+def test_the_scan_hands_its_walk_a_yield(plugin_ast, action, called):
+    """The walk reads about 25,000 names and applies every configured
+    placeholder pattern to each, inside the request. Without this the worker is
+    held for the whole run, which is the half of bug-117 that the sync-versus-
+    background gate does not solve."""
+    func = _function(plugin_ast, action)
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == called:
+            source = ast.unparse(node)
+            assert "_cooperative_yield" in source, (
+                f"{action} calls {called} without handing it a yield")
+            # The VALUES, not the argument names. Setting them to None keeps the
+            # names in the source and removes the bound, and that mutation went
+            # uncaught until this assertion was tightened.
+            assert "max_name_len=cfg.REGEX_NAME_MAX_LEN" in source, (
+                f"{action} calls {called} without the input cap, so an operator "
+                f"pattern that backtracks has nothing bounding the name length")
+            assert "budget_seconds=cfg.REGEX_PASS_BUDGET_S" in source, (
+                f"{action} calls {called} without the time budget, so a slow "
+                f"pattern holds the worker for as long as it takes")
+            return
+    raise AssertionError(f"no call to {called} in {action}")
+
+
 def test_yield_call_sites_are_pinned(plugin_ast):
     """Pin the count so a new matching loop is a deliberate decision.
 
@@ -100,5 +134,7 @@ def test_yield_call_sites_are_pinned(plugin_ast):
     module_calls = [node for node in ast.walk(plugin_ast)
                     if isinstance(node, ast.Call)
                     and ast.unparse(node.func).endswith("_cooperative_yield")]
-    assert len(module_calls) == len(HOT_LOOPS), (
-        f"expected one call per hot loop ({len(HOT_LOOPS)}), found {len(module_calls)}")
+    expected = len(HOT_LOOPS) + len(CALLBACK_SITES)
+    assert len(module_calls) == expected, (
+        f"expected one call per hot loop ({len(HOT_LOOPS)}) plus one per callback "
+        f"site ({len(CALLBACK_SITES)}), found {len(module_calls)}")

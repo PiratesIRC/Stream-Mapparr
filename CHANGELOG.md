@@ -1,5 +1,124 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2491549 (2026-09-06)
+
+### Added
+
+- **New action, Scan for Placeholder Patterns, which finds the numbered stream
+  name families your Placeholder Name Patterns do not cover.** Requested as
+  issue #43. The setting only ever helped with the naming schemes you already
+  thought to write down, and nothing in the interface told apart "this
+  installation has no placeholder families" from "the patterns you wrote match
+  none of them". The reporter found two whole uncovered families, one of them
+  their largest, only by pulling every stream name through the API by hand.
+
+  The scan replaces the numbers in every stream name with a slot, so MAX 100 and
+  MAX 101 become the one family MAX #, and reports the families that no
+  configured pattern covers, each with an anchored regular expression to paste.
+  It reads one database column that matching already loads, opens no provider
+  connection, changes no setting and writes nothing to the database. The full
+  readout goes to `/config/stream-mapparr/placeholder-name-scan.txt`, because a
+  notification shows only about 280 characters.
+
+  Three decisions in it were measured rather than assumed, against 25,068 live
+  stream names:
+
+  A digit immediately followed by K is left alone, because `4K` and `8K` are
+  resolution tags rather than slot numbers. With that rule off, 15 further
+  templates covering 418 streams are grouped by their resolution tag instead of
+  by a slot number.
+
+  A family needs at least three different numbers in its slot, not merely three
+  streams. Five rows of `HBO 1` from five sources are five sources for one name,
+  not five slots. A separate stream-count threshold was written and then removed,
+  because three distinct numbers already implies three streams, so the second
+  rule could never refuse anything the first admitted.
+
+  Families whose streams carry EPG data are reported first and separately from
+  those carrying none, because a placeholder can only ever be resolved when
+  there is guide data to resolve it from. This matters more than expected: on
+  this installation 131 families are uncovered and only 16 hold a stream with an
+  EPG identifier, so a single undifferentiated list would report a problem eight
+  times larger than the one worth acting on. The detailed list is capped, and
+  says how many it left out rather than cutting silently.
+
+  The readout is plain ASCII, the same rule as the CSV export preamble, with any
+  other character written as a backslash-u escape. Provider names really do carry
+  such characters here. Python regular expressions accept that form, so every
+  suggested pattern still matches the name it came from; all 132 suggestions
+  generated from live data were checked against their own example name.
+
+  This reports only. Nothing is ever added to your pattern list, and not every
+  numbered family is a placeholder: a numbered channel family whose names are
+  already informative matches better as it is.
+
+  Two code reviews of the first version found four defects, all reproduced
+  before they were changed and all now covered by a named test that fails when
+  the fix is reverted:
+
+  A character above the basic plane, such as an emoji or a flag, was escaped in
+  the four-digit form. That form carries a minimum of four digits, not exactly
+  four, so an emoji produced five and Python read only the first four. The
+  pattern compiled, matched nothing, and the family kept reporting as uncovered
+  with nothing saying why. The earlier test used a character inside the basic
+  plane, the one class that already worked.
+
+  A backslash followed by a digit produced the same two characters as an escaped
+  literal hash, so two different names grouped into one family and the suggested
+  pattern matched neither.
+
+  The scan ran inside the request with no yield, no input cap and no time
+  budget, while the pattern safety gate deliberately admits patterns that can
+  backtrack polynomially on the promise that the runtime bounds them. It now
+  hands the worker back every 500 names, skips a name over 500 characters and
+  stops at a five second budget, using the same limits as the regex
+  pre-processing path. A stopped scan is reported as partial rather than passed
+  off as finished, because a family the walk never reached is missing, not
+  covered.
+
+  A failure to write the readout returned a plain success. The full readout
+  exists only in that file, so the notification now says the file is missing,
+  and says it first, because the notification drops lines from the end.
+
+  **The ranking was reversed after four independent reviews and a measurement
+  of the live database.** The first version ranked uncovered families by how
+  many of their streams carried an EPG identifier, and split the readout into
+  families that carried one and families that did not, suggesting a pattern only
+  for the first group. Measured against the live installation, that was wrong in
+  both directions.
+
+  Reading the code settles which direction the risk runs. A stream with no EPG
+  identifier returns from the resolver immediately, so adding a pattern for such
+  a family cannot change matching at all. A stream that does resolve has its
+  matching name replaced by the programme currently airing. So the old ranking
+  promoted the families where a pattern changes behaviour and demoted the ones
+  where it cannot.
+
+  Measured on the database rather than argued: 3,700 streams carry an EPG
+  identifier, only 218 of those identifiers match a guide row, and 28 streams
+  could resolve a programme at the moment of measurement. Of the 16 families the
+  old ranking promoted, one contained a stream whose identifier matched a guide
+  row, and none could resolve a programme. That one was a numbered channel
+  lineup, which is the case a pattern harms. Meanwhile the largest family on the
+  installation, at 273 streams, was reduced to a single line with no suggested
+  pattern.
+
+  Families are now ranked by size, largest first, which is what the reporter of
+  the issue did by hand. Every uncovered family gets a suggested pattern. The
+  EPG identifier count stays as a note on each family, saying how many of its
+  streams carry one out of how many, and a family where at least half of them do
+  is marked with a caution explaining that a pattern there replaces a working
+  name with whatever is airing. On the live data that caution fires on 13
+  families, every one a recognisable channel lineup such as ITV or BeIN Sports,
+  and those families moved from the top of the list to ranks 31 to 60.
+
+  Also from those reviews: distinct slot numbers are counted within one slot
+  rather than across slots, a resolution tag groups regardless of the case of
+  its K, a suggestion too long for the setting to accept is marked as such
+  instead of being offered as though it worked, a database row that is not a
+  dictionary is skipped rather than raising, and the second listing is capped
+  and says how many it left out.
+
 ## v1.26.2481756 (September 5, 2026)
 
 ### Fixed

@@ -68,6 +68,7 @@ EXPECTED_COLOURS = {
     "view_last_results": "blue",
     "test_regex_rules": "blue",
     "check_stream_countries": "blue",
+    "scan_placeholder_names": "blue",
 }
 
 
