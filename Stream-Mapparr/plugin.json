@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.2481756",
+  "version": "1.26.2491549",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -146,6 +146,14 @@
       "button_variant": "outline",
       "button_color": "blue",
       "button_label": "🌍 Check Countries"
+    },
+    {
+      "id": "scan_placeholder_names",
+      "label": "🔍 Scan for Placeholder Patterns",
+      "description": "Group every stream name into a numbered family and report the families no Placeholder Name Pattern covers, with a regex to paste. Reads one database column, changes nothing",
+      "button_variant": "outline",
+      "button_color": "blue",
+      "button_label": "🔍 Scan Placeholders"
     },
     {
       "id": "email_report_now",

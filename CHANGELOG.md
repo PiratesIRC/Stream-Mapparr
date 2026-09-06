@@ -1,5 +1,57 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2491549 (2026-09-06)
+
+### Added
+
+- **New action, Scan for Placeholder Patterns, which finds the numbered stream
+  name families your Placeholder Name Patterns do not cover.** Requested as
+  issue #43. The setting only ever helped with the naming schemes you already
+  thought to write down, and nothing in the interface told apart "this
+  installation has no placeholder families" from "the patterns you wrote match
+  none of them". The reporter found two whole uncovered families, one of them
+  their largest, only by pulling every stream name through the API by hand.
+
+  The scan replaces the numbers in every stream name with a slot, so MAX 100 and
+  MAX 101 become the one family MAX #, and reports the families that no
+  configured pattern covers, each with an anchored regular expression to paste.
+  It reads one database column that matching already loads, opens no provider
+  connection, changes no setting and writes nothing to the database. The full
+  readout goes to `/config/stream-mapparr/placeholder-name-scan.txt`, because a
+  notification shows only about 280 characters.
+
+  Three decisions in it were measured rather than assumed, against 25,068 live
+  stream names:
+
+  A digit immediately followed by K is left alone, because `4K` and `8K` are
+  resolution tags rather than slot numbers. With that rule off, 15 further
+  templates covering 418 streams are grouped by their resolution tag instead of
+  by a slot number.
+
+  A family needs at least three different numbers in its slot, not merely three
+  streams. Five rows of `HBO 1` from five sources are five sources for one name,
+  not five slots. A separate stream-count threshold was written and then removed,
+  because three distinct numbers already implies three streams, so the second
+  rule could never refuse anything the first admitted.
+
+  Families whose streams carry EPG data are reported first and separately from
+  those carrying none, because a placeholder can only ever be resolved when
+  there is guide data to resolve it from. This matters more than expected: on
+  this installation 131 families are uncovered and only 16 hold a stream with an
+  EPG identifier, so a single undifferentiated list would report a problem eight
+  times larger than the one worth acting on. The detailed list is capped, and
+  says how many it left out rather than cutting silently.
+
+  The readout is plain ASCII, the same rule as the CSV export preamble, with any
+  other character written as a backslash-u escape. Provider names really do carry
+  such characters here. Python regular expressions accept that form, so every
+  suggested pattern still matches the name it came from; all 132 suggestions
+  generated from live data were checked against their own example name.
+
+  This reports only. Nothing is ever added to your pattern list, and not every
+  numbered family is a placeholder: a numbered channel family whose names are
+  already informative matches better as it is.
+
 ## v1.26.2481756 (September 5, 2026)
 
 ### Fixed

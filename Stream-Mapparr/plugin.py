@@ -303,7 +303,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2481756"
+    PLUGIN_VERSION = "1.26.2491549"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1573,6 +1573,14 @@ class Plugin:
             "button_label": "🌍 Check Countries",
         },
         {
+            "id": "scan_placeholder_names",
+            "label": "🔍 Scan for Placeholder Patterns",
+            "description": "Group every stream name into a numbered family and report the families no Placeholder Name Pattern covers, with a regex to paste. Reads one database column, changes nothing",
+            "button_variant": "outline",
+            "button_color": "blue",
+            "button_label": "🔍 Scan Placeholders",
+        },
+        {
             "id": "clear_csv_exports",
             "label": "🗑️ Clear CSV Exports",
             "description": "Delete all CSV export files created by this plugin",
@@ -2585,6 +2593,98 @@ class Plugin:
                        f"{len(disagreements)} disagree. A disagreement usually means "
                        f"the channel is carried in one country and made in another.")
         result = {"status": "success", "message": message}
+        if path:
+            result["file"] = path
+        return result
+
+    @staticmethod
+    def _placeholder_scan():
+        """The pure grouping module behind the placeholder family scan."""
+        try:
+            from . import placeholder_scan
+        except ImportError:
+            import placeholder_scan
+        return placeholder_scan
+
+    def scan_placeholder_names_action(self, settings, logger, context=None):
+        """Report numbered stream-name families no placeholder pattern covers.
+
+        GitHub issue #43. The Placeholder Name Patterns setting only helps with
+        the naming schemes the operator already thought of, and nothing in the
+        interface tells apart "this installation has no placeholder families"
+        from "the patterns written here match none of them". The reporter found
+        two whole uncovered families, one of them their largest, only by pulling
+        every stream name through the API by hand.
+
+        Reads one database column that matching already loads, opens no
+        provider connection, changes no setting and writes no channel data.
+
+        The patterns are resolved WITHOUT the feature toggle gating them, unlike
+        _resolve_epg_matching_settings, because a pattern list is worth checking
+        for coverage whether or not the feature happens to be switched on. The
+        readout says plainly when it is off, since a list that is never
+        consulted covers nothing in practice.
+        """
+        scan = self._placeholder_scan()
+        try:
+            streams = self._get_all_streams(logger)
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] Could not load streams: {e}")
+            return {"status": "error",
+                    "error": f"Could not load the stream list ({e})."}
+
+        settings = settings if isinstance(settings, dict) else {}
+        patterns = self._resolve_epg_placeholder_patterns(settings)
+        enabled = self._get_bool_setting(
+            settings, 'epg_placeholder_matching_enabled',
+            PluginConfig.DEFAULT_EPG_PLACEHOLDER_MATCHING_ENABLED)
+
+        families = scan.scan_families(streams, patterns)
+        text = scan.render_report(families, total_streams=len(streams),
+                                  pattern_count=len(patterns),
+                                  feature_enabled=enabled)
+        uncovered = [f for f in families if f["uncovered"] > 0]
+
+        path = None
+        try:
+            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
+            path = os.path.join(self.BUG_REPORT_DIR, "placeholder-name-scan.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        except Exception as e:
+            # A toast cannot carry the readout, so say plainly that the file is
+            # missing rather than reporting a success the operator cannot read.
+            logger.warning(f"[Stream-Mapparr] Could not write the placeholder scan: {e}")
+            path = None
+
+        if not families:
+            parts = [f"No numbered stream-name families were found across "
+                     f"{len(streams)} streams, so there is nothing to cover."]
+        elif not uncovered:
+            parts = [f"{len(families)} numbered families found, and your "
+                     f"{len(patterns)} pattern(s) cover them all."]
+        else:
+            # The headline counts the families whose streams carry EPG data,
+            # because only those can ever be resolved. MEASURED on this
+            # installation: 131 families are uncovered and 16 of them hold a
+            # stream with an EPG identifier, so counting all of them would
+            # report a problem eight times larger than the one worth acting on.
+            actionable = [f for f in uncovered if f["with_epg_id"] > 0]
+            word = "family" if len(actionable) == 1 else "families"
+            parts = [
+                f"{len(actionable)} uncovered placeholder {word} carrying EPG data, "
+                f"out of {len(uncovered)} uncovered in total.",
+            ]
+            if actionable:
+                top = actionable[0]
+                parts.append(f"Best candidate: {top['template']} "
+                             f"({top['count']} streams, "
+                             f"{top['with_epg_id']} with an EPG id).")
+                parts.append(f"Pattern to paste: {top['suggested']}")
+        if not enabled:
+            parts.append("EPG-Based Placeholder Matching is currently off.")
+
+        result = {"status": "success", "message": self._fit_toast(parts)}
         if path:
             result["file"] = path
         return result
@@ -6620,6 +6720,7 @@ class Plugin:
                 "view_last_results": self.view_last_results_action,
                 "test_regex_rules": self.test_regex_rules_action,
                 "check_stream_countries": self.check_stream_countries_action,
+                "scan_placeholder_names": self.scan_placeholder_names_action,
             }
 
             if action in background_actions:

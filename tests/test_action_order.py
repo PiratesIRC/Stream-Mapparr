@@ -44,6 +44,7 @@ EXPECTED = [
     # Tools and recovery
     "test_regex_rules",
     "check_stream_countries",
+    "scan_placeholder_names",
     "clear_csv_exports",
     "clear_operation_lock",
     "report_a_bug",
