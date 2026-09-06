@@ -1,123 +1,152 @@
 #!/usr/bin/env python3
-r"""Validate a Dispatcharr-plugin release zip before upload.
+r"""Validate a Dispatcharr plugin release zip before it is uploaded anywhere.
 
-Guards against the bug-087 class of packaging failures: a zip built with
-PowerShell `Compress-Archive` / .NET Framework `ZipFile.CreateFromDirectory`
-stores entry paths with backslash (`\`) separators. The ZIP spec mandates
-forward slashes; on a Linux host these names are treated as flat literal
-filenames, so Dispatcharr's install fails with
-"missing plugin.py or package __init__.py".
+Checks, each of which has caught a real defect in this workspace:
+  (a) no backslash in any stored entry name, read from the RAW central
+      directory because zipfile.namelist() normalises them away (bug-087:
+      PowerShell Compress-Archive breaks install on Linux)
+  (b) every entry sits under <package_dir>/ and plugin.json plus plugin.py
+      exist there (the loader contract)
+  (c) no development file leaked in: __pycache__, .pyc, .claude, CLAUDE.md,
+      .wolf, settings.local.json, bump_version.py, tests/
+  (d) no TEXT entry contains CRLF (bug-118: the worktree here is CRLF and a
+      bare git archive writes it into every file); binary entries such as
+      .png are skipped, because those bytes occur naturally in them
 
-IMPORTANT: Python's own `zipfile.namelist()` normalizes `\` -> `/` on read, so
-it CANNOT detect this — check (a) parses the raw central-directory bytes.
-
-Project-agnostic: the package directory is auto-detected from the zip (the
-single top-level folder, or a root-level layout), so this script is drop-in for
-any plugin without editing constants.
-
-Checks:
-  (a) every stored entry name uses forward-slash separators (no 0x5C bytes)
-  (b) the installer's required files are present at the package root
-      (plugin.json AND at least one of plugin.py / __init__.py)
-  (c) no dev junk leaked in (.serena / .claude / __pycache__ / .git)
-
-Exit 0 if all pass; non-zero with a report otherwise.
-
-Usage: python scripts/validate_zip.py [path-to-zip]   (default: first *.zip found
-       in CWD, else errors)
+Usage: python scripts/validate_zip.py <zip> [--repo PATH]
+Exit 0 on success, 1 on any failure. Importable: validate(path, package_dir).
 """
-import glob
+from __future__ import annotations
+
+import argparse
+import json
 import struct
 import sys
 import zipfile
+from pathlib import Path
 
-JUNK = (".serena", ".claude", "__pycache__", ".git/", "/.git")
-_CD_SIG = b"PK\x01\x02"  # central directory file header signature
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_config import find_repo_root, load_config  # noqa: E402
+
+TEXT_SUFFIXES = (".py", ".json", ".md", ".txt", ".csv", ".html", ".js", ".css",
+                 ".yml", ".yaml", ".ini", ".cfg", ".toml", ".sh", ".ps1")
+FORBIDDEN = ("__pycache__", ".claude", "CLAUDE.md", ".wolf", "settings.local.json",
+             "bump_version.py", "tests/", ".pytest_cache", ".git/")
+_CD_SIG = b"PK\x01\x02"
 
 
-def raw_entry_names(path):
-    """Yield raw (undecoded-separator) entry name bytes from the central directory.
+_EOCD_SIG = b"PK\x05\x06"
 
-    We parse the central directory ourselves instead of using zipfile, because
-    zipfile silently rewrites backslashes to forward slashes on read.
+
+def raw_entry_names(path: Path):
+    """Yield raw entry-name bytes from the central directory.
+
+    The directory is located through the end-of-central-directory record
+    (searched in the last 64 KiB, where the spec puts it) rather than by
+    scanning from byte 0, because compressed payload can contain the header
+    signature by chance and would yield a bogus name length. A truncated
+    directory raises struct.error, which the caller reports as unreadable.
     """
-    data = open(path, "rb").read()
-    pos = data.find(_CD_SIG)
-    while pos != -1:
+    data = path.read_bytes()
+    tail = data[-65_557:]
+    eocd = tail.rfind(_EOCD_SIG)
+    if eocd == -1:
+        raise struct.error("no end-of-central-directory record")
+    eocd += len(data) - len(tail)
+    entries = struct.unpack_from("<H", data, eocd + 10)[0]
+    pos = struct.unpack_from("<I", data, eocd + 16)[0]
+    for _ in range(entries):
+        if data[pos:pos + 4] != _CD_SIG:
+            raise struct.error("central directory header signature missing")
         name_len = struct.unpack_from("<H", data, pos + 28)[0]
         extra_len = struct.unpack_from("<H", data, pos + 30)[0]
         comment_len = struct.unpack_from("<H", data, pos + 32)[0]
-        yield data[pos + 46 : pos + 46 + name_len]
-        pos = data.find(_CD_SIG, pos + 46 + name_len + extra_len + comment_len)
+        yield data[pos + 46: pos + 46 + name_len]
+        pos += 46 + name_len + extra_len + comment_len
 
 
-def detect_package_root(names):
-    """Return (prefix, note). prefix is '' for a root layout or 'Pkg/' for a
-    single-top-level-folder layout. note is None on success, else a diagnostic."""
-    files = [n for n in names if not n.endswith("/")]
-    root_files = [n for n in files if "/" not in n]
-    top_dirs = sorted({n.split("/", 1)[0] for n in files if "/" in n})
-
-    if any(f in ("plugin.py", "plugin.json", "__init__.py") for f in root_files):
-        return "", None  # root layout (files at zip root)
-    if len(top_dirs) == 1 and not root_files:
-        return top_dirs[0] + "/", None
-    if len(top_dirs) == 1:
-        # one package dir plus stray root files — tolerate, package dir wins
-        return top_dirs[0] + "/", None
-    return None, f"cannot identify a single package root (top-level dirs={top_dirs}, root_files={root_files[:5]})"
+def _leaked(name: str) -> bool:
+    """A forbidden marker must be a whole path segment (or a suffix), so
+    `contests/` or `.wolfram.py` are not caught by the `tests/` and `.wolf`
+    markers."""
+    parts = name.split("/")
+    for marker in FORBIDDEN:
+        segment = marker.rstrip("/")
+        if segment in parts:
+            return True
+    return name.endswith(".pyc")
 
 
-def main(path):
-    if not path:
-        zips = sorted(glob.glob("*.zip"))
-        if len(zips) != 1:
-            print(f"FAIL: specify a zip path (found {len(zips)} *.zip in CWD)")
-            return 1
-        path = zips[0]
+def validate(path: Path, package_dir: str) -> tuple[list[str], dict]:
+    errors: list[str] = []
+    info: dict = {}
+    try:
+        zf = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        return [f"cannot read {path}: {exc}"], info
 
     try:
-        names = zipfile.ZipFile(path).namelist()
-    except (OSError, zipfile.BadZipFile) as exc:
-        print(f"FAIL: cannot read {path}: {exc}")
-        return 1
-
-    errors = []
-
-    # (a) raw-byte separator check — zipfile.namelist() would hide this
-    backslash = [n.decode("utf-8", "replace") for n in raw_entry_names(path) if b"\\" in n]
+        backslash = [n.decode("utf-8", "replace") for n in raw_entry_names(path) if b"\\" in n]
+    except struct.error as exc:
+        return [f"cannot read the central directory of {path}: {exc}"], info
     if backslash:
-        errors.append(
-            "backslash path separators in stored names (rebuild with 7-Zip/zip.cmd "
-            f"or git archive, NOT Compress-Archive): {backslash[:5]}"
-        )
+        errors.append(f"backslash path separators in stored names: {backslash[:5]}")
 
-    # (b) required installer files at the auto-detected package root
-    prefix, note = detect_package_root(names)
-    if note:
-        errors.append(note)
+    prefix = package_dir.rstrip("/") + "/"
+    names = [n for n in zf.namelist() if not n.endswith("/")]
+    outside = [n for n in names if not n.startswith(prefix)]
+    if outside:
+        errors.append(f"entries outside {prefix}: {outside[:5]}")
+    for required in ("plugin.json", "plugin.py"):
+        if prefix + required not in names:
+            errors.append(f"missing {prefix}{required}")
+
+    leaked = [n for n in names if _leaked(n)]
+    if leaked:
+        errors.append(f"development files leaked into the zip: {leaked[:8]}")
+
+    crlf = []
+    text_count = 0
+    for name in names:
+        if name.lower().endswith(TEXT_SUFFIXES):
+            text_count += 1
+            if b"\r\n" in zf.read(name):
+                crlf.append(name)
+    if crlf:
+        errors.append(f"CRLF line endings in {len(crlf)} text file(s): {crlf[:8]}")
+
+    version = None
+    if prefix + "plugin.json" in names:
+        try:
+            version = json.loads(zf.read(prefix + "plugin.json").decode("utf-8")).get("version")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"plugin.json inside the zip is unreadable: {exc}")
+    info.update(entries=len(names), text_files=text_count, version=version)
+    return errors, info
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("zip")
+    parser.add_argument("--repo")
+    parser.add_argument("--package-dir", help="override the package dir (skips release.json)")
+    args = parser.parse_args()
+    if args.package_dir:
+        package_dir = args.package_dir
     else:
-        nameset = set(names)
-        if prefix + "plugin.json" not in nameset:
-            errors.append(f"missing {prefix}plugin.json")
-        if not ({prefix + "plugin.py", prefix + "__init__.py"} & nameset):
-            errors.append(f"missing both {prefix}plugin.py and {prefix}__init__.py")
-
-    # (c) dev junk
-    junk = [n for n in names if any(j in n for j in JUNK)]
-    if junk:
-        errors.append(f"dev junk leaked into zip: {junk[:5]}")
-
+        repo = Path(args.repo).resolve() if args.repo else find_repo_root()
+        package_dir = load_config(repo)["package_dir"]
+    errors, info = validate(Path(args.zip), package_dir)
     if errors:
-        print(f"INVALID ZIP: {path}")
-        for e in errors:
-            print(f"  - {e}")
+        print(f"INVALID ZIP: {args.zip}")
+        for error in errors:
+            print(f"FAIL: {error}")
         return 1
-
-    root = prefix or "(root)"
-    print(f"OK: {path} ({len(names)} entries, forward-slash paths, package root '{root}' intact)")
+    print(f"OK: {args.zip} ({info['entries']} entries, {info['text_files']} text files, "
+          f"version {info['version']}, package root {package_dir}/)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else None))
+    sys.exit(main())

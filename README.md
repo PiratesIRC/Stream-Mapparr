@@ -47,14 +47,14 @@ database. This plugin modifies channel and stream assignments.
 
 **From the Dispatcharr Plugin Hub (recommended):**
 
-1. In Dispatcharr, go to **Settings → Plugin Hub**
+1. In Dispatcharr, go to **Settings -> Plugin Hub**
 2. Find **Stream-Mapparr** in the catalog and click **Install**
 3. Enable the plugin
 
 **Manual install:**
 
 1. Download the latest zip from [Releases](https://github.com/PiratesIRC/Stream-Mapparr/releases)
-2. In Dispatcharr, go to **Plugins → Import Plugin** and upload the zip
+2. In Dispatcharr, go to **Plugins -> Import Plugin** and upload the zip
 3. Enable the plugin
 
 ## Further reading
@@ -80,11 +80,12 @@ database. This plugin modifies channel and stream assignments.
   stream names before anything else. See
   [Regex pre-processing](docs/regex-preprocessing.md)
 - **Stylized-name normalization**: handles superscript and small-caps markers
-  such as `ᴿᴬᵂ`, emoji used as letters (`beIN SP⚽RTS`), and numeric resolution
+  such as superscript RAW, emoji used as letters (a ball glyph standing in for the O of SPORTS), and numeric resolution
   tags like `3840P`
-- **Box-bar tag stripping**: removes provider and country tags built from `┃`
-  and `│`, such as `┃CANAL+┃ NPO 1` or `NL┃ NPO 1`. A stray single bar is left
-  alone
+- **Box-bar tag stripping**: removes provider and country tags built from the
+  box-drawing bars U+2503 and U+2502 (not the ASCII pipe), such as a bouquet name
+  enclosed in those bars before `NPO 1`, or a two-letter country code followed by
+  one. A stray single bar is left alone
 - **Invisible character stripping**: removes zero-width spaces, joiners, word
   joiners, byte order marks, soft hyphens and bidi marks. Providers use these as
   padding, often around a decorative glyph, and they used to wreck matching for
@@ -182,7 +183,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Stream Groups** | string | (all) | Stream groups to draw candidate streams from, comma-separated |
 | **Stream Groups Mode** | select | Only the groups listed | The same choice for stream groups, resolved separately from the channel-group list |
 | **M3U Sources** | string | (all) | M3U sources to use, comma-separated. Order sets priority |
-| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", …]` mappings. Channel names and aliases are both matched case-insensitively, and whitespace around a channel name is ignored |
+| **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", ...]` mappings. Channel names and aliases are both matched case-insensitively, and whitespace around a channel name is ignored |
 | **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` pairs applied to stream names before matching. See [Regex pre-processing](docs/regex-preprocessing.md) |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then by M3U source priority |
 | **Custom Ignore Tags** | string | (none) | Tags to strip before matching, for example `[Dead], (Backup)` |
@@ -277,12 +278,12 @@ because the exports contain your M3U source names.
 ## Versioning
 
 This plugin uses calver, `1.MAJOR.DDDHHMM`, being the UTC day of year plus the
-UTC time. Run `python3 Stream-Mapparr/bump_version.py` to bump `plugin.json` and
+UTC time. Run `python scripts/bump_version.py` to bump `plugin.json` and
 `plugin.py` together.
 
 ## Changelog
 
-See [CHANGELOG.md](Stream-Mapparr/CHANGELOG.md) for full version history.
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ## Disclaimer
 

@@ -63,7 +63,7 @@ time. Bump it with the script, which keeps `plugin.json` and `plugin.py` in
 step:
 
 ```bash
-python3 Stream-Mapparr/bump_version.py
+python scripts/bump_version.py
 ```
 
 Do not edit either version by hand. A mismatch fails the build.

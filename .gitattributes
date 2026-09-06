@@ -22,3 +22,4 @@
 # future vendored shared file.
 matching_core.py text eol=lf
 aliases_base.py text eol=lf
+.githooks/* text eol=lf

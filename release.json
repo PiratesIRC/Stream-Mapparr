@@ -1,0 +1,44 @@
+{
+  "repo": "Stream-Mapparr",
+  "tag_prefix": "",
+  "default_branch": "main",
+  "remote": "origin",
+  "changelog": "CHANGELOG.md",
+  "version_attr_regex": null,
+  "hub_mode": "external",
+  "publish_model": "tag",
+  "publish_branch": null,
+  "python": "3.12",
+  "extra_gates": [
+    "python scripts/validate_databases.py"
+  ],
+  "tests_tracked": true,
+  "package_dir": "Stream-Mapparr",
+  "plugin_key": "stream-mapparr",
+  "zip_name": "Stream-Mapparr.zip",
+  "hub_slug": "stream-mapparr",
+  "version_files": [
+    {
+      "path": "Stream-Mapparr/plugin.json",
+      "regex": "\"version\"\\s*:\\s*\"([^\"]+)\""
+    },
+    {
+      "path": "Stream-Mapparr/plugin.py",
+      "regex": "^\\s*PLUGIN_VERSION\\s*=\\s*\"([^\"]+)\""
+    },
+    {
+      "path": "Stream-Mapparr/__init__.py",
+      "regex": "^__version__\\s*=\\s*\"([^\"]+)\""
+    }
+  ],
+  "precommit_tests": [
+    "tests/test_fuzzy_matcher.py",
+    "tests/test_plugin_helpers.py",
+    "tests/test_version_sync.py"
+  ],
+  "precommit_extra": [
+    "echo \"[pre-commit] validating channel databases\"",
+    "\"$PY\" scripts/validate_databases.py >/dev/null"
+  ],
+  "_note": "Contract read by scripts/*.py, .githooks, .github/workflows and the workspace release, pre-release-qa, deploy-plugin and hub-release skills. Values marked null are unknown or not applicable. Keep keys in this order."
+}
