@@ -52,6 +52,41 @@
   numbered family is a placeholder: a numbered channel family whose names are
   already informative matches better as it is.
 
+  Two code reviews of the first version found four defects, all reproduced
+  before they were changed and all now covered by a named test that fails when
+  the fix is reverted:
+
+  A character above the basic plane, such as an emoji or a flag, was escaped in
+  the four-digit form. That form carries a minimum of four digits, not exactly
+  four, so an emoji produced five and Python read only the first four. The
+  pattern compiled, matched nothing, and the family kept reporting as uncovered
+  with nothing saying why. The earlier test used a character inside the basic
+  plane, the one class that already worked.
+
+  A backslash followed by a digit produced the same two characters as an escaped
+  literal hash, so two different names grouped into one family and the suggested
+  pattern matched neither.
+
+  The scan ran inside the request with no yield, no input cap and no time
+  budget, while the pattern safety gate deliberately admits patterns that can
+  backtrack polynomially on the promise that the runtime bounds them. It now
+  hands the worker back every 500 names, skips a name over 500 characters and
+  stops at a five second budget, using the same limits as the regex
+  pre-processing path. A stopped scan is reported as partial rather than passed
+  off as finished, because a family the walk never reached is missing, not
+  covered.
+
+  A failure to write the readout returned a plain success. The full readout
+  exists only in that file, so the notification now says the file is missing,
+  and says it first, because the notification drops lines from the end.
+
+  Also from those reviews: distinct slot numbers are counted within one slot
+  rather than across slots, a resolution tag groups regardless of the case of
+  its K, a suggestion too long for the setting to accept is marked as such
+  instead of being offered as though it worked, a database row that is not a
+  dictionary is skipped rather than raising, and the second listing is capped
+  and says how many it left out.
+
 ## v1.26.2481756 (September 5, 2026)
 
 ### Fixed

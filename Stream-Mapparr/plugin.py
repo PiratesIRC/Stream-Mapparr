@@ -2639,10 +2639,26 @@ class Plugin:
             settings, 'epg_placeholder_matching_enabled',
             PluginConfig.DEFAULT_EPG_PLACEHOLDER_MATCHING_ENABLED)
 
-        families = scan.scan_families(streams, patterns)
+        # RUNTIME CONTAINMENT, the same three limits the regex pre-processing
+        # path uses, for the same reason. This action is dispatched
+        # synchronously, so it runs inside the request in a uWSGI worker
+        # running gevent, where a loop that never yields freezes the whole
+        # worker and every other request on it (bug-117). The pattern safety
+        # gate deliberately admits patterns that can backtrack polynomially on
+        # the stated promise that the runtime bounds the input, and up to
+        # REGEX_RULES_MAX of them are applied to each of about 25,000 names.
+        stats = {}
+        cfg = PluginConfig
+        families = scan.scan_families(
+            streams, patterns,
+            on_yield=lambda _index: self._cooperative_yield(),
+            yield_every=cfg.REGEX_YIELD_EVERY,
+            max_name_len=cfg.REGEX_NAME_MAX_LEN,
+            budget_seconds=cfg.REGEX_PASS_BUDGET_S,
+            stats=stats)
         text = scan.render_report(families, total_streams=len(streams),
                                   pattern_count=len(patterns),
-                                  feature_enabled=enabled)
+                                  feature_enabled=enabled, stats=stats)
         uncovered = [f for f in families if f["uncovered"] > 0]
 
         path = None
@@ -2677,12 +2693,25 @@ class Plugin:
             ]
             if actionable:
                 top = actionable[0]
-                parts.append(f"Best candidate: {top['template']} "
+                # ascii_safe here too, not only in the file: a provider name can
+                # carry characters the readout deliberately escapes, and the
+                # toast should show the same text the file does.
+                parts.append(f"Best candidate: {scan.ascii_safe(top['template'])} "
                              f"({top['count']} streams, "
                              f"{top['with_epg_id']} with an EPG id).")
                 parts.append(f"Pattern to paste: {top['suggested']}")
         if not enabled:
             parts.append("EPG-Based Placeholder Matching is currently off.")
+        if stats.get("budget_tripped"):
+            parts.append("The scan stopped at its time limit, so this is partial.")
+        if path is None:
+            # FIRST, not appended. The readout exists only in that file, so a run
+            # that could not write it has produced nothing the operator can read.
+            # _fit_toast drops whole lines from the END, so appending this put the
+            # one line that must survive in the position most likely to be cut,
+            # which a test caught.
+            parts.insert(0, "The full readout could NOT be written to disk, so only "
+                            "this summary exists.")
 
         result = {"status": "success", "message": self._fit_toast(parts)}
         if path:
