@@ -13,13 +13,17 @@ def test_the_scheduler_stamps_the_run_not_the_match_substep(plugin_module):
     toggles. An operator who schedules Sort only has a healthy schedule, and it
     must not report "never recorded" forever.
 
-    The scheduler is a nested function named scheduler_loop defined inside
-    _start_background_scheduler_locked, not a method, so reading the enclosing
-    method is the only way to see it.
+    Since 2026-09-13 the loop delegates to _run_scheduled_sequence, shared
+    with the IPTV Checker trigger, so the stamp lives there and is written only
+    on the timer path (trigger is None).
     """
     loop = inspect.getsource(plugin_module.Plugin._start_background_scheduler_locked)
-    assert "write_scheduled_run_ts" in loop, (
-        "the scheduler loop must record that a scheduled run completed"
+    assert "_run_scheduled_sequence" in loop, (
+        "the scheduler loop must run the shared scheduled sequence"
+    )
+    sequence = inspect.getsource(plugin_module.Plugin._run_scheduled_sequence)
+    assert "write_scheduled_run_ts" in sequence, (
+        "the shared sequence must record that a scheduled run completed"
     )
     match_action = inspect.getsource(plugin_module.Plugin.add_streams_to_channels_action)
     assert "write_scheduled_run_ts" not in match_action, (

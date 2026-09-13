@@ -303,7 +303,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2491549"
+    PLUGIN_VERSION = "1.26.2561754"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -492,6 +492,8 @@ class PluginConfig:
     DEFAULT_FILTER_DEAD_STREAMS = False  # Filter streams with 0x0 resolution (requires IPTV Checker)
     DEFAULT_WAIT_FOR_IPTV_CHECKER = False  # Wait for IPTV Checker to complete before scheduled runs
     DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS = 6  # Maximum hours to wait for IPTV Checker
+    DEFAULT_RUN_AFTER_IPTV_CHECKER_SCAN = False  # Run the scheduled sequence when IPTV Checker finishes a scheduled scan
+    IPTV_CHECKER_TRIGGER_LABEL = "IPTV Checker scan"  # Names the trigger in logs and the CSV header
     IPTV_CHECKER_PROGRESS_FILE = "/data/iptv_checker_progress.json"  # IPTV Checker progress file
     IPTV_CHECKER_CHECK_INTERVAL = 60  # Check IPTV Checker status every 60 seconds
 
@@ -1280,6 +1282,13 @@ class Plugin:
                 "help_text": "Maximum hours to wait for IPTV Checker to complete. If IPTV Checker is still running after this time, Stream-Mapparr will proceed anyway. Default: 6 hours.",
             },
             {
+                "id": "run_after_iptv_checker_scan",
+                "label": "\U0001f501 Run After IPTV Checker Scan",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_RUN_AFTER_IPTV_CHECKER_SCAN,
+                "help_text": "When IPTV Checker finishes a scheduled scan, run the same steps the schedule below runs (Sort Alternate Streams and Match and Assign, whichever are ticked). IPTV Checker must have its 'Trigger Stream-Mapparr' setting on. A run already in progress is left alone and the next scan tries again.",
+            },
+            {
                 "id": "_section_scheduling",
                 "label": "⏰ Scheduling",
                 "type": "info",
@@ -1616,6 +1625,11 @@ class Plugin:
             "label": "Auto-match after M3U refresh",
             "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
             "events": ["m3u_refresh"],
+        },
+        {
+            "id": "on_iptv_checker_scan",
+            "label": "Run after IPTV Checker scan",
+            "description": "Called by the IPTV Checker plugin when a scheduled scan finishes. Runs the scheduled steps when 'Run After IPTV Checker Scan' is enabled in settings.",
         },
     ]
 
@@ -2315,72 +2329,7 @@ class Plugin:
                                 continue  # skip THIS slot only; still evaluate other scheduled times
                             LOGGER.info(f"[Stream-Mapparr] Scheduled scan triggered at {now.strftime('%Y-%m-%d %H:%M %Z')}")
                             try:
-                                # Step 0: Wait for IPTV Checker if enabled
-                                wait_result = self._wait_for_iptv_checker_completion(settings, LOGGER)
-                                if not wait_result:
-                                    LOGGER.warning("[Stream-Mapparr] IPTV Checker wait timed out, proceeding anyway")
-                                
-                                # Step 1: Load/Process Channels
-                                LOGGER.info("[Stream-Mapparr] Step 1/2: Loading and processing channels...")
-                                load_result = self.load_process_channels_action(settings, LOGGER)
-                                
-                                if load_result.get("status") == "success":
-                                    LOGGER.info(f"[Stream-Mapparr] {load_result.get('message', 'Channels loaded successfully')}")
-                                    
-                                    # Get scheduled task settings
-                                    do_sort = settings.get('scheduled_sort_streams', False)
-                                    if isinstance(do_sort, str):
-                                        do_sort = do_sort.lower() in ('true', 'yes', '1')
-                                    
-                                    do_match = settings.get('scheduled_match_streams', True)
-                                    if isinstance(do_match, str):
-                                        do_match = do_match.lower() in ('true', 'yes', '1')
-                                    
-                                    step = 2
-                                    total_steps = (2 if do_sort else 0) + (1 if do_match else 0) + 1
-                                    
-                                    # Step 2: Sort Streams (if enabled)
-                                    if do_sort:
-                                        LOGGER.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Sorting alternate streams...")
-                                        sort_result = self.sort_streams_action(settings, LOGGER, is_scheduled=True)
-                                        
-                                        if sort_result.get("status") == "success":
-                                            LOGGER.info(f"[Stream-Mapparr] {sort_result.get('message', 'Streams sorted successfully')}")
-                                        else:
-                                            LOGGER.error(f"[Stream-Mapparr] Failed to sort streams: {sort_result.get('message', 'Unknown error')}")
-                                        
-                                        step += 1
-                                    
-                                    # Step 3: Match & Assign Streams (if enabled)
-                                    if do_match:
-                                        LOGGER.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Matching and assigning streams...")
-                                        add_result = self.add_streams_to_channels_action(settings, LOGGER, is_scheduled=True)
-                                        
-                                        if add_result.get("status") == "success":
-                                            LOGGER.info(f"[Stream-Mapparr] {add_result.get('message', 'Streams added successfully')}")
-                                        else:
-                                            LOGGER.error(f"[Stream-Mapparr] Failed to add streams: {add_result.get('message', 'Unknown error')}")
-                                    
-                                    # Record that the SCHEDULED path completed a
-                                    # run. Placed here, after both sub-steps and
-                                    # outside either branch, because do_sort and
-                                    # do_match are independent: a Sort-only
-                                    # schedule is a healthy schedule and must not
-                                    # report "never recorded" forever. Never
-                                    # written by an action or the button, which
-                                    # is the whole point of the signal.
-                                    try:
-                                        bridge = self._notify_bridge()
-                                        bridge.write_scheduled_run_ts(
-                                            bridge.SCHEDULED_RUN_FILE, time.time())
-                                    except Exception as stamp_err:
-                                        LOGGER.debug(f"[Stream-Mapparr] Could not record the "
-                                                     f"scheduled run timestamp: {stamp_err}")
-
-                                    LOGGER.info("[Stream-Mapparr] Scheduled run completed successfully")
-                                else:
-                                    LOGGER.error(f"[Stream-Mapparr] Failed to load channels: {load_result.get('message', 'Unknown error')}")
-                                    LOGGER.error("[Stream-Mapparr] Scheduled run aborted - cannot proceed without channel data")
+                                self._run_scheduled_sequence(settings, LOGGER)
                                     
                             except Exception as e:
                                 LOGGER.error(f"[Stream-Mapparr] Error in scheduled scan: {e}")
@@ -6704,6 +6653,8 @@ class Plugin:
 
             if action == "on_m3u_refresh":
                 return self.on_m3u_refresh_action(settings, logger, context)
+            if action == "on_iptv_checker_scan":
+                return self.on_iptv_checker_scan_action(settings, logger, context)
 
             # If settings is empty but context has settings, use context settings
             if context and isinstance(context, dict) and not settings:
@@ -7468,7 +7419,7 @@ class Plugin:
                 LOGGER.warning(f"[Stream-Mapparr] Could not delete old CSV export {name}: {exc}")
         return removed
 
-    def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=None, total_matched_streams=None, low_match_channels=None, threshold_data=None):
+    def _generate_csv_header_comment(self, settings, processed_data, action_name="Unknown", is_scheduled=False, total_visible_channels=None, total_matched_streams=None, low_match_channels=None, threshold_data=None, trigger=None):
         """Generate CSV comment header with plugin version and settings info."""
         # Debug: Log all settings keys to see what's available
         LOGGER.debug(f"[Stream-Mapparr] CSV generation - All settings keys: {list(settings.keys())}")
@@ -7478,6 +7429,13 @@ class Plugin:
         selected_stream_groups = processed_data.get('selected_stream_groups', [])
         selected_m3us = processed_data.get('selected_m3us', [])
         current_threshold = self._resolve_match_threshold(settings)
+
+        # A triggered run is scheduled work started by another plugin; say so,
+        # because a report that calls itself Scheduled when the timer did not
+        # fire is the same lie this header told before 2026-09-05.
+        execution_mode = 'Scheduled' if is_scheduled else 'Manual'
+        if is_scheduled and trigger:
+            execution_mode = f"Scheduled (after {trigger})"
 
         # Build header with all settings except login credentials
         header_lines = [
@@ -7497,7 +7455,7 @@ class Plugin:
             "#",
             "# === Action Performed ===",
             f"# Action: {action_name}",
-            f"# Execution Mode: {'Scheduled' if is_scheduled else 'Manual'}",
+            f"# Execution Mode: {execution_mode}",
             f"# Dry Run Mode: {_yes_no(settings.get('dry_run_mode'))} (Yes means nothing was written to the database)",
             "#",
         ]
@@ -8122,7 +8080,114 @@ class Plugin:
 
         return result
 
-    def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None):
+    def _run_scheduled_sequence(self, settings, logger, trigger=None):
+        """Load channels, then Sort and Match and Assign as the schedule toggles say.
+
+        Shared by the timer loop and the IPTV Checker trigger so the two paths
+        cannot drift. `trigger` is None for the timer and a label otherwise; it
+        is threaded as a parameter, never stored on the instance (bug-139).
+        The wait for IPTV Checker and the scheduled-run timestamp belong to the
+        timer path only: a triggered run starts because the scan just finished,
+        and the timestamp means "the timer fired".
+        """
+        if trigger is None:
+            if not self._wait_for_iptv_checker_completion(settings, logger):
+                logger.warning("[Stream-Mapparr] IPTV Checker wait timed out, proceeding anyway")
+        else:
+            logger.info(f"[Stream-Mapparr] Scheduled steps triggered by {trigger}")
+
+        logger.info("[Stream-Mapparr] Step 1/2: Loading and processing channels...")
+        load_result = self.load_process_channels_action(settings, logger)
+        if load_result.get("status") != "success":
+            logger.error(f"[Stream-Mapparr] Failed to load channels: {load_result.get('message', 'Unknown error')}")
+            logger.error("[Stream-Mapparr] Scheduled run aborted - cannot proceed without channel data")
+            return load_result
+        logger.info(f"[Stream-Mapparr] {load_result.get('message', 'Channels loaded successfully')}")
+
+        do_sort = self._get_bool_setting(settings, 'scheduled_sort_streams', False)
+        do_match = self._get_bool_setting(settings, 'scheduled_match_streams', True)
+
+        step = 2
+        total_steps = (2 if do_sort else 0) + (1 if do_match else 0) + 1
+
+        if do_sort:
+            logger.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Sorting alternate streams...")
+            sort_result = self.sort_streams_action(settings, logger, is_scheduled=True, trigger=trigger)
+            if sort_result.get("status") == "success":
+                logger.info(f"[Stream-Mapparr] {sort_result.get('message', 'Streams sorted successfully')}")
+            else:
+                logger.error(f"[Stream-Mapparr] Failed to sort streams: {sort_result.get('message', 'Unknown error')}")
+            step += 1
+
+        if do_match:
+            logger.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Matching and assigning streams...")
+            add_result = self.add_streams_to_channels_action(settings, logger, is_scheduled=True, trigger=trigger)
+            if add_result.get("status") == "success":
+                logger.info(f"[Stream-Mapparr] {add_result.get('message', 'Streams added successfully')}")
+            else:
+                logger.error(f"[Stream-Mapparr] Failed to add streams: {add_result.get('message', 'Unknown error')}")
+
+        if trigger is None:
+            # Record that the SCHEDULED path completed a run. Placed after both
+            # sub-steps and outside either branch, because do_sort and do_match
+            # are independent: a Sort-only schedule is a healthy schedule and
+            # must not report "never recorded" forever. Never written by an
+            # action, the button or a triggered run, which is the whole point
+            # of the signal.
+            try:
+                bridge = self._notify_bridge()
+                bridge.write_scheduled_run_ts(bridge.SCHEDULED_RUN_FILE, time.time())
+            except Exception as stamp_err:
+                logger.debug(f"[Stream-Mapparr] Could not record the scheduled run timestamp: {stamp_err}")
+
+        logger.info("[Stream-Mapparr] Scheduled run completed successfully")
+        return {"status": "success"}
+
+    def _should_run_after_iptv_checker_scan(self, settings):
+        """Pure gate for the IPTV Checker trigger: the setting alone, no ORM."""
+        return self._get_bool_setting(settings, "run_after_iptv_checker_scan",
+                                      PluginConfig.DEFAULT_RUN_AFTER_IPTV_CHECKER_SCAN)
+
+    def on_iptv_checker_scan_action(self, settings_arg, logger, context):
+        """Handler the IPTV Checker plugin calls when a scheduled scan finishes.
+
+        Reached through PluginManager.run_action, so the 2nd argument is the
+        event dict and the real settings are in context["settings"], as for the
+        M3U refresh handler. Runs the scheduled steps SYNCHRONOUSLY in the
+        caller's thread. A run already holding the operation lock is left alone
+        and nothing is queued: the next scan fires again. Returns None when
+        nothing ran so the caller gets no toast noise.
+        """
+        real_settings = context.get("settings", {}) if isinstance(context, dict) else {}
+        if not self._should_run_after_iptv_checker_scan(real_settings):
+            return None
+
+        payload = settings_arg.get("payload") if isinstance(settings_arg, dict) else {}
+        payload = payload or {}
+        checked = payload.get("streams_checked")
+        trigger = PluginConfig.IPTV_CHECKER_TRIGGER_LABEL
+
+        # run() resets this in _execute_with_progress, which this direct path bypasses.
+        self._op_total_items = None
+
+        is_locked, _info = self._check_operation_lock(logger)
+        if is_locked:
+            logger.info(f"[Stream-Mapparr] [{trigger}] a manual or scheduled operation is running; skipping this run")
+            return None
+        if not self._acquire_operation_lock("sort_streams", logger):
+            return None
+        try:
+            logger.info(f"[Stream-Mapparr] [{trigger}] scan finished (streams checked: {checked}); running the scheduled steps")
+            return self._run_scheduled_sequence(real_settings, logger, trigger=trigger)
+        except Exception as exc:
+            logger.error(f"[Stream-Mapparr] [{trigger}] run failed: {exc}")
+            import traceback
+            logger.error(f"[Stream-Mapparr] Traceback: {traceback.format_exc()}")
+            return None
+        finally:
+            self._release_operation_lock(logger)
+
+    def add_streams_to_channels_action(self, settings, logger, is_scheduled=False, context=None, trigger=None):
         """Add matching streams to channels and replace existing stream assignments."""
         # Check dry run mode
         dry_run = settings.get('dry_run_mode', False)
@@ -8452,6 +8517,7 @@ class Plugin:
                         header_comment = self._generate_csv_header_comment(settings, processed_data,
                                                                           action_name="Match & Assign Streams",
                                                                           is_scheduled=is_scheduled,
+                                                                          trigger=trigger,
                                                                           total_visible_channels=channels_updated,
                                                                           total_matched_streams=total_streams_added,
                                                                           low_match_channels=low_match_channels,
@@ -8895,7 +8961,7 @@ class Plugin:
                 "match_us_ota_only", success_count,
                 ota_streams_assigned, dry_run=dry_run)
 
-    def sort_streams_action(self, settings, logger, context=None, is_scheduled=False):
+    def sort_streams_action(self, settings, logger, context=None, is_scheduled=False, trigger=None):
         """Sort existing alternate streams by quality for all channels"""
         try:
             # Check dry run mode
@@ -9203,6 +9269,7 @@ class Plugin:
                             processed_data_for_header,
                             action_name="Sort Alternate Streams",
                             is_scheduled=is_scheduled,
+                            trigger=trigger,
                             total_visible_channels=sorted_count,
                             total_matched_streams=0
                         )
