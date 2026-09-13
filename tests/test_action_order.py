@@ -12,6 +12,7 @@ particular are load-bearing:
   sorting before probing sorts against nothing. The previous order listed Sort
   before Probe.
 """
+import pytest
 
 
 def _actions(plugin_module):
@@ -50,6 +51,7 @@ EXPECTED = [
     "report_a_bug",
     # Not a button: Dispatcharr invokes this after an M3U source refreshes
     "on_m3u_refresh",
+    "on_iptv_checker_scan",
 ]
 
 
@@ -79,11 +81,12 @@ def test_match_and_assign_comes_before_both(plugin_module):
     assert ids.index("add_streams_to_channels") < ids.index("probe_throughput")
 
 
-def test_the_event_handler_is_last_because_it_is_not_a_button(plugin_module):
-    """Dispatcharr invokes it after an M3U source refreshes. It must stay
-    registered and must keep a label or the action normaliser drops it, but
-    nobody should press it."""
-    assert _ids(plugin_module)[-1] == "on_m3u_refresh"
+def test_the_event_handlers_are_last_because_they_are_not_buttons(plugin_module):
+    """Dispatcharr invokes one after an M3U source refreshes and the IPTV
+    Checker plugin invokes the other after a scheduled scan. Both must stay
+    registered and must keep a label or the action normaliser drops them, but
+    nobody should press either."""
+    assert _ids(plugin_module)[-2:] == ["on_m3u_refresh", "on_iptv_checker_scan"]
 
 
 def test_every_PRESSABLE_action_has_a_short_button_label(plugin_module):
@@ -97,13 +100,15 @@ def test_every_PRESSABLE_action_has_a_short_button_label(plugin_module):
     while reordering these buttons is exactly what that test caught.
     """
     missing = [a["id"] for a in _actions(plugin_module)
-               if a["id"] != "on_m3u_refresh" and not a.get("button_label")]
+               if a["id"] not in ("on_m3u_refresh", "on_iptv_checker_scan")
+               and not a.get("button_label")]
     assert missing == [], f"actions with no button_label: {missing}"
 
 
-def test_the_event_handler_still_has_NO_button_label(plugin_module):
+@pytest.mark.parametrize("handler_id", ["on_m3u_refresh", "on_iptv_checker_scan"])
+def test_the_event_handler_still_has_NO_button_label(plugin_module, handler_id):
     """Pins the hiding mechanism from the other direction."""
-    handler = next(a for a in _actions(plugin_module) if a["id"] == "on_m3u_refresh")
+    handler = next(a for a in _actions(plugin_module) if a["id"] == handler_id)
     assert "button_label" not in handler
 
 

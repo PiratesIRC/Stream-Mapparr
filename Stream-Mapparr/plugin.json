@@ -1,6 +1,6 @@
 {
   "name": "Stream-Mapparr",
-  "version": "1.26.2491549",
+  "version": "1.26.2561754",
   "description": "Automatically add matching streams to channels based on name similarity and quality precedence. Supports unlimited stream matching, channel visibility management, and CSV export cleanup.",
   "author": "PiratesIRC",
   "license": "MIT",
@@ -17,6 +17,11 @@
       "events": [
         "m3u_refresh"
       ]
+    },
+    {
+      "id": "on_iptv_checker_scan",
+      "label": "Run after IPTV Checker scan",
+      "description": "Called by the IPTV Checker plugin when a scheduled scan finishes. Runs the scheduled steps when 'Run After IPTV Checker Scan' is enabled in settings."
     },
     {
       "id": "validate_settings",

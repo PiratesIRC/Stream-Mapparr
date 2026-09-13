@@ -41,9 +41,10 @@ MANIFEST = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "Stream-Mapparr", "plugin.json")
 
-# The event handler Dispatcharr invokes after an M3U refresh. It is not a button
-# and must never grow one.
-EVENT_HANDLER = "on_m3u_refresh"
+# The handlers other code invokes: Dispatcharr after an M3U refresh, and the
+# IPTV Checker plugin after a scheduled scan. Neither is a button and neither
+# must ever grow one.
+EVENT_HANDLERS = ("on_m3u_refresh", "on_iptv_checker_scan")
 
 EXPECTED_COLOURS = {
     # red: can remove streams or take channels off air
@@ -83,7 +84,7 @@ def _manifest_actions():
 
 
 def _pressable(actions):
-    return [a for a in actions if a.get("id") != EVENT_HANDLER]
+    return [a for a in actions if a.get("id") not in EVENT_HANDLERS]
 
 
 # --------------------------------------------------------------------------- #
@@ -95,9 +96,10 @@ def test_every_pressable_action_has_a_button_colour(plugin_module):
     assert missing == [], f"actions with no button_color: {missing}"
 
 
-def test_the_event_handler_has_no_button_colour(plugin_module):
-    """It is invoked by Dispatcharr, never pressed, so it must not look pressable."""
-    handler = next(a for a in _actions(plugin_module) if a["id"] == EVENT_HANDLER)
+@pytest.mark.parametrize("handler_id", EVENT_HANDLERS)
+def test_the_event_handler_has_no_button_colour(plugin_module, handler_id):
+    """It is invoked by other code, never pressed, so it must not look pressable."""
+    handler = next(a for a in _actions(plugin_module) if a["id"] == handler_id)
     assert "button_color" not in handler
 
 

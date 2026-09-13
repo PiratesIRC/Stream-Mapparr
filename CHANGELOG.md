@@ -1,5 +1,34 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2561754 (2026-09-13)
+
+### Added
+
+- **Run After IPTV Checker Scan, a new setting in the IPTV Checker Integration
+  section.** When the IPTV Checker plugin finishes a scheduled scan that reached
+  the end of its channel list, it now calls this plugin directly and the
+  scheduled steps run at once: Sort Alternate Streams and Match and Assign,
+  whichever the schedule has ticked. Until now the only way to sort against a
+  fresh scan was to guess when the scan would end and set the fixed time after
+  it. IPTV Checker must have its own Trigger Stream-Mapparr After Scheduled
+  Check setting on. A run already holding the operation lock is left alone and
+  nothing is queued; the next scan tries again.
+
+  Dispatcharr's event system was not usable for this, because it drops any
+  event name outside its fixed list, so the hand-off is an in-process call
+  through the plugin manager, the same call Dispatcharr makes for its own M3U
+  refresh event. The new hidden action `on_iptv_checker_scan` receives it.
+
+### Changed
+
+- The fixed-time scheduler and the new trigger run one shared sequence, so the
+  two cannot drift apart. The wait for a running IPTV Checker and the
+  scheduled-run timestamp behind Validate Settings belong to the fixed-time
+  path only: a triggered run starts because the scan just finished, and the
+  timestamp means the timer fired.
+- The CSV header's `Execution Mode` line reads `Scheduled (after IPTV Checker
+  scan)` for a triggered run, so a report says who started it.
+
 ## 1.26.2491549 (2026-09-06)
 
 ### Added
