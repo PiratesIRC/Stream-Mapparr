@@ -1,5 +1,22 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2571153 (2026-09-14)
+
+### Changed
+
+- **A scheduled run now stands aside when IPTV Checker is mid-scan and Run After
+  IPTV Checker Scan is on.** On the first morning the trigger fired, the fixed-time
+  run had been waiting for that same scan under Wait for IPTV Checker Completion,
+  saw the scan end, and sorted the same channels one second after the triggered run,
+  in a different worker process, while that run was still writing. Nothing was
+  damaged, but two delete-and-recreate passes over the same rows at once is not a
+  state to leave open. The fixed-time run now checks, before it waits, whether a
+  scan is running and the trigger will cover the day; if both are true it logs that
+  it is standing aside and returns without running. A missing or unreadable
+  progress file counts as not running, so an installation without IPTV Checker
+  keeps its schedule exactly as before. The scheduled-run timestamp behind
+  Validate Settings is not written for a run that stood aside.
+
 ## 1.26.2561754 (2026-09-13)
 
 ### Added

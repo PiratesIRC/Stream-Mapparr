@@ -303,7 +303,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2561754"
+    PLUGIN_VERSION = "1.26.2571153"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -8091,6 +8091,18 @@ class Plugin:
         and the timestamp means "the timer fired".
         """
         if trigger is None:
+            # Measured 2026-09-14: with the trigger on, a timer run that waited
+            # for the checker and the run the checker then triggered sorted the
+            # same channels concurrently, one second apart, in two workers.
+            # When the trigger will cover the day, the timer stands aside. The
+            # slot is already claimed, so nothing re-runs; the scheduled-run
+            # timestamp is not written, because no run happened here.
+            if (self._should_run_after_iptv_checker_scan(settings)
+                    and self._iptv_checker_is_running(logger)):
+                logger.info("[Stream-Mapparr] IPTV Checker is running and 'Run After IPTV Checker Scan' "
+                            "is on, so this scheduled run stands aside; the scan will trigger the steps when it finishes")
+                return {"status": "skipped",
+                        "message": "Left to the IPTV Checker trigger, because a scan is in progress"}
             if not self._wait_for_iptv_checker_completion(settings, logger):
                 logger.warning("[Stream-Mapparr] IPTV Checker wait timed out, proceeding anyway")
         else:
@@ -8142,6 +8154,19 @@ class Plugin:
 
         logger.info("[Stream-Mapparr] Scheduled run completed successfully")
         return {"status": "success"}
+
+    def _iptv_checker_is_running(self, logger):
+        """True only when the IPTV Checker progress file says a check is running.
+
+        Fails open to False: a missing, unreadable or unparseable file means the
+        timer run proceeds as it always did, so a checker that is not installed
+        can never silence the schedule.
+        """
+        try:
+            with open(PluginConfig.IPTV_CHECKER_PROGRESS_FILE, 'r') as fh:
+                return json.load(fh).get('status') == 'running'
+        except (OSError, ValueError, AttributeError):
+            return False
 
     def _should_run_after_iptv_checker_scan(self, settings):
         """Pure gate for the IPTV Checker trigger: the setting alone, no ORM."""
