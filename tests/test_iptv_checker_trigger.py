@@ -206,3 +206,82 @@ def test_a_triggered_run_names_its_trigger_in_the_header(plugin_module):
 def test_a_timer_run_does_not_mention_a_trigger(plugin_module):
     line = _mode_line(plugin_module, is_scheduled=True)
     assert "Scheduled" in line and "after" not in line
+
+
+# --------------------------------------------------------------------------- #
+# The timer run stands aside when the trigger will cover the day (2026-09-14)
+# --------------------------------------------------------------------------- #
+def _wire_running(monkeypatch, p, running):
+    monkeypatch.setattr(p, "_iptv_checker_is_running", lambda logger: running)
+
+
+def test_the_timer_skips_when_the_trigger_is_on_and_the_checker_is_running(plugin_module, monkeypatch):
+    """Measured 2026-09-14: the waiting timer run and the triggered run sorted
+    the same channels concurrently, one second apart, in two workers."""
+    p = _plugin(plugin_module)
+    calls, stamps = _wire_sequence(monkeypatch, p)
+    _wire_running(monkeypatch, p, True)
+    settings = {"run_after_iptv_checker_scan": True, "scheduled_sort_streams": True,
+                "scheduled_match_streams": False}
+    result = p._run_scheduled_sequence(settings, log)
+    assert result["status"] == "skipped"
+    assert calls == []
+    assert stamps == []
+
+
+def test_the_timer_still_waits_when_the_trigger_is_off(plugin_module, monkeypatch):
+    p = _plugin(plugin_module)
+    calls, _ = _wire_sequence(monkeypatch, p)
+    _wire_running(monkeypatch, p, True)
+    settings = {"run_after_iptv_checker_scan": False, "scheduled_sort_streams": True,
+                "scheduled_match_streams": False}
+    p._run_scheduled_sequence(settings, log)
+    assert calls == ["wait", "load", ("sort", True, None)]
+
+
+def test_the_timer_runs_normally_when_the_checker_is_idle(plugin_module, monkeypatch):
+    p = _plugin(plugin_module)
+    calls, _ = _wire_sequence(monkeypatch, p)
+    _wire_running(monkeypatch, p, False)
+    settings = {"run_after_iptv_checker_scan": True, "scheduled_sort_streams": True,
+                "scheduled_match_streams": False}
+    p._run_scheduled_sequence(settings, log)
+    assert calls == ["wait", "load", ("sort", True, None)]
+
+
+def test_the_triggered_path_never_consults_the_running_check(plugin_module, monkeypatch):
+    p = _plugin(plugin_module)
+    calls, _ = _wire_sequence(monkeypatch, p)
+
+    def boom(logger):
+        raise AssertionError("the triggered path must not ask whether the checker is running")
+    monkeypatch.setattr(p, "_iptv_checker_is_running", boom)
+    settings = {"run_after_iptv_checker_scan": True, "scheduled_sort_streams": True,
+                "scheduled_match_streams": False}
+    p._run_scheduled_sequence(settings, log, trigger=TRIGGER)
+    assert calls == ["load", ("sort", True, TRIGGER)]
+
+
+def _progress(plugin_module, monkeypatch, tmp_path, content):
+    path = tmp_path / "iptv_checker_progress.json"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(plugin_module.PluginConfig, "IPTV_CHECKER_PROGRESS_FILE", str(path))
+
+
+def test_running_check_reads_the_progress_file(plugin_module, monkeypatch, tmp_path):
+    p = _plugin(plugin_module)
+    _progress(plugin_module, monkeypatch, tmp_path, '{"status": "running", "current": 3, "total": 9}')
+    assert p._iptv_checker_is_running(log) is True
+    _progress(plugin_module, monkeypatch, tmp_path, '{"status": "idle"}')
+    assert p._iptv_checker_is_running(log) is False
+
+
+def test_running_check_fails_open_to_not_running(plugin_module, monkeypatch, tmp_path):
+    """A missing or unreadable file must not make the timer stand aside, or a
+    checker that is not installed would silence the schedule forever."""
+    p = _plugin(plugin_module)
+    _progress(plugin_module, monkeypatch, tmp_path, None)
+    assert p._iptv_checker_is_running(log) is False
+    _progress(plugin_module, monkeypatch, tmp_path, "{not json")
+    assert p._iptv_checker_is_running(log) is False
