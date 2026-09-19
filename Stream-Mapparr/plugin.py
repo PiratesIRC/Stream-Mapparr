@@ -595,14 +595,15 @@ def _progress_toast_interval_for(total_items):
 
 # Stream ordering tables for a zoned channel (lower = assigned earlier/primary).
 # bug-068 routing policy, named so the two tables are greppable side by side:
-_WEST_CHANNEL_ZONE_RANK = {'WEST': 0, 'DEFAULT': 1, 'EAST': 2}   # West: own > generic > East (never empty)
+_WEST_CHANNEL_ZONE_RANK = {'WEST': 0, 'DEFAULT': 2, 'EAST': 2}   # West: own > East+generic
 _EAST_CHANNEL_ZONE_RANK = {'EAST': 0, 'DEFAULT': 0, 'WEST': 2}   # Default/East: East+generic > West
 
 
 def _zone_affinity_rank(channel_zone, stream_zone):
     """Stream ordering priority for a zoned channel (lower = assigned earlier).
-    West channel: WEST > generic > EAST (never empty). Default/East channel
-    (the default feed is East-like; generic counts as East): East+generic > West."""
+    An unmarked (generic) feed is the East feed in a US lineup, so it ranks
+    with EAST on both sides (issue 55). West channel: WEST > East+generic.
+    Default/East channel: East+generic > West."""
     table = _WEST_CHANNEL_ZONE_RANK if channel_zone == 'WEST' else _EAST_CHANNEL_ZONE_RANK
     return table.get(stream_zone, 1)
 
@@ -4015,36 +4016,52 @@ class Plugin:
                     covered.add(z)
         return channels
 
-    def _order_streams_for_zone(self, matched_streams, channel_zone, same_country_ids=None):
-        """Stable re-sort of a channel's matched streams by zone affinity — own zone
-        first, generic next, other zone last — preserving the existing quality/
-        throughput order within each tier (bug-068).
+    def _order_streams_for_zone(self, matched_streams, channel_zone, same_country_ids=None,
+                                keep_all_if_empty=True):
+        """Stable re-sort of a channel's matched streams by zone affinity, own zone
+        first, preserving the existing quality/throughput order within each tier
+        (bug-068). Streams of the other zone are dropped, see below.
 
         bug-158: when the country filter engaged, the country tier is the OUTER key
         and zone affinity the inner one. Without this a DEFAULT-zone channel (which
         since bug-132 is most of the lineup) ranks an unmarked generic stream at 0
         and a proven same-country WEST feed at 2, handing order 0 to the unproven one.
+
+        keep_all_if_empty: when dropping leaves nothing, True returns every
+        matched stream (with a warning) and False returns an empty list, so a
+        caller that can leave the channel's existing streams alone decides
+        for itself (issue 55).
         """
         if not self.fuzzy_matcher or not matched_streams:
             return matched_streams
 
-        # Drop the OPPOSITE zone outright rather than ranking it last. A plain
+        # Drop the other zone outright rather than ranking it last. A plain
         # named channel is its East or national feed, and a West feed on it is
         # three hours behind: if every East feed fails, Dispatcharr walks down
         # the list and plays a different programme rather than showing a glitch.
-        # An unmarked feed is kept for either zone, so neither side is left with
-        # nothing when only generic feeds exist.
-        opposite = 'EAST' if channel_zone == 'WEST' else 'WEST'
-        kept = [s for s in matched_streams
-                if self.fuzzy_matcher.extract_zone(s.get('name', '')) != opposite]
+        # An UNMARKED feed is the East feed in a US lineup (extract_zone says so,
+        # and the channel side already routes an unmarked channel as East), so a
+        # West channel keeps only West streams. Issue 55: "INVESTIGATION CHANNEL"
+        # was dropped from a West channel when written "(EAST)" and kept when
+        # written without the marker, although it is the same feed.
+        if channel_zone == 'WEST':
+            kept = [s for s in matched_streams
+                    if self.fuzzy_matcher.extract_zone(s.get('name', '')) == 'WEST']
+        else:
+            kept = [s for s in matched_streams
+                    if self.fuzzy_matcher.extract_zone(s.get('name', '')) != 'WEST']
         if not kept:
-            # Match and Assign REPLACES a channel's whole stream list, so
-            # dropping everything takes the channel off the air. Keeping the
+            if not keep_all_if_empty:
+                return []
+            # A caller that REPLACES a channel's whole stream list (Sort, and
+            # Match and Assign for a channel holding no streams) would take the
+            # channel off the air by applying an empty list. Keeping the
             # wrong-zone feed is the lesser harm here, and it is said out loud
             # rather than done quietly.
             LOGGER.warning(
-                f"[Stream-Mapparr] Every matched stream for a {channel_zone} channel is "
-                f"{opposite} zone; keeping them rather than leaving the channel with none")
+                f"[Stream-Mapparr] No matched stream is marked for this {channel_zone} "
+                f"channel's zone; keeping the other-zone streams rather than leaving "
+                f"the channel with none")
             kept = list(matched_streams)
 
         ids = same_country_ids or set()
@@ -4056,7 +4073,8 @@ class Plugin:
             ),
         )
 
-    def _streams_for_channel(self, streams, channel_id, zone_routed, same_country_ids=None):
+    def _streams_for_channel(self, streams, channel_id, zone_routed, same_country_ids=None,
+                             keep_all_if_empty=True):
         """A single channel's stream list, country-partitioned and zone-reordered
         as applicable. Returns the input list unchanged when neither applies.
         Shared by Match & Assign, Sort, and Preview so all three agree on the
@@ -4076,13 +4094,42 @@ class Plugin:
         Preview's zone-routed and non-zone-routed channels alike.
         """
         if channel_id in zone_routed:
-            return self._order_streams_for_zone(streams, zone_routed[channel_id], same_country_ids)
+            return self._order_streams_for_zone(streams, zone_routed[channel_id], same_country_ids,
+                                                keep_all_if_empty=keep_all_if_empty)
         if same_country_ids:
             return (
                 [s for s in streams if id(s) in same_country_ids]
                 + [s for s in streams if id(s) not in same_country_ids]
             )
         return streams
+
+    @staticmethod
+    def _channel_has_streams(channel_id):
+        """Does the channel hold at least one stream row right now?"""
+        return ChannelStream.objects.filter(channel_id=channel_id).exists()
+
+    def _streams_to_assign(self, matched_streams, channel_id, zone_routed, same_country_ids=None):
+        """The streams Match and Assign (and Preview) give one channel, as
+        (streams, keep_existing).
+
+        Issue 55: when zone filtering leaves a channel NO stream of its own zone
+        (a West channel whose provider carries only the unmarked East feed), the
+        wrong-zone streams are assigned ONLY to a channel holding no streams at
+        all, where the choice is a wrong-zone feed or nothing. A channel that
+        already holds streams is left untouched, in both Overwrite modes:
+        appending would add the wrong feed, and replacing with an empty list
+        would take the channel off the air (the bug-063 rule, Overwrite only
+        replaces when there is something to replace with). keep_existing True
+        means "write nothing for this channel".
+        """
+        streams = self._streams_for_channel(matched_streams, channel_id, zone_routed,
+                                            same_country_ids, keep_all_if_empty=False)
+        if streams or not matched_streams:
+            return streams, False
+        if self._channel_has_streams(channel_id):
+            return [], True
+        return self._streams_for_channel(matched_streams, channel_id, zone_routed,
+                                         same_country_ids), False
 
     def _same_country_ids_for(self, channel, streams, channels_data, logger,
                               restrict_matching_to_country,
@@ -7864,12 +7911,27 @@ class Plugin:
 
                 for channel in channels_to_update:
                     match_count = len(matched_streams)
-                    streams_for_channel = self._streams_for_channel(
+                    streams_for_channel, keep_existing = self._streams_to_assign(
                         matched_streams, channel['id'], zone_routed,
                         self._same_country_ids_for(channel, matched_streams, channels_data,
                                                    logger, restrict_matching_to_country,
                                                    stream_country_memo=stream_country_memo,
                                                    channel_info_cache=channel_info_cache))
+                    if keep_existing:
+                        # Issue 55: Match and Assign leaves this channel alone,
+                        # so the preview says so instead of listing streams.
+                        all_matches.append({
+                            "channel_id": channel['id'],
+                            "channel_name": channel['name'],
+                            "threshold": current_threshold,
+                            "matched_streams": 0,
+                            "stream_names": [f"(no matched stream is marked for the "
+                                             f"{zone_routed.get(channel['id'])} zone; "
+                                             f"existing streams kept)"],
+                            "will_update": False,
+                            "is_current": True
+                        })
+                        continue
 
                     # Get detailed threshold analysis
                     threshold_matches = self._get_matches_at_thresholds(
@@ -8368,12 +8430,21 @@ class Plugin:
                     # bug-068: zone-route this channel's streams (West feeds ->
                     # "STARZ Encore (W)"); non-routed channels keep quality order.
                     # bug-158: country tier outranks zone affinity within that reorder.
-                    streams_for_channel = self._streams_for_channel(
+                    streams_for_channel, keep_existing = self._streams_to_assign(
                         matched_streams, channel_id, zone_routed,
                         self._same_country_ids_for(channel, matched_streams, channels_data,
                                                    logger, restrict_matching_to_country,
                                                    stream_country_memo=stream_country_memo,
                                                    channel_info_cache=channel_info_cache))
+                    if keep_existing:
+                        # Issue 55: no matched stream belongs to this channel's
+                        # zone and the channel already holds streams, so nothing
+                        # is added and nothing is removed.
+                        logger.info(
+                            f"[Stream-Mapparr] No matched stream is marked for the "
+                            f"{zone_routed.get(channel_id)} zone of '{channel['name']}' "
+                            f"(ID: {channel_id}); leaving its existing streams untouched.")
+                        continue
 
                     try:
                         if matched_streams:
