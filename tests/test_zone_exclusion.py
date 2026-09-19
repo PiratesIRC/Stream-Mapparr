@@ -83,26 +83,25 @@ def test_an_east_channel_drops_west_streams(plugin_module):
 # A West channel is treated symmetrically
 # --------------------------------------------------------------------------- #
 
-def test_a_west_channel_drops_east_streams_but_keeps_unmarked(plugin_module):
+def test_a_west_channel_drops_east_and_unmarked_streams(plugin_module):
     """An East feed on a West channel is wrong in the same way, three hours the
-    other direction. Unmarked feeds are kept for both, so neither is left with
-    nothing when only generic feeds exist."""
+    other direction. Issue 55: an unmarked feed IS the East feed, so a West
+    channel keeps West streams only."""
     p = _plugin(plugin_module)
     streams = [_s("STARZ WEST HD"), _s("US: STARZ HD"), _s("US: STARZ EAST HD")]
     out = [s["name"] for s in p._order_streams_for_zone(streams, "WEST")]
-    assert "US: STARZ EAST HD" not in out
-    assert out == ["STARZ WEST HD", "US: STARZ HD"]
+    assert out == ["STARZ WEST HD"]
 
 
 # --------------------------------------------------------------------------- #
 # Order within what survives is unchanged
 # --------------------------------------------------------------------------- #
 
-def test_own_zone_still_ranks_above_unmarked(plugin_module):
+def test_own_zone_and_unmarked_keep_their_order_on_an_east_channel(plugin_module):
     p = _plugin(plugin_module)
-    streams = [_s("US: STARZ HD"), _s("STARZ WEST HD")]
-    assert [s["name"] for s in p._order_streams_for_zone(streams, "WEST")] == [
-        "STARZ WEST HD", "US: STARZ HD"]
+    streams = [_s("US: HBO HD"), _s("HBO EAST HD")]
+    assert [s["name"] for s in p._order_streams_for_zone(streams, "EAST")] == [
+        "US: HBO HD", "HBO EAST HD"]
 
 
 def test_the_country_partition_still_outranks_zone(plugin_module):

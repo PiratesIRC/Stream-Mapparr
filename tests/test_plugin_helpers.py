@@ -246,7 +246,8 @@ def test_rearm_with_changed_schedule_restarts_thread(plugin_module):
 # --------------------------------------------------------------------------- #
 def test_zone_affinity_rank_west_channel_prefers_west(plugin_module):
     f = plugin_module._zone_affinity_rank
-    assert f('WEST', 'WEST') < f('WEST', 'DEFAULT') < f('WEST', 'EAST')
+    # Issue 55: an unmarked feed is the East feed, so it ranks with EAST.
+    assert f('WEST', 'WEST') < f('WEST', 'DEFAULT') == f('WEST', 'EAST')
 
 
 def test_zone_affinity_rank_default_channel_is_east_like(plugin_module):
@@ -284,9 +285,9 @@ def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matche
     ]
     ordered = p._order_streams_for_zone(streams, 'WEST')
     assert ordered[0]['id'] == 12    # WEST promoted to primary
-    # 2026-08-02: the opposite zone is now DROPPED, not demoted, so the EAST feed
-    # is gone entirely and the unmarked one is the only fallback left.
-    assert [s['id'] for s in ordered] == [12, 11]
+    # 2026-08-02: the opposite zone is DROPPED, not demoted. Issue 55: the
+    # unmarked feed is the East feed, so it is dropped from a West channel too.
+    assert [s['id'] for s in ordered] == [12]
 
 
 def test_channels_to_update_includes_each_zone_sibling(plugin_module):
