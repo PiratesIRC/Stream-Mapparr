@@ -1,5 +1,24 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2621504 (2026-09-19)
+
+### Fixed
+
+- **A West channel no longer receives the unmarked East feed.** Reported as
+  issue #55. A stream name with no East or West marker is the East feed in a
+  US lineup, and an unmarked channel was already treated as East, but a West
+  channel dropped only streams literally marked East. So the same feed was
+  removed from `Investigation Channel West` when the provider wrote
+  `INVESTIGATION CHANNEL (EAST)` and kept when it wrote `INVESTIGATION
+  CHANNEL`. A West channel now keeps West streams only, in Match and Assign,
+  Preview and Sort Alternate Streams alike. Expect the next Sort to remove
+  those unmarked streams from West channels that also carry a West feed.
+- **When no West stream matches, a West channel that already has streams is
+  left as it is.** Before, every matched stream was assigned to it rather than
+  none. That still happens for a channel holding no streams at all, where the
+  choice is the East feed or nothing, and it is logged. Preview marks a
+  channel that will be left alone instead of listing streams for it.
+
 ## 1.26.2571153 (2026-09-14)
 
 ### Changed
