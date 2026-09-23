@@ -1,0 +1,1552 @@
+{
+  "country_code": "DO",
+  "country_name": "Dominican Republic",
+  "version": "2026-07-27",
+  "channels": [
+    {
+      "channel_name": "Teleantillas",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Maimón TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CERTV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemicro",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal del Sol",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena Latina",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CDN Sports Max",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Color Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 10",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telesistema",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleradio América",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecentro",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Market TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Digital 15",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleunión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Entelevisión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Noticias 16",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinevisión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nexxo TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena 21",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CV Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telefuturo",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Santo Domingo TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal 25",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Carivisión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RNN",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CTN",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleuniverso",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Voz de María",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Go HD",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VTV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Supercanal",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Señal de Vida",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sport Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bajo Techo TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CDN",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Acento TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Coral 39",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Señales TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Televida",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Romana TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Megavisión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecanal",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BizTV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mía TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Amé 47",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Vegateve",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVO Romana",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mango TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNI Canal 51",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleimpacto",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Luna TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Radio Visión Educativa",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SuperTV55",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Merla Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telecontacto",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cielo TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemedios",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Magic TV (Bonao)",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "SI TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Voz del Trópico",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GH Television",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Microvisión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ORBIT TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Leidsa",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Yuna Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fuego TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "La Ruta 66 TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Galaxia TeVe",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Xtremo Premium",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Digital Visión",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemacorís",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "GDM Estudio",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comunión TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boreal",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CLC",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "El 75",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Caña TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Flor TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Altice 1,2,3",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Digital809 TV",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Televisión Dominicana",
+      "category": "Nacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Noticias",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox News",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Español",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Internacional",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BBC World Latinoamerica",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News inglés",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Live USA",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Headline News",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "i24 News francés",
+      "category": "Noticias",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Semillitas",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Infantiles",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Kids",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney XD",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Boomerang",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TIIN",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nat Geo Kids",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Baby Tv",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney Junior",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tooncast",
+      "category": "Infantiles",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Entretenimiento",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Claro",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Latin",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony Entertainment Televisión",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "E! Entertainment",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AXN",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Life Latinoamérica",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Investigation Discovery (ID)",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FX",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Az Corazón",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Distrito Comedia",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Universal Channel",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TBS Very Funny",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A&E Mundo",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Studio Universal",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner Channel",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VePlus TV",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Space",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Film & Arts",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TL Novelas",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Glitz",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal de las Estrellas",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemundo Internacional",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Series",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lifetime",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sy-Fy Channel",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RCN Televisión",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TruTV",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Enjoy HD",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sun Channel",
+      "category": "Entretenimiento",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "I.Sat",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DHE",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Peliculas",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "De Película",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TCM",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FXM",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cine Latino",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinemax",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinema Dinamita",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Cinema",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golden Edge",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Europa Europa HD",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mórbido TV HD",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golden",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Multipremier",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CineCanal",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount Channel",
+      "category": "Películas y Series",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zol FM TV",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico Musicales",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telehit",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Ritmo Son",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "C-Music HD",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HTV",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Much Music",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Bandamax",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Tarima TV HD",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Concert Channel",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nu Music",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "K Music",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Hits",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1 Classics",
+      "category": "Música",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Deportes",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Sports",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Central",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 2",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sports Plus",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sports 2",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sports 3",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Televisa Deportes Network (TDN)",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 3",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Turbo",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NBA TV HD",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The Golf Channel",
+      "category": "Deportes",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico Claro",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "H2",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The History Channel",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Animal Planet LA",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "National Geographic Channel",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Más Chic",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "The Gourmet",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Agrotendencia TV",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Home & Health",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nat Geo Wild",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Civilization",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Life",
+      "category": "Cultura",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Enlace Cristiano",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "EWTN",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Aliento Visión",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "3ABN",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cadena del Milagro",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "El Sembrador",
+      "category": "Religión",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Mosaico de Internacionales",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ABC HD",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NBC HD",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CBS HD",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Az Mundo",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVE Internacional",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV5 Monde",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Caracol",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Antena 3",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RAI Italia",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNBC",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WGN",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WPIX",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telefe Internacional",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CCTV-E",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Globovision",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telesur",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nuestra Tele",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DW",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CubaVisión",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "France 24",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Arirang",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CB 24",
+      "category": "Internacionales",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Caribbean TV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "HOLA TV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Pasiones HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Unicable HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telemicro HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CDN Sports Max HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Color Vision HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleradioamérica HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Teleunión",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Entelevisión",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Señal de Vida HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CDN HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Megavisión HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "BizTV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Licey HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Escogido HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CDD Sports Network – Águilas Cibaeñas",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gigantes HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Toros HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Estrellas HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "CNN Live HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Claro HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox LA HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sony HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AXN HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Investigation Discovery HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FX HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Universal HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "A&E HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Warner Channel HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VePlus TV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Space HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Film & Arts HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal de las Estrellas HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT Series HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TruTV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Comedy Central HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telehit HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "VH1 HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "MTV Live HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Concert HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Claro Sports HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sports HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 2",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sports 2 HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Sport 3 HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Televisa Deportes Network (TDN) HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN 3 HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "ESPN+ HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golf HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Kids HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Disney HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nickelodeon HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cartoon Network HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nick 2",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nat Geo Kids HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "History HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Animal Planet HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nat Geo LA HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Más Chic HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Gourmet HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DIscovery Channel HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Home & Health HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery World HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Discovery Theater HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Nat Geo Wild HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Fox Life HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Canal Luz HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Az Mundo HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "NHK HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TNT HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "De Pelicula HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "AMC HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "FilmZone HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sundance HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Golden HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Cinecanal HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Paramount HD",
+      "category": "HD",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "DHE HD",
+      "category": "HD",
+      "type": "Regional"
+    }
+  ]
+}
