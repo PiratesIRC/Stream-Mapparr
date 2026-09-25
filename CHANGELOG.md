@@ -1,5 +1,34 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2681209 (2026-09-25)
+
+### Added
+
+- **A `*` entry in M3U Sources stands for every source you did not name.**
+  Without it, Match and Assign and Preview use only the listed sources, so
+  naming one preferred provider dropped all the others. With it, nothing is
+  dropped: named sources rank in the order written and every other source
+  takes the position of the `*`. `Free Provider, *` puts Free Provider first
+  and every other source after it, including sources added later; `*, Backup`
+  puts Backup last. A list without `*` behaves as before. Sort Alternate
+  Streams reads the list the same way.
+- **Channel aliases for the Dominican Republic and Peru**, contributed by
+  taos15, with new `DO` and `PE` channel databases. The country aliases apply
+  when Channel Database is set to exactly `DO` or `PE`; with All selected no
+  country aliases are used, which is unchanged for every country.
+
+### Fixed
+
+- **Validate Settings now says when the Custom Aliases box cannot be used.**
+  The box must hold one JSON object with a key per channel. A list of
+  separate objects, invalid JSON, or anything else was ignored in full, and
+  only the container log said so. Validate Settings now shows a warning for
+  each of these and names entries it skipped, and the help text shows two
+  channels in one object. These are warnings, not errors: matching still runs
+  with the built-in aliases.
+- **A source named twice in M3U Sources keeps its first position.** Before, a
+  repeat moved it to its last position.
+
 ## 1.26.2621504 (2026-09-19)
 
 ### Fixed
