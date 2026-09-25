@@ -1184,16 +1184,6 @@
       "type": "Regional"
     },
     {
-      "channel_name": "Teleunión",
-      "category": "HD",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "Entelevisión",
-      "category": "HD",
-      "type": "Regional"
-    },
-    {
       "channel_name": "Señal de Vida HD",
       "category": "HD",
       "type": "Regional"
@@ -1365,11 +1355,6 @@
     },
     {
       "channel_name": "ESPN HD",
-      "category": "HD",
-      "type": "Regional"
-    },
-    {
-      "channel_name": "ESPN 2",
       "category": "HD",
       "type": "Regional"
     },
