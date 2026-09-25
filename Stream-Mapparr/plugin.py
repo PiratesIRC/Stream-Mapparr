@@ -971,7 +971,7 @@ class Plugin:
                 "type": "string",
                 "default": PluginConfig.DEFAULT_SELECTED_M3US,
                 "placeholder": "IPTV Provider 1, Local M3U, Sports",
-                "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality.",
+                "help_text": "Specific M3U sources to use when matching, or leave empty for all M3U sources. Multiple M3U sources can be specified separated by commas. Order matters: streams from earlier M3U sources are prioritized over later ones when sorting by quality. Without a * entry, Match and Assign uses only the sources listed. Add * to stand for every other source, so nothing is left out: \"Free Provider, *\" puts Free Provider first and every other source after it, including sources added later.",
             },
             {
                 "id": "_section_name_preprocessing",
@@ -2993,6 +2993,81 @@ class Plugin:
         if isinstance(value, str):
             value = value.lower() in ('true', 'yes', '1')
         return bool(value)
+
+    # An M3U Sources entry meaning "every source not named in this list".
+    M3U_WILDCARD = "*"
+    # Priority for a stream whose source is neither named nor covered by a
+    # wildcard. Sort keeps such streams and ranks them last.
+    M3U_UNLISTED_PRIORITY = 999
+
+    @classmethod
+    def _resolve_m3u_priorities(cls, selected_m3us_str, m3u_name_to_id):
+        """Resolve the M3U Sources list into priorities. The one reader of it.
+
+        Returns a dict:
+          names          entries that took a position, in order, the wildcard
+                         included and unknown names left out
+          priority_map   {account id: priority} for each named source, 0 first
+          other_priority the priority of every source NOT named, which is the
+                         position of the wildcard, or None when there is none
+          missing        names that match no M3U account
+
+        Requested 2026-09-24: a user wanted one free provider first and any
+        other provider after it without naming them all. Without a wildcard the
+        list filters Match and Assign and Preview, so naming only the free
+        provider dropped every other one. A wildcard keeps every source and
+        places the unnamed ones where it stands: "Free, *" ranks Free first,
+        "*, Backup" ranks Backup last. A repeated entry counts once, at its
+        first position.
+        """
+        names, priority_map, missing = [], {}, []
+        other_priority = None
+        for token in str(selected_m3us_str or "").split(","):
+            token = token.strip()
+            if not token:
+                continue
+            if token == cls.M3U_WILDCARD:
+                if other_priority is None:
+                    other_priority = len(names)
+                    names.append(token)
+                continue
+            if token not in m3u_name_to_id:
+                missing.append(token)
+                continue
+            account_id = m3u_name_to_id[token]
+            if account_id in priority_map:
+                continue
+            priority_map[account_id] = len(names)
+            names.append(token)
+        return {"names": names, "priority_map": priority_map,
+                "other_priority": other_priority, "missing": missing}
+
+    @classmethod
+    def _m3u_priority_for(cls, account_id, priorities):
+        """Priority of one source. Unnamed sources take the wildcard position,
+        or M3U_UNLISTED_PRIORITY when the list has no wildcard."""
+        if account_id in priorities["priority_map"]:
+            return priorities["priority_map"][account_id]
+        if priorities["other_priority"] is not None:
+            return priorities["other_priority"]
+        return cls.M3U_UNLISTED_PRIORITY
+
+    @classmethod
+    def _apply_m3u_priorities(cls, streams, priorities):
+        """Stamp _m3u_priority on each stream the list admits and return those.
+
+        Without a wildcard only named sources are admitted, which is the
+        long-standing filter. With one, every stream is admitted.
+        """
+        admitted = []
+        for stream in streams:
+            account_id = stream.get("m3u_account")
+            if (priorities["other_priority"] is None
+                    and account_id not in priorities["priority_map"]):
+                continue
+            stream["_m3u_priority"] = cls._m3u_priority_for(account_id, priorities)
+            admitted.append(stream)
+        return admitted
 
     def _resolve_allow_same_name_streams(self, settings):
         """Resolve the opt-in 'allow_same_name_streams' toggle (bug-140)."""
@@ -7264,27 +7339,20 @@ class Plugin:
 
             # Filter streams by selected M3U sources and add priority metadata
             if selected_m3us_str:
-                selected_m3us = [m.strip() for m in selected_m3us_str.split(',') if m.strip()]
-                valid_m3u_ids = [m3u_name_to_id[name] for name in selected_m3us if name in m3u_name_to_id]
-                if not valid_m3u_ids:
+                m3u_priorities = self._resolve_m3u_priorities(selected_m3us_str, m3u_name_to_id)
+                selected_m3us = m3u_priorities["names"]
+                if m3u_priorities["missing"]:
+                    logger.warning(f"[Stream-Mapparr] M3U sources not found, ignored: {', '.join(m3u_priorities['missing'])}")
+                if not m3u_priorities["priority_map"] and m3u_priorities["other_priority"] is None:
                     logger.warning("[Stream-Mapparr] None of the specified M3U sources were found. Using all streams.")
                     selected_m3us = []
                     # Add default priority to all streams (no prioritization)
                     for stream in all_streams_data:
-                        stream['_m3u_priority'] = 999  # Low priority for unspecified M3Us
+                        stream['_m3u_priority'] = self.M3U_UNLISTED_PRIORITY
                 else:
-                    # Create M3U ID to priority mapping (0 = highest priority)
-                    m3u_priority_map = {m3u_id: idx for idx, m3u_id in enumerate(valid_m3u_ids)}
-                    
-                    # Filter streams by m3u_account (which is the M3U account ID) and add priority
-                    filtered_streams = []
-                    for s in all_streams_data:
-                        m3u_id = s.get('m3u_account')
-                        if m3u_id in valid_m3u_ids:
-                            # Add priority metadata based on order in selected_m3us list
-                            s['_m3u_priority'] = m3u_priority_map[m3u_id]
-                            filtered_streams.append(s)
-                    
+                    # Without a wildcard this filters to the named sources; with
+                    # one it keeps every source and only sets the priority.
+                    filtered_streams = self._apply_m3u_priorities(all_streams_data, m3u_priorities)
                     logger.info(f"[Stream-Mapparr] Filtered streams from {len(all_streams_data)} to {len(filtered_streams)} based on M3U sources: {', '.join(selected_m3us)}")
                     logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(selected_m3us)])}")
                     all_streams_data = filtered_streams
@@ -7578,7 +7646,7 @@ class Plugin:
             f"# Profile Name(s): {profile_name}",
             f"# Selected Channel Groups: {', '.join(selected_groups) if selected_groups else '(all groups)'}",
             f"# Selected Stream Groups: {', '.join(selected_stream_groups) if selected_stream_groups else '(all stream groups)'}",
-            f"# Selected M3U Sources: {', '.join(selected_m3us) if selected_m3us else '(all M3U sources)'}",
+            f"# Selected M3U Sources: {', '.join('* (every other source)' if m == self.M3U_WILDCARD else m for m in selected_m3us) if selected_m3us else '(all M3U sources)'}",
             "#",
             "# === Matching Settings ===",
             f"# Name Match Threshold: {current_threshold} out of 100, set by Match Sensitivity (higher is stricter; a stream must score at least this to count as a match)",
@@ -9219,21 +9287,18 @@ class Plugin:
             zone_routed = self._zone_routed_map(channels_in_profile, _ig_tags, _ig_q, _ig_r, _ig_g, _ig_m)
 
             # Build M3U priority map if M3U sources are specified
-            selected_m3us_str = settings.get('selected_m3us', '').strip()
-            m3u_priority_map = {}
+            selected_m3us_str = (settings.get('selected_m3us') or '').strip()
+            # Sort never drops a stream: a source the list does not cover ranks
+            # last (M3U_UNLISTED_PRIORITY), or at the wildcard's position.
+            m3u_priorities = self._resolve_m3u_priorities('', {})
             if selected_m3us_str:
                 # Fetch M3U sources via ORM
                 try:
                     all_m3us = self._get_all_m3u_accounts(logger)
                     m3u_name_to_id = {m['name']: m['id'] for m in all_m3us if 'name' in m and 'id' in m}
-
-                    selected_m3us = [m.strip() for m in selected_m3us_str.split(',') if m.strip()]
-                    valid_m3u_ids = [m3u_name_to_id[name] for name in selected_m3us if name in m3u_name_to_id]
-
-                    if valid_m3u_ids:
-                        # Create M3U ID to priority mapping (0 = highest priority)
-                        m3u_priority_map = {m3u_id: idx for idx, m3u_id in enumerate(valid_m3u_ids)}
-                        logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(selected_m3us)])}")
+                    m3u_priorities = self._resolve_m3u_priorities(selected_m3us_str, m3u_name_to_id)
+                    if m3u_priorities["names"]:
+                        logger.info(f"[Stream-Mapparr] M3U priority order: {', '.join([f'{name} (priority {idx})' for idx, name in enumerate(m3u_priorities['names'])])}")
                 except Exception as e:
                     logger.warning(f"[Stream-Mapparr] Could not fetch M3U sources for prioritization: {e}")
             
@@ -9253,11 +9318,7 @@ class Plugin:
                             
                             # Get M3U priority for this stream
                             m3u_account_id = stream.m3u_account_id
-                            if m3u_account_id and m3u_account_id in m3u_priority_map:
-                                m3u_priority = m3u_priority_map[m3u_account_id]
-                            else:
-                                # Stream not from a prioritized M3U source
-                                m3u_priority = 999
+                            m3u_priority = self._m3u_priority_for(m3u_account_id, m3u_priorities)
 
                             # bug-158 review I2: without this, _stream_country_code
                             # here sees only the raw name (no group signal), which
