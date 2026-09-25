@@ -984,8 +984,8 @@ class Plugin:
                 "label": "🔤 Custom Aliases (JSON)",
                 "type": "text",
                 "default": PluginConfig.DEFAULT_CUSTOM_ALIASES,
-                "placeholder": '{"My Channel": ["Provider Stream Name", "Alt Name"]}',
-                "help_text": "JSON object mapping a channel name to extra stream-name aliases (a bare string is accepted as a single alias). Streams whose name exactly matches an alias are force-matched to that channel. Leave blank to use built-in aliases only.",
+                "placeholder": '{"Channel A": ["Stream Name", "Alt Name"], "Channel B": ["Stream Name"]}',
+                "help_text": 'One JSON object mapping each channel name to extra stream-name aliases (a bare string is accepted as a single alias). Put every channel in the same object, for example {"Rai 1": ["RAI 1 Full HD"], "Rai 2": ["Rai due"]}, not a list of separate objects. Streams whose name exactly matches an alias are force-matched to that channel. Validate Settings reports entries that cannot be used. Leave blank to use built-in aliases only.',
             },
             {
                 "id": "stream_name_regex_rules",
@@ -3723,37 +3723,84 @@ class Plugin:
 
         custom_str = (settings.get("custom_aliases") or "").strip()
         if custom_str:
-            try:
-                custom = json.loads(custom_str)
-            except (json.JSONDecodeError, ValueError) as e:
-                LOGGER.warning(f"[Stream-Mapparr] Failed to parse custom_aliases JSON: {e}")
-                custom = None
-            if isinstance(custom, dict):
-                merged = 0
-                for k, v in custom.items():
-                    if isinstance(v, str):
-                        aliases = [v]
-                    elif isinstance(v, list):
-                        aliases = v
-                    else:
-                        LOGGER.warning(
-                            f"[Stream-Mapparr] custom_aliases: ignoring '{k}' - "
-                            f"value must be a string or list")
-                        continue
-                    clean = [a.strip() for a in aliases if isinstance(a, str) and a.strip()]
-                    if not clean:
-                        continue
-                    if k in alias_map:
-                        alias_map[k] = list(dict.fromkeys(alias_map[k] + clean))
-                    else:
-                        alias_map[k] = clean
-                    merged += 1
-                LOGGER.info(f"[Stream-Mapparr] Merged {merged} custom alias entries")
-            elif custom is not None:
-                LOGGER.warning(
-                    "[Stream-Mapparr] custom_aliases must be a JSON object - ignored")
+            usable, problem, skipped = self._parse_custom_aliases(custom_str)
+            if problem:
+                LOGGER.warning(f"[Stream-Mapparr] custom_aliases ignored: {problem}")
+            for k, reason in skipped:
+                LOGGER.warning(f"[Stream-Mapparr] custom_aliases: ignoring '{k}' - {reason}")
+            for k, clean in usable.items():
+                if k in alias_map:
+                    alias_map[k] = list(dict.fromkeys(alias_map[k] + clean))
+                else:
+                    alias_map[k] = clean
+            if not problem:
+                LOGGER.info(f"[Stream-Mapparr] Merged {len(usable)} custom alias entries")
 
         return alias_map
+
+    @staticmethod
+    def _parse_custom_aliases(custom_str):
+        """Parse the Custom Aliases box. Returns (usable, problem, skipped).
+
+        usable maps each channel name to its cleaned alias list. problem is None,
+        or one sentence saying why NOTHING in the box can be used. skipped lists
+        (channel name, reason) for entries dropped from an otherwise valid object.
+
+        _build_alias_map and Validate Settings both read the box through this one
+        function, so the count Validate Settings reports is the count the matcher
+        merges. A user on 2026-09-25 wrote a list of one-key objects instead of
+        one object; the matcher dropped all of it and only the container log said
+        so.
+        """
+        try:
+            custom = json.loads(custom_str)
+        except (json.JSONDecodeError, ValueError) as e:
+            detail = (f"{e.msg} at line {e.lineno} column {e.colno}"
+                      if isinstance(e, json.JSONDecodeError) else str(e))
+            return {}, f"not valid JSON ({detail})", []
+        if isinstance(custom, list):
+            return {}, ("the box holds a list. Put every channel in one object, "
+                        'like {"Channel A": ["alias"], "Channel B": ["alias"]}'), []
+        if not isinstance(custom, dict):
+            return {}, "the box must hold a JSON object", []
+
+        usable, skipped = {}, []
+        for k, v in custom.items():
+            if isinstance(v, str):
+                aliases = [v]
+            elif isinstance(v, list):
+                aliases = v
+            else:
+                skipped.append((k, "value must be a string or list"))
+                continue
+            clean = [a.strip() for a in aliases if isinstance(a, str) and a.strip()]
+            if not clean:
+                skipped.append((k, "no alias listed"))
+                continue
+            usable[k] = clean
+        return usable, None, skipped
+
+    def _validate_custom_aliases_setting(self, settings):
+        """Check-list lines for _validate_plugin_settings. Empty setting -> no lines.
+
+        Every problem is a warning, never an error: the matcher carries on with
+        the built-in aliases when the box is unusable, and an error here would
+        make Match and Assign refuse to load channels over a formatting mistake.
+        """
+        raw = ((settings or {}).get("custom_aliases") or "").strip()
+        if not raw:
+            return []
+        usable, problem, skipped = self._parse_custom_aliases(raw)
+        if problem:
+            return [f"⚠ Custom Aliases: none are used, {problem}"]
+        if not skipped:
+            return [f"✅ Custom Aliases ({len(usable)} channel(s))"]
+        shown = [f"'{k}' ({reason})" for k, reason in skipped[:3]]
+        more = len(skipped) - len(shown)
+        tail = f", and {more} more" if more else ""
+        total = len(usable) + len(skipped)
+        return [f"⚠ Custom Aliases: {len(usable)} of {total} used, ignored "
+                f"{', '.join(shown)}{tail}"]
 
     def _collect_alias_streams(self, channel_name, working_streams, ignore_tags,
                                ignore_quality, ignore_regional, ignore_geographic, ignore_misc):
@@ -7039,6 +7086,10 @@ class Plugin:
             validation_results.extend(rules_lines)
             if any(line.startswith("❌") for line in rules_lines):
                 has_errors = True
+
+            # 7. Custom aliases (if configured). Warnings only, never has_errors.
+            logger.debug("[Stream-Mapparr] Validating custom aliases...")
+            validation_results.extend(self._validate_custom_aliases_setting(settings))
 
             return has_errors, validation_results
 
