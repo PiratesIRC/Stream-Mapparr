@@ -185,7 +185,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Channel Groups Mode** | select | Only the groups listed | Whether the list names the groups to process or the groups to skip. Choosing to skip means a group you create later is processed automatically. Empty list means all groups either way |
 | **Stream Groups** | string | (all) | Stream groups to draw candidate streams from, comma-separated |
 | **Stream Groups Mode** | select | Only the groups listed | The same choice for stream groups, resolved separately from the channel-group list |
-| **M3U Sources** | string | (all) | M3U sources to use, comma-separated. Order sets priority |
+| **M3U Sources** | string | (all) | M3U sources to use, comma-separated. Order sets priority. Only listed sources are used unless the list contains `*`, which stands for every other source: `Free Provider, *` puts Free Provider first and keeps all the rest |
 | **Custom Aliases** | string | (none) | JSON object of extra `"channel": ["alias", ...]` mappings. Channel names and aliases are both matched case-insensitively, and whitespace around a channel name is ignored |
 | **Stream Name Regex Rules** | string | (none) | JSON list of `[find, replace]` pairs applied to stream names before matching. See [Regex pre-processing](docs/regex-preprocessing.md) |
 | **Prioritize Quality** | boolean | False | Sort by quality first, then by M3U source priority |
