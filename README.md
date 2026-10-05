@@ -97,7 +97,7 @@ database. This plugin modifies channel and stream assignments.
   `ABC - TX Dallas (WFAA)` are matched by FCC callsign, using a bundled station
   table of around 1,900 stations
 - **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX,
-  NL, NO
+  NL, NO, PL
 - **Country-restricted matching** (opt-in): only match streams whose detected
   country matches the channel's
 - **Performance**: a normalization cache, C-accelerated Levenshtein through
