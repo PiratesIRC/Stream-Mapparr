@@ -898,7 +898,7 @@ class Plugin:
                 "label": "⚡ Auto-match after M3U refresh",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH,
-                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh completes. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
+                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh that completes successfully. A refresh that ends in an error does not trigger it. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
             },
             {
                 "id": "match_sensitivity",
@@ -1624,7 +1624,7 @@ class Plugin:
         {
             "id": "on_m3u_refresh",
             "label": "Auto-match after M3U refresh",
-            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+            "description": "Runs Match & Assign automatically after each successful M3U refresh when 'Auto-match after M3U refresh' is enabled in settings. A refresh that ends in an error does not trigger it.",
             "events": ["m3u_refresh"],
         },
         {

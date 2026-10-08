@@ -13,7 +13,7 @@
     {
       "id": "on_m3u_refresh",
       "label": "Auto-match after M3U refresh",
-      "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+      "description": "Runs Match & Assign automatically after each successful M3U refresh when 'Auto-match after M3U refresh' is enabled in settings. A refresh that ends in an error does not trigger it.",
       "events": [
         "m3u_refresh"
       ]
