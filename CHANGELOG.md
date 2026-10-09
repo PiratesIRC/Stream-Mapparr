@@ -1,5 +1,24 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2821334 (2026-10-09)
+
+### Fixed
+
+- **Filter Dead Streams now removes dead streams (#65).** It had never
+  removed anything: it looked for the picture size in the wrong place, so
+  every stream looked unchecked and was kept. It now reads each stream's
+  recorded stats. A stream counts as dead when IPTV Checker has cleared its
+  stats, when its width or height is 0, or when its resolution reads `0x0`.
+  A stream with no stats at all is kept. A channel whose only matches are
+  dead keeps the streams it already has.
+
+### Changed
+
+- **Auto-match after M3U refresh runs only after a successful refresh.**
+  From Dispatcharr 0.32.0, a refresh that ends in an error does not send the
+  refresh event, so no match runs after it. The setting text and README now
+  say so. Tested on Dispatcharr 0.32.0; nothing else needed changing.
+
 ## 1.26.2681209 (2026-09-25)
 
 ### Added
