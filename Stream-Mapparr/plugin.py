@@ -519,6 +519,7 @@ class PluginConfig:
     DEFAULT_DEMOTE_CONTENT_STARVED = True
     DEFAULT_CONTENT_BITRATE_FLOOR_KBPS = 300   # Below this while claiming >= 720p
     CONTENT_STARVED_MIN_HEIGHT = 720           # Floor only applies at 720p and above
+    DEAD_FILTER_QUERY_CHUNK = 10000            # ids per stream_stats query; PostgreSQL caps bound parameters at 65,535
     # Marker shown in the CSV export and the emailed report, so a demotion is
     # visible rather than silent. Plain ASCII on purpose: the CSV is opened in
     # spreadsheets and the report is emailed, and neither is a safe place for a
@@ -898,7 +899,7 @@ class Plugin:
                 "label": "⚡ Auto-match after M3U refresh",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_AUTO_MATCH_ON_M3U_REFRESH,
-                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh completes. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
+                "help_text": "When enabled, automatically run Match & Assign after each M3U refresh that completes successfully. A refresh that ends in an error does not trigger it. Requires a Profile to be selected. Concurrent per-account refreshes are coalesced into a single match.",
             },
             {
                 "id": "match_sensitivity",
@@ -1624,7 +1625,7 @@ class Plugin:
         {
             "id": "on_m3u_refresh",
             "label": "Auto-match after M3U refresh",
-            "description": "Runs Match & Assign automatically after each M3U refresh when 'Auto-match after M3U refresh' is enabled in settings.",
+            "description": "Runs Match & Assign automatically after each successful M3U refresh when 'Auto-match after M3U refresh' is enabled in settings. A refresh that ends in an error does not trigger it.",
             "events": ["m3u_refresh"],
         },
         {
@@ -4963,72 +4964,117 @@ class Plugin:
             pass
         return PluginConfig.DEFAULT_PROBE_USER_AGENT
 
+    @staticmethod
+    def _stream_stats_says_dead(stats):
+        """True only on positive evidence that a stream is dead.
+
+        `stats` is the Dispatcharr Stream.stream_stats JSON value. Evidence of death:
+        - an empty dict: IPTV Checker writes exactly {} for a stream it found dead;
+        - a zero width or height, from width/height when both are usable integers,
+          otherwise from a 'WxH' resolution string.
+        Everything else, including None, non-dict values, audio-only stats and
+        unparseable resolutions, is NOT dead (fail open).
+        """
+        if not isinstance(stats, dict):
+            return False
+        if not stats:
+            return True
+
+        def _as_int(value):
+            if isinstance(value, bool):
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        width = _as_int(stats.get('width'))
+        height = _as_int(stats.get('height'))
+        if width is not None and height is not None:
+            return width == 0 or height == 0
+
+        resolution = stats.get('resolution')
+        if isinstance(resolution, str):
+            parts = resolution.lower().split('x')
+            if len(parts) == 2:
+                res_w = _as_int(parts[0].strip())
+                res_h = _as_int(parts[1].strip())
+                if res_w is not None and res_h is not None:
+                    return res_w == 0 or res_h == 0
+
+        return False
+
     def _filter_working_streams(self, streams, logger):
         """
-        Filter out dead streams (0x0 resolution) based on IPTV Checker metadata.
-        
+        Filter out dead streams based on IPTV Checker metadata in Stream.stream_stats.
+
+        Stats are loaded in chunks of PluginConfig.DEAD_FILTER_QUERY_CHUNK ids, so a
+        large library stays under PostgreSQL's bound-parameter limit. A stream with no
+        stats row, or no evidence either way, is kept. If every stream given is
+        classified dead, the original list is returned unchanged and a warning is
+        logged. A channel whose matches are all dead receives no write at all: both
+        assigning paths skip a channel with no matched streams before deleting
+        anything, so this filter cannot empty a channel.
+
         Args:
             streams: List of stream dictionaries to filter
             logger: Logger instance for output
-            
+
         Returns:
             List of working streams (excluding dead ones)
         """
+        try:
+            ids = [s['id'] for s in streams]
+            chunk = PluginConfig.DEAD_FILTER_QUERY_CHUNK
+            stats_by_id = {}
+            for start in range(0, len(ids), chunk):
+                stats_by_id.update(
+                    Stream.objects.filter(id__in=ids[start:start + chunk])
+                    .values_list('id', 'stream_stats')
+                )
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Error loading stream health metadata: {e}, including all streams")
+            return streams
+
         working_streams = []
         dead_count = 0
         no_metadata_count = 0
-        
+
         for stream in streams:
             stream_id = stream['id']
             stream_name = stream.get('name', 'Unknown')
-            
-            try:
-                # Query Stream model for IPTV Checker metadata
-                stream_obj = Stream.objects.filter(id=stream_id).first()
-                
-                if not stream_obj:
-                    # Stream not in database - include it (benefit of doubt)
-                    working_streams.append(stream)
-                    no_metadata_count += 1
-                    continue
-                
-                # Check if stream has been marked dead by IPTV Checker
-                # IPTV Checker stores width and height as 0 for dead streams
-                width = getattr(stream_obj, 'width', None)
-                height = getattr(stream_obj, 'height', None)
-                
-                # If width or height is None, IPTV Checker hasn't checked this stream yet
-                if width is None or height is None:
-                    # No metadata yet - include it (benefit of doubt)
-                    working_streams.append(stream)
-                    no_metadata_count += 1
-                    continue
-                
-                # Check if stream is dead (0x0 resolution)
-                if width == 0 or height == 0:
-                    # Dead stream - skip it
-                    dead_count += 1
-                    logger.debug(f"[Stream-Mapparr] Filtered dead stream: '{stream_name}' (ID: {stream_id}, resolution: {width}x{height})")
-                    continue
-                
-                # Working stream - include it
+            stats = stats_by_id.get(stream_id)
+
+            if stats is None:
+                # Not in the database, or never checked/played: no evidence, keep it
                 working_streams.append(stream)
-                logger.debug(f"[Stream-Mapparr] Working stream: '{stream_name}' (ID: {stream_id}, resolution: {width}x{height})")
-                
-            except Exception as e:
-                # Error checking stream - include it (benefit of doubt)
-                logger.warning(f"[Stream-Mapparr] Error checking stream {stream_id} health: {e}, including stream")
-                working_streams.append(stream)
-        
+                no_metadata_count += 1
+                continue
+
+            if self._stream_stats_says_dead(stats):
+                dead_count += 1
+                logger.debug(f"[Stream-Mapparr] Filtered dead stream: '{stream_name}' (ID: {stream_id})")
+                continue
+
+            working_streams.append(stream)
+            logger.debug(f"[Stream-Mapparr] Working stream: '{stream_name}' (ID: {stream_id})")
+
+        if streams and not working_streams:
+            logger.warning(
+                f"[Stream-Mapparr] Dead stream filter skipped: all {len(streams)} candidate streams "
+                f"are marked dead, and removing them would leave no streams to match"
+            )
+            return streams
+
         # Log summary
         if dead_count > 0:
-            logger.info(f"[Stream-Mapparr] Filtered out {dead_count} dead streams with 0x0 resolution")
-        
+            logger.info(f"[Stream-Mapparr] Filtered out {dead_count} dead streams")
+
         if no_metadata_count > 0:
             logger.info(f"[Stream-Mapparr] {no_metadata_count} streams have no IPTV Checker metadata (included by default)")
-        
+
         logger.info(f"[Stream-Mapparr] {len(working_streams)} working streams available for matching")
-        
+
         return working_streams
 
     def _wait_for_iptv_checker_completion(self, settings, logger, max_wait_hours=None):
