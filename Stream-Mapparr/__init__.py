@@ -5,5 +5,5 @@ Automatically adds matching streams to channels based on name similarity and qua
 
 from .plugin import Plugin
 
-__version__ = "1.26.2821334"
+__version__ = "1.26.2831654"
 __all__ = ["Plugin"]

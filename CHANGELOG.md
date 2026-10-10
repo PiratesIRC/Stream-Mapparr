@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2831654 (2026-10-10)
+
+### Fixed
+
+- **A Plugin Hub install now reads its saved settings.** The plugin looked up
+  its own settings row under the name `stream-mapparr`, but the Hub installs
+  it as `stream_mapparr`, so on a Hub install the lookup found nothing. The
+  check that takes the schedule from the saved settings when the settings
+  file disagrees therefore never ran, and the scheduler used whatever the
+  file held. The name is now worked out from the folder the plugin is
+  installed in, the same way Dispatcharr names it. On a Hub install the
+  saved schedule now replaces a disagreeing settings file at the next start,
+  which is the behaviour a copied install already had.
+
 ## 1.26.2821334 (2026-10-09)
 
 ### Fixed
