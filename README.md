@@ -307,8 +307,9 @@ counted.
 
 When an action or a scheduled run finishes, the plugin sends this plugin's
 Streams Matched total and a random id for this plugin on this install to the
-plugin author's counter at plugin-stats.dpas.workers.dev. It sends at most once an hour, or ten minutes after the last successful send when
-a run has just assigned streams. A run that finishes inside that gap is not sent
+plugin author's counter at plugin-stats.dpas.workers.dev. It sends at most once
+an hour, or ten minutes after the last successful send when a run has just
+assigned streams. A run that finishes inside that gap is not sent
 later: the total goes out with the first later run that is an hour past the last
 successful send, or with a later run that assigns streams once ten minutes have
 passed.
