@@ -1,7 +1,7 @@
-"""The lifetime tally of streams matched, which the public badge is built from.
+"""The lifetime tally of streams matched, which the public badge was built from.
 
-The README badge is a Shields.io endpoint pointing at a Gist, refreshed from
-outside the container. The number it shows has to come from somewhere, and the
+The README badge was a Shields.io endpoint pointing at a Gist, refreshed from
+outside the container; that gist pipeline was retired 2026-10-10. The number it shows has to come from somewhere, and the
 sibling plugin iptv_checker learned the hard way that it cannot be reconstructed
 after the fact: the files a plugin writes during a run get overwritten by the
 next one. This plugin is slightly better off, because /data/exports is not

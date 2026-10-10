@@ -11,8 +11,6 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN_SOURCE = os.path.join(ROOT, "Stream-Mapparr", "plugin.py")
-BADGE_SCRIPTS = [os.path.join(ROOT, "scripts", "update_streams_matched_badge.py"),
-                 os.path.join(ROOT, "scripts", "update_streams_matched_badge.ps1")]
 
 EM_DASH = chr(0x2014)
 
@@ -48,41 +46,6 @@ def test_no_em_dash_reaches_an_action_button(plugin_module):
                  for key in ("label", "button_label", "description", "confirm")
                  if isinstance(a.get(key), str) and EM_DASH in a[key]]
     assert offenders == [], offenders
-
-
-# --------------------------------------------------------------------------- #
-# Nothing published may name the machine it runs on
-# --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("path", BADGE_SCRIPTS)
-def test_the_badge_scripts_name_no_literal_machine_path(path):
-    """These are committed to a PUBLIC repository.
-
-    The first version of them hard-coded the Python, Docker and GitHub CLI paths,
-    which names the Windows account. The publish audit caught it and was
-    overridden with allow-list entries whose stated reason, that the sibling
-    plugin publishes the same literal paths, was untrue: that plugin builds them
-    from the environment for exactly this reason. The exemptions were removed and
-    the paths are now built from LOCALAPPDATA and ProgramFiles.
-    """
-    text = open(path, encoding="utf-8").read()
-    drive_prefix = "C:" + chr(92)
-    offenders = [line.strip() for line in text.splitlines()
-                 if drive_prefix in line or "C:/Users" in line]
-    assert offenders == [], offenders
-
-
-def test_the_powershell_wrapper_does_not_abort_on_a_line_of_stderr():
-    """Windows PowerShell 5.1 turns a native command's stderr into an error
-    record, and under 'Stop' that record terminates the pipeline. Measured: a
-    process writing one line to stderr and exiting 0 throws. The wrapper then
-    logged that the script had failed before running, which was untrue, threw
-    away its real output, and reported failure to Task Scheduler for a run that
-    had succeeded.
-    """
-    text = open(BADGE_SCRIPTS[1], encoding="utf-8").read()
-    assert "2>&1" in text, "the redirect is what puts stderr in the log; keep it"
-    assert "$ErrorActionPreference = 'Continue'" in text, \
-        "the redirect is only safe with the preference dropped for the invocation"
 
 
 # --------------------------------------------------------------------------- #
