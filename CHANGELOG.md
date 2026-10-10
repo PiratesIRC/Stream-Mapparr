@@ -1,5 +1,20 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2831803 (2026-10-10)
+
+### Added
+
+- **Anonymous usage counts.** A new setting, Share anonymous usage counts, in
+  its own section at the end of the settings and on by default, sends this
+  plugin's Streams Matched total and a random id to the plugin author's counter
+  so the README badges count every install, not only the author's. It sends
+  when an action or a scheduled run finishes, at most once an hour, or ten
+  minutes after the last successful send when a run has just assigned streams.
+  No names, channels, streams, URLs, providers or settings are sent. Untick it
+  to stop sending; this install's figures are deleted from the server the next
+  time an action or scheduled run finishes. Details are in the README under
+  Anonymous usage counts.
+
 ## 1.26.2831654 (2026-10-10)
 
 ### Fixed
