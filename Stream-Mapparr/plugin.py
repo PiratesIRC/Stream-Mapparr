@@ -25,6 +25,7 @@ import threading
 
 # Import FuzzyMatcher from the same directory
 from .fuzzy_matcher import FuzzyMatcher
+from .usage_client import UsageReporter, jsonl_sum, load_plugin_settings, with_usage_field
 from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES as ALIAS_COUNTRY_OVERRIDES
 from . import country as country_detect
 # Import fuzzy_matcher version for CSV header
@@ -847,6 +848,18 @@ class SmartRateLimiter:
         if not self.disabled and self.base_delay > 0:
             time.sleep(self.base_delay)
 
+# Reports the Streams Matched total and a random install id to the plugin-stats Worker, so
+# the README badges count each install that keeps the setting ticked and runs (README,
+# "Anonymous usage counts"). report() never raises; only the network send runs on a
+# background thread.
+USAGE = UsageReporter(
+    plugin="stream-mapparr",
+    counter="streams_matched",
+    label="Streams Matched",
+    total_fn=lambda: jsonl_sum(PluginConfig.MATCH_TALLY_FILE + "*", key="streams"),
+    settings_fn=lambda: load_plugin_settings(PluginConfig.PLUGIN_DB_KEY),
+)
+
 class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
 
@@ -1442,7 +1455,13 @@ class Plugin:
                        if f.get("id") == "profile_name"), len(static_fields))
         static_fields.insert(anchor, database_field)
 
-        return static_fields
+        static_fields.append({
+            "id": "_section_usage",
+            "label": "📊 Anonymous Usage Counts",
+            "type": "info",
+            "description": "The setting below sends this plugin's Streams Matched total and a random id to the plugin author's counter so the public badges can count installs. No names, channels, streams, URLs, providers or settings are sent. Untick it to stop; the README section Anonymous usage counts has the details.",
+        })
+        return with_usage_field(static_fields, USAGE)
 
     actions = [
         {
@@ -1848,6 +1867,13 @@ class Plugin:
                     f"armed: {old or 'none'} is now {new or 'none'}.")
         return merged, parsed
 
+    def _report_usage(self, settings, logger, force=False):
+        """Hand the Streams Matched total to the usage reporter. Never raises."""
+        try:
+            USAGE.report(settings, logger, force=force)
+        except Exception:
+            pass
+
     def _record_streams_matched(self, action_id, channels, streams, dry_run):
         """Append one line to the lifetime tally the public badge is built from.
 
@@ -1885,6 +1911,7 @@ class Plugin:
             }, sort_keys=True)
             with open(PluginConfig.MATCH_TALLY_FILE, "a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
+            self._report_usage(None, LOGGER, force=True)
         except Exception as e:
             LOGGER.debug(f"[Stream-Mapparr] Could not record the streams-matched tally: {e}")
 
@@ -6984,6 +7011,7 @@ class Plugin:
                     finally:
                         if lock_acquired:
                             self._release_operation_lock(logger)
+                        self._report_usage(settings, logger)
 
                 # Background path: long job, return "started" placeholder so
                 # the HTTP request does not time out. The WebSocket update
@@ -7005,6 +7033,7 @@ class Plugin:
                     finally:
                         if lock_acquired:
                             self._release_operation_lock(logger)
+                        self._report_usage(settings, logger)
 
                 threading.Thread(target=background_runner, name=f"stream-mapparr-{action}", daemon=True).start()
 
@@ -7021,7 +7050,10 @@ class Plugin:
             
             elif action in immediate_actions:
                 # Immediate actions run synchronously and return result
-                return immediate_actions[action](settings, logger)
+                try:
+                    return immediate_actions[action](settings, logger)
+                finally:
+                    self._report_usage(settings, logger)
             
             else:
                 return {"status": "error", "message": f"Unknown action: {action}"}
@@ -8309,10 +8341,17 @@ class Plugin:
                 logger.info("[Stream-Mapparr] [m3u_refresh] a later account finished during the run; matching once more")
         finally:
             self._release_m3u_refresh_flock(lock_fd, logger)
+            self._report_usage(None, logger)
 
         return result
 
     def _run_scheduled_sequence(self, settings, logger, trigger=None):
+        try:
+            return self._run_scheduled_sequence_body(settings, logger, trigger=trigger)
+        finally:
+            self._report_usage(None, logger)
+
+    def _run_scheduled_sequence_body(self, settings, logger, trigger=None):
         """Load channels, then Sort and Match and Assign as the schedule toggles say.
 
         Shared by the timer loop and the IPTV Checker trigger so the two paths

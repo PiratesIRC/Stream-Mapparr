@@ -36,6 +36,7 @@ SECTION_BOUNDARIES = [
     ("_section_iptv_checker", "filter_dead_streams"),
     ("_section_scheduling", "scheduled_times"),
     ("_section_throughput", "enable_throughput_sorting"),
+    ("_section_usage", "share_usage_counts"),
 ]
 
 

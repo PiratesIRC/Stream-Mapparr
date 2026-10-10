@@ -21,7 +21,7 @@ def test_the_scheduler_stamps_the_run_not_the_match_substep(plugin_module):
     assert "_run_scheduled_sequence" in loop, (
         "the scheduler loop must run the shared scheduled sequence"
     )
-    sequence = inspect.getsource(plugin_module.Plugin._run_scheduled_sequence)
+    sequence = inspect.getsource(plugin_module.Plugin._run_scheduled_sequence_body)
     assert "write_scheduled_run_ts" in sequence, (
         "the shared sequence must record that a scheduled run completed"
     )
