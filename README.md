@@ -23,12 +23,9 @@
 A Dispatcharr plugin that automatically matches and assigns streams to channels
 using fuzzy matching, quality prioritization, and OTA callsign recognition.
 
-The "streams matched" badge counts stream-to-channel assignments this plugin has
-written on the maintainer's own installation, added up since the counter was
-added on 5 September 2026. It measures work done rather than distinct streams: a
-daily schedule matches the same library again and counts it again. Dry runs are
-not counted, and neither is sorting alternate streams, which reorders
-assignments that already exist.
+The Streams Matched and Active Installs badges add up figures sent by every install
+that keeps "Share anonymous usage counts" ticked; see
+[Anonymous usage counts](#anonymous-usage-counts).
 
 ## Backup Your Database
 
@@ -310,10 +307,11 @@ counted.
 
 When an action or a scheduled run finishes, the plugin sends this plugin's
 Streams Matched total and a random id for this plugin on this install to the
-plugin author's counter at plugin-stats.dpas.workers.dev. It sends at most once
-an hour, or ten minutes after the last report when a run has just assigned
-streams. A run that finishes inside that gap is not sent later; the next action
-or scheduled run sends the total.
+plugin author's counter at plugin-stats.dpas.workers.dev. It sends at most once an hour, or ten minutes after the last successful send when
+a run has just assigned streams. A run that finishes inside that gap is not sent
+later: the total goes out with the first later run that is an hour past the last
+successful send, or with a later run that assigns streams once ten minutes have
+passed.
 
 The server stores that id with the total and the date of the last report, and
 keeps them until this install unticks the setting and the delete succeeds, or

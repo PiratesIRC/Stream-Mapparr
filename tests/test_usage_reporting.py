@@ -23,19 +23,6 @@ class FakeUsage:
         self.calls.append((settings, force))
 
 
-@pytest.fixture(autouse=True)
-def _no_real_reporting(plugin_module, monkeypatch, tmp_path):
-    """No test in this file may reach /data/plugin_stats or the Worker."""
-    real = getattr(plugin_module, "USAGE", None)
-    started = []
-    if real is not None:
-        monkeypatch.setattr(real, "directory", str(tmp_path / "plugin_stats"), raising=False)
-        # report() swallows every exception, so record a send attempt instead of raising.
-        monkeypatch.setattr(real, "_start", lambda *a, **k: started.append(a), raising=False)
-    yield
-    assert started == [], "a test started a real usage send"
-
-
 @pytest.fixture
 def usage(plugin_module, monkeypatch):
     fake = FakeUsage()

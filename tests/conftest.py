@@ -150,6 +150,20 @@ def _sandbox_plugin_data_paths(plugin_module, tmp_path, monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _no_real_usage_reporting(plugin_module, monkeypatch, tmp_path):
+    """No test may create /data/plugin_stats or start a real send to the Worker."""
+    real = getattr(plugin_module, "USAGE", None)
+    started = []
+    if real is not None:
+        monkeypatch.setattr(real, "data_dir", str(tmp_path / "plugin_stats_root"), raising=False)
+        monkeypatch.setattr(real, "directory", str(tmp_path / "plugin_stats_root" / "stream-mapparr"), raising=False)
+        # report() swallows every exception, so record a send attempt instead of raising.
+        monkeypatch.setattr(real, "_start", lambda *a, **k: started.append(a), raising=False)
+    yield
+    assert started == [], "a test started a real usage send"
+
+
 @pytest.fixture
 def matcher(fuzzy_module, tmp_path):
     """A FuzzyMatcher with NO channel databases loaded (fast, deterministic).
