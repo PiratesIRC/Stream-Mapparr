@@ -278,6 +278,11 @@ def _apply_regex_rules_to_streams(streams, rules, logger=None):
     return counters
 
 
+def _plugin_key_for_dir(path):
+    """The key Dispatcharr's loader gives a plugin installed in this folder."""
+    return os.path.basename(os.path.normpath(path)).replace(" ", "_").lower()
+
+
 # ============================================================================
 # CONFIGURATION DEFAULTS - Modify these values to change plugin defaults
 # ============================================================================
@@ -414,10 +419,10 @@ class PluginConfig:
     DEFAULT_CSV_EXPORT_RETENTION_DAYS = 0   # 0 keeps everything
     PROCESSED_DATA_FILE = "/data/stream_mapparr_processed.json"
     SETTINGS_FILE = "/data/stream_mapparr_settings.json"
-    # Dispatcharr keys a plugin by the DIRECTORY NAME it is deployed under, which
-    # is what PluginConfig.key holds. It is not derived from anything in this
-    # file, so it is written out rather than computed.
-    PLUGIN_DB_KEY = "stream-mapparr"
+    # Dispatcharr keys a plugin by the folder it is installed in, and the Hub
+    # installer writes underscores where a hand-copied folder keeps hyphens, so
+    # the key is computed from this file's own folder rather than written out.
+    PLUGIN_DB_KEY = _plugin_key_for_dir(os.path.dirname(os.path.abspath(__file__)))
     OPERATION_LOCK_FILE = "/data/stream_mapparr_operation.lock"
     SCHEDULER_LAST_RUN_FILE = "/data/stream_mapparr_scheduler_last_run.json"  # cross-worker slot claim (bug-069)
     MATCH_TALLY_FILE = "/data/stream_mapparr_match_counts.jsonl"  # append-only lifetime tally behind the public badge
