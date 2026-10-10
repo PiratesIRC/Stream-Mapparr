@@ -12,7 +12,8 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/PiratesIRC/Stream-Mapparr?include_prereleases&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
 [![Downloads](https://img.shields.io/github/downloads/PiratesIRC/Stream-Mapparr/total?color=success&label=Downloads&logo=github)](https://github.com/PiratesIRC/Stream-Mapparr/releases)
-[![Streams Matched](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PiratesIRC/d2f83a59177de51f920f47b41150894b/raw/stream-mapparr-streams-matched.json)](#features)
+[![Streams Matched](https://img.shields.io/endpoint?url=https://plugin-stats.dpas.workers.dev/badge/stream-mapparr/streams_matched)](#anonymous-usage-counts)
+[![Active Installs](https://img.shields.io/endpoint?url=https://plugin-stats.dpas.workers.dev/badge/stream-mapparr/installs)](#anonymous-usage-counts)
 
 ![Top Language](https://img.shields.io/github/languages/top/PiratesIRC/Stream-Mapparr)
 ![Repo Size](https://img.shields.io/github/repo-size/PiratesIRC/Stream-Mapparr)
@@ -224,6 +225,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Placeholder Bitrate Floor (kbps)** | number | 300 | The floor for the setting above. Standard definition is never checked. Where two bitrate figures disagree the higher is used, so a disagreement keeps the stream |
 | **Audio Channels Priority** | string | "" | Audio layouts, most preferred first, for example `7.1, 5.1, stereo`. Ranked before codec. Blank disables it |
 | **Audio Codec Priority** | string | "" | Audio codecs, most preferred first, for example `eac3, ac3, aac`. Ranked after layout. Blank disables it |
+| **Share anonymous usage counts** | boolean | True | Sends this plugin's Streams Matched total and a random id to the plugin author's counter. See [Anonymous usage counts](#anonymous-usage-counts). |
 
 ## Actions
 
@@ -294,6 +296,52 @@ because the exports contain your M3U source names.
 This plugin uses calver, `1.MAJOR.DDDHHMM`, being the UTC day of year plus the
 UTC time. Run `python scripts/bump_version.py` to bump `plugin.json` and
 `plugin.py` together.
+
+## Anonymous usage counts
+
+The Streams Matched and Active Installs badges count every install that leaves
+the "Share anonymous usage counts" setting (on by default) ticked and runs at
+least one action or scheduled run. Streams Matched counts the stream-to-channel
+assignments that Match & Assign Streams and Match US OTA Only write. With
+Overwrite Existing Streams on, which is the default, a daily schedule that
+re-matches the same streams counts them again; with it off, a stream already on
+a channel is not written or counted again. Sort Alternate Streams is not
+counted.
+
+When an action or a scheduled run finishes, the plugin sends this plugin's
+Streams Matched total and a random id for this plugin on this install to the
+plugin author's counter at plugin-stats.dpas.workers.dev. It sends at most once
+an hour, or ten minutes after the last report when a run has just assigned
+streams. A run that finishes inside that gap is not sent later; the next action
+or scheduled run sends the total.
+
+The server stores that id with the total and the date of the last report, and
+keeps them until this install unticks the setting and the delete succeeds, or
+until the plugin author removes them by hand. An install that stops reporting
+still counts toward Streams Matched. The connection shows the server your public
+IP address; the server uses it only to limit abuse and does not store it in its
+database, though when an install first registers it keeps a salted one-way hash
+of it (of its /64 block for IPv6) for up to three days. Cloudflare, which hosts
+the server, keeps its own request logs. No names, channels, streams, URLs,
+providers or settings are sent. The figures are self-reported by installs and
+capped by the server, not verified.
+
+What counts as an active install: an install that sent at least one report in
+the last 30 UTC days. A badge changes after the server's hourly recount, which
+runs at the start of each UTC hour, and Shields may cache the badge for up to an
+hour more, so a new report can take up to about two hours to show.
+
+The setting is the last one in the settings form, in its own section. Unticking
+it takes effect when the next action or scheduled run finishes; the plugin then
+asks the server to delete this install's figures. Once the server confirms the
+delete, the plugin forgets its id, and ticking the setting again later starts a
+new one; if the delete could not reach the server, the plugin keeps the id and
+retries. The plugin keeps that id and the timing of its reports in
+/data/plugin_stats/stream-mapparr/ (install_id, sent, backoff, disabled,
+delete_backoff, lock). To start a new id, untick the setting and let a run
+finish so the delete succeeds; deleting that folder while the setting is ticked
+leaves the old figures on the server, and the new id then sends the full total
+again, so the badge counts those matches twice.
 
 ## Changelog
 
