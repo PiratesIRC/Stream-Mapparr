@@ -6520,18 +6520,17 @@ class Plugin:
     def _get_all_channel_info_matches(self, channel_name, channels_data):
         """Return every channels_data entry whose name matches `channel_name`.
 
-        Mirrors _get_channel_info_from_json's exact-then-case-insensitive
-        priority tiers but returns ALL entries at the winning tier instead of
-        just the first (bug-160: channel_database=All can load the same
-        channel_name from several *_channels.json files with disagreeing
-        _country_code values). Added as a separate lookup rather than changing
-        _get_channel_info_from_json's existing single-match contract, which
-        other callers rely on.
+        Returns every entry whose name matches case-insensitively (bug-160:
+        channel_database=All can load the same channel_name from several
+        *_channels.json files with disagreeing _country_code values). This list
+        feeds only the country decision in _channel_country_code. It does NOT
+        stop at an exact-case tier the way _get_channel_info_from_json does:
+        NO lists "Canal+ 1" and PL lists "CANAL+ 1", and an exact-case tier
+        would let the PL entry decide alone, classing a Norwegian channel named
+        "CANAL+ 1" as Polish and refusing its Norwegian streams. Added as a
+        separate lookup rather than changing _get_channel_info_from_json's
+        existing single-match contract, which other callers rely on.
         """
-        exact = [e for e in channels_data if e.get('channel_name', '') == channel_name]
-        if exact:
-            return exact
-
         channel_name_lower = channel_name.lower()
         return [e for e in channels_data if e.get('channel_name', '').lower() == channel_name_lower]
 
