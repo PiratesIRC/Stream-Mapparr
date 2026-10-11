@@ -94,8 +94,8 @@ database. This plugin modifies channel and stream assignments.
 - **US OTA callsign matching**: US broadcast affiliates such as
   `ABC - TX Dallas (WFAA)` are matched by FCC callsign, using a bundled station
   table of around 1,900 stations
-- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, ES, FR, IN, MX,
-  NL, NO, PL
+- **Multi-country channel databases**: US, UK, CA, AU, BR, DE, DO, ES, FR, IN,
+  MX, NL, NO, PE, PL, PT
 - **Country-restricted matching** (opt-in): only match streams whose detected
   country matches the channel's
 - **Performance**: a normalization cache, C-accelerated Levenshtein through

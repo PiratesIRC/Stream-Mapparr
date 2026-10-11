@@ -23,8 +23,9 @@ UNKNOWN = "UNKNOWN"
 
 # ISO-2 codes we are willing to name. Seeded from Lineuparr's battle-grown set
 # (Lineuparr/Lineuparr/fuzzy_matcher.py), which grew from real feeds leaking onto
-# globally-named channels (CNN, BBC) in a US lineup. All 12 shipped channel
-# databases are present.
+# globally-named channels (CNN, BBC) in a US lineup. 15 of the 16 shipped
+# channel databases are present; PE (Peru) is not, so a "PE:" stream prefix is
+# not read as a country.
 KNOWN_COUNTRY_CODES = {
     "US", "UK", "CA", "AU", "DE", "FR", "IT", "ES", "NL", "BR", "MX", "IN",
     "IE", "SE", "NO", "DK", "PT", "PL", "AT", "CH", "BE", "FI",
