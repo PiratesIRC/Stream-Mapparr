@@ -1,0 +1,1993 @@
+{
+  "country_code": "PL",
+  "country_name": "Poland",
+  "version": "2026-10-06",
+  "description": "Polish-language television channels, including regional and diaspora services. SD/HD simulcasts are consolidated; distinct channel brands and timeshift services are retained.",
+  "sources": [
+    "http://www.archiwum.krrit.gov.pl/dla-nadawcow-i-operatorow/koncesje/wykaz-koncesji-i-decyzji/results,1,2,0,0,0,1,0,0,0,0.html",
+    "http://www.archiwum.krrit.gov.pl/dla-nadawcow-i-operatorow/koncesje/wykaz-koncesji-i-decyzji/results,2,2,0,0,0,1,0,0,0,0.html",
+    "http://www.archiwum.krrit.gov.pl/dla-nadawcow-i-operatorow/koncesje/wykaz-koncesji-i-decyzji/results,3,2,0,0,0,1,0,0,0,0.html",
+    "https://akpa.pl/lista-kanalow",
+    "https://api.plus.pl/file/regulations_lp/cp/noweepg/2026-07-30/układ_kanałów_telewizja_kablowa_iptv_polsat_box_31.07.2026.pdf",
+    "https://api.plus.pl/file/regulations_lp/cp/noweepg/2026-07-30/układ_kanałów_telewizja_satelitarna_polsat_box_31.07.2026.pdf",
+    "https://audiovisual.ec.europa.eu/en/faq",
+    "https://dami24.pl/",
+    "https://dlaciebie.tv/",
+    "https://echo24.tv/pl/",
+    "https://hopetv.pl/",
+    "https://ideaventures.pl/pl/play-udostepnia-polsko-ukrainski-ctv-dla/",
+    "https://jasnagora.pl/",
+    "https://media.pl.canalplus.com/444445-wszystkie-mecze-8-kolejki-fazy-ligowej-uefa-champions-league-i-multiliga-mistrzow-uefa-tylko-w-canal",
+    "https://media.pl.canalplus.com/466614-dwa-nowe-kanaly-sportowe-w-ofercie-canal",
+    "https://medianarodowe.com/telewizja-mn/",
+    "https://mwenetworks.pl/brands",
+    "https://new.tvrepublika.pl/informacje-o-nadawcy",
+    "https://pl.wikipedia.org/wiki/Polskojęzyczne_stacje_telewizyjne",
+    "https://polvision.com/",
+    "https://relacjeinwestorskie.kinopolska.pl/nasze-kanaly/",
+    "https://rtk.poznan.pl/",
+    "https://telewizja.starachowice.pl/",
+    "https://telewizjaleszno.pl/",
+    "https://telewizjatvt.pl/",
+    "https://telewizjazary.pl/",
+    "https://tetka.pl/",
+    "https://toya.net.pl/listakanalow",
+    "https://tvasta.pl/",
+    "https://tvklodzka.pl/",
+    "https://tvkwinogrady.pl/",
+    "https://tvl.tarnobrzeg.pl/",
+    "https://tvpm.pl/",
+    "https://tvproart.pl/",
+    "https://tvrelax.pl/",
+    "https://tvs.pl/",
+    "https://tvsm.pl/",
+    "https://tvtorun.pl/",
+    "https://tvtoya.pl/",
+    "https://wielkopolska.tv/",
+    "https://www.8tvr.pl/",
+    "https://www.boleslawiec.tv/",
+    "https://www.cda.pl/tv/fightime",
+    "https://www.gonet.tv/pl/tv_stacje_online/ducktv-plus/",
+    "https://www.inea.pl/sites/default/files/2026-05/Wykaz_Kanalow_Telewizyjnych.pdf",
+    "https://www.kujawy.info/",
+    "https://www.lubelska.tv/",
+    "https://www.mttv.pl/",
+    "https://www.netia.pl/pl/telewizja/kanaly-tv",
+    "https://www.polsat.pl/news/2026-03-09/nowosci-w-polsat-box-go-blisko-200-kanalow-online-w-serwisie/",
+    "https://www.sferatv.pl/",
+    "https://www.telewizjagorzow.pl/",
+    "https://www.telewizjaobiektyw.pl/",
+    "https://www.telewizjaolsztyn.pl/",
+    "https://www.telewizjattm.pl/",
+    "https://www.telewizjelokalne.org.pl/s/10/nasi-czlonkowie",
+    "https://www.telpol.net.pl/strefa-abonenta/1437-kanal-vidoc-tv1-zmienia-nazwe-na-short-tv",
+    "https://www.torun.vectra.pl/pdf/wykaz-programow/wykaz-programow-02-2026.pdf",
+    "https://www.truso.tv/",
+    "https://www.tv-slupsk.pl/",
+    "https://www.tv-wschod.pl/",
+    "https://www.tv.kolo.pl/",
+    "https://www.tvbogatynia.pl/",
+    "https://www.tvdami.eu/",
+    "https://www.tvp.pl/78978150/lista-programow-z-napisami",
+    "https://www.tvpparlament.pl/",
+    "https://www.tvslowianin.pl/",
+    "https://www.tvsuwalki.pl/",
+    "https://www.tvswietokrzyska.pl/",
+    "https://www.vectra.pl/obowiazki-informacyjne",
+    "https://www.vectra.pl/oferta-telewizja-internetowa",
+    "https://www.webdisclosure.com/press-release/your-family-entertainment-ag-etr-rtv-back-to-school-new-kids-channels-fixfoxi-and-rictoday-launch-in-poland-tRIU0PHRhoN",
+    "https://www.zachodniopomorska.tv/"
+  ],
+  "channels": [
+    {
+      "channel_name": "13.tv",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Antena HD",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Brit",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ 4K Ultra HD",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Central",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Comedy Channel Extra",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "CTV Dla Ciebie",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "FX Comedy",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "iTVN",
+      "category": "Entertainment",
+      "type": "International"
+    },
+    {
+      "channel_name": "iTVN Extra",
+      "category": "Entertainment",
+      "type": "International"
+    },
+    {
+      "channel_name": "Kabaret TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Metro",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "MTV Polska",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nowa TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polonia 1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat 1",
+      "category": "Entertainment",
+      "type": "International"
+    },
+    {
+      "channel_name": "Polsat 2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Comedy Central Extra",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Rodzina",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polvision",
+      "category": "Entertainment",
+      "type": "International"
+    },
+    {
+      "channel_name": "Puls 2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Show TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Stargaze TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Super Polsat",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Tele 5",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TTV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV4",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV6",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN 7",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP HD",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP 1",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP 2",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Polonia",
+      "category": "Entertainment",
+      "type": "International"
+    },
+    {
+      "channel_name": "TVP Rozrywka",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Puls",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Twoja.TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ultra TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "WP",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Xtreme TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zoom TV",
+      "category": "Entertainment",
+      "type": "National"
+    },
+    {
+      "channel_name": "Biznes24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "EbS",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "EbS+",
+      "category": "News",
+      "type": "International"
+    },
+    {
+      "channel_name": "Euronews Polska",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "News24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Newsmax Polska",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "POGODA24.TV",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat News",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat News 2",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat News Polityka",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVMN",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN24 BiS",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Info",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Parlament",
+      "category": "News",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "TV Republika",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Republika Plus",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "wPolsce24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Wydarzenia 24",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "Zero",
+      "category": "News",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 6",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 7",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 8",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 9",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 10",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 11",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 12",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 13",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 14",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 15",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 16",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 17",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Extra 18",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Now",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 5",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 6",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Sport 7",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eleven Sports 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eleven Sports 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eleven Sports 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eleven Sports 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "E-Sport TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eurosport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Extreme Channel",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FightBox",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FighTime",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "FightKlub",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Gametoon",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ginx eSports TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Golf Zone",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Motowizja",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Games",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Extra 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Extra 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Extra 3",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Extra 4",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Fight",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Premium 1",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Sport Premium 2",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "SportKlub",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sportowa TV",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Sport",
+      "category": "Sports",
+      "type": "National"
+    },
+    {
+      "channel_name": "13 Ulica",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Ale Kino+",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AMC",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AXN",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AXN Black",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AXN Spin",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "AXN White",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC First",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Bollywood HD",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ 360",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Film",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Premium",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Seriale",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cinemax",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cinemax 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Epic Drama",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FILMAX",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FILMAX Café",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ Action",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ Comedy",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ Emotion",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ Festival",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ Hits",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FilmBox+ One",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "FX",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "HBO 3",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kino Polska",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Novelas+",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Novelas+1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Novela TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Paramount Network",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Film",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Film 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Seriale",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Romance TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sci Fi",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Short TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "SkyShowtime 1",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "SkyShowtime 2",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Stopklatka",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Sundance TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVC Super",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN Fabuła",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Seriale",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Warner TV",
+      "category": "Movies",
+      "type": "National"
+    },
+    {
+      "channel_name": "Adventure",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Animal Planet",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Earth",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Dokument",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Crime+Investigation Polsat",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Channel",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Historia",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Science",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "DocuBox",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fokus TV",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "History2",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "ID",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Love Nature 4K",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "National Geographic Wild",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Outdoor TV",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Planete+",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Doku",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Viasat Explore",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Viasat History",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Viasat Nature",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat X",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Travel Channel",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Travelxp 4K",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Dokument",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Historia",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Historia 2",
+      "category": "Documentary",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "TVP Nauka",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Viasat True Crime",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "Water Planet",
+      "category": "Documentary",
+      "type": "National"
+    },
+    {
+      "channel_name": "2x2 TV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "4fun Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Alfa TVP",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "BabyTV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC CBeebies",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoonito",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Cartoon Network",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Da Vinci",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney Junior",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disney XD",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Duck TV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Duck TV Plus",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Fix&Foxi",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Junior Channel",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Junior Music",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "MiniMini+",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nickelodeon",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nick Jr.",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nicktoons",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "PIXEL TV",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat JimJam",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "TeenNick",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "teleTOON+",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "Top Kids",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP ABC",
+      "category": "Kids",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP ABC 2",
+      "category": "Kids",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "Active Family",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "BBC Lifestyle",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Domo",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "CANAL+ Kuchnia",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Discovery Life",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dolce Vita TV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "DTX",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "E! Entertainment",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Food Network",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HGTV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "HOME TV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Inultra",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "MyZen 4K",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nat Geo People",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Café",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Play",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Reality",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Remonty TV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "Studiomed TV",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TLC",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVC Reality",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN Style",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVN Turbo",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Kobieta",
+      "category": "Lifestyle",
+      "type": "National"
+    },
+    {
+      "channel_name": "4fun Dance",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "4fun.tv",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Disco Polo Music",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eska Rock TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eska TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Eska TV Extra",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "JAZZ",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Kino Polska Muzyka",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "MIXTAPE",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music 00s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music 80s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music 90s",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music Box Polska",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music Club",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music Hits",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Music Live",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Nuta Gold",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "NUTA.TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polo TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Polsat Music",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Power TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "STARS.TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Szlagier TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "V90",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "VOX Music TV",
+      "category": "Music",
+      "type": "National"
+    },
+    {
+      "channel_name": "Museum 4K",
+      "category": "Culture",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Kultura",
+      "category": "Culture",
+      "type": "National"
+    },
+    {
+      "channel_name": "TVP Kultura 2",
+      "category": "Culture",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "EWTN Polska",
+      "category": "Religious",
+      "type": "National"
+    },
+    {
+      "channel_name": "Hope Channel",
+      "category": "Religious",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "Jasna Góra TV",
+      "category": "Religious",
+      "type": "Streaming"
+    },
+    {
+      "channel_name": "TBN Polska",
+      "category": "Religious",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Trwam",
+      "category": "Religious",
+      "type": "National"
+    },
+    {
+      "channel_name": "Mango 24",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "TV Okazje",
+      "category": "Shopping",
+      "type": "National"
+    },
+    {
+      "channel_name": "Dorcel TV",
+      "category": "Adult",
+      "type": "National"
+    },
+    {
+      "channel_name": "8 TVR",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "dlaCiebie.tv",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Echo24",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Express TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "InfoLipno",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Katolicka Telewizja Serbinów",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lokalna.TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lubelska.TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Lubuska TV Horyzont",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "PTVR",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Rega TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Regionalna TV Bielsko-Biała",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "RTK",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Sfera TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Bogatynia",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Gorzów",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Kablowa w Kole",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Kłodzka",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Kwidzyńska",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Leszno",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Regionalna Żary",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja STK",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Świętokrzyska",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Telewizja Zabrze",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TeTka Tczew",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Truso TV",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV ASTA",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVB24",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Bolesławiec",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVC",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Dami Jelenia Góra",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV DAMI Radom",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Dami Wałbrzych",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Gniezno",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Jawor",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Kalisz",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Kaszuby",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVK Podgórze",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Kujawy",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVK Winogrady",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVL Tarnobrzeg",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Master",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Max",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mazury",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Mława",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Morąg",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Narew",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Obiektyw",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Olsztyn",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ostrów",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Białystok",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Bydgoszcz",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Gdańsk",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Gorzów Wielkopolski",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Katowice",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Kielce",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Kraków",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Łódź",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Lublin",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Olsztyn",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Opole",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Poznań",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Rzeszów",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Szczecin",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Warszawa",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP3 Wrocław",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVPM",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Pogranicze",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Police",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Proart",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVP Wilno",
+      "category": "Regional",
+      "type": "International"
+    },
+    {
+      "channel_name": "TV Regio",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Regionalna.pl",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Relax",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Ropczyce.EU",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Rypin",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVS",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Sądecka",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Słowianin",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Słupsk",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVSM",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Starachowice",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Sudecka",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Suwałki",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Świebodzin",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVT",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Tarnów",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Toruń",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV TOYA",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TVT Zgorzelec",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Wielkopolska",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Wschód",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "TV Zachód",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Twoja Telewizja Lokalna TTL",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Twoja Telewizja Morska",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Twoja Telewizja Religijna",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "WTK",
+      "category": "Regional",
+      "type": "Regional"
+    },
+    {
+      "channel_name": "Zachodniopomorska TV",
+      "category": "Regional",
+      "type": "Regional"
+    }
+  ]
+}
