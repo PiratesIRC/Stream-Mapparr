@@ -5805,6 +5805,15 @@ class Plugin:
                     
                     # Substring match: stream contains channel OR channel contains stream
                     if stream_lower in channel_lower or channel_lower in stream_lower:
+                        # Issue #62: "nebula one event 1" is contained in "nebula one
+                        # event 12", so this branch must apply the same number rule as
+                        # the token path below, or Event 1 collects Events 10 to 19
+                        # at any threshold under 95.
+                        containment_channel_numbers = {t for t in channel_lower.split() if t.isdigit()}
+                        if containment_channel_numbers and not (
+                                containment_channel_numbers
+                                & {t for t in stream_lower.split() if t.isdigit()}):
+                            continue
                         # CRITICAL FIX: Add length ratio requirement to prevent false positives
                         # like "story" matching "history" (story is 5 chars, history is 7 chars)
                         # Require strings to be within 75% of same length for substring match
