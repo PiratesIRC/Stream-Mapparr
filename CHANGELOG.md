@@ -1,5 +1,31 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2841112 (2026-10-11)
+
+### Added
+
+- **Poland channel database.** PL_channels.json adds 382 Polish channels in 13
+  categories, contributed by grandfso in pull request #66. Choose PL in Channel
+  Database to match against it. Two limits: a stream written "PL| name" is not
+  stripped of its PL tag and does not match ("PL: name" does), and twelve
+  names spelled with the Polish letter L with stroke can score lower when a
+  provider writes that letter as a plain L.
+
+### Fixed
+
+- **Channel Database set to All could give a channel the wrong country.** When
+  two databases spelled a channel name in different letter case, only the
+  exact-case entry was consulted, so with Restrict Matching To Same Country on,
+  a Norwegian channel named "CANAL+ 1" was treated as Polish and its Norwegian
+  streams were refused. Every entry is now compared regardless of case; when
+  they disagree, the channel's group decides, as it already did for names such
+  as CNN that appear in several databases. This affects only installs using All
+  with Restrict Matching To Same Country on.
+
+### Changed
+
+- The README lists all 16 channel databases (it omitted DO, PE and PT).
+
 ## 1.26.2831803 (2026-10-10)
 
 ### Added
