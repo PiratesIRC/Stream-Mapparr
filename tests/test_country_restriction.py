@@ -1823,3 +1823,34 @@ def test_csv_header_omits_the_prefix_map_when_the_country_filter_is_off(plugin_m
         {"restrict_matching_to_country": False},
         action_name="Preview")
     assert "NOW=UK" not in header
+
+
+def test_get_all_matches_compares_every_case_variant(plugin_module):
+    """Two databases spell one channel with different letter case (NO "Canal+ 1",
+    PL "CANAL+ 1"). The country decision must see BOTH entries, or the exact-case
+    one wins alone and the channel is classed under that country."""
+    db = [
+        {"channel_name": "Canal+ 1", "type": "National", "_country_code": "NO"},
+        {"channel_name": "CANAL+ 1", "type": "National", "_country_code": "PL"},
+    ]
+    inst = plugin_module.Plugin()
+    got = inst._get_all_channel_info_matches("CANAL+ 1", db)
+    assert sorted(m["_country_code"] for m in got) == ["NO", "PL"]
+
+
+def test_case_variant_disagreement_fails_open_end_to_end(plugin_module):
+    """End-to-end form of the test above: with no group or name signal, the
+    disagreeing NO and PL entries must leave both streams in place, rather than
+    the exact-case PL entry dropping the Norwegian stream as foreign."""
+    streams = [
+        {"id": 1, "name": "NO: CANAL+ 1", "channel_group__name": None, "m3u_account": 1, "url": "u1"},
+        {"id": 2, "name": "PL: CANAL+ 1", "channel_group__name": None, "m3u_account": 1, "url": "u2"},
+    ]
+    db = [
+        {"channel_name": "Canal+ 1", "type": "National", "_country_code": "NO"},
+        {"channel_name": "CANAL+ 1", "type": "National", "_country_code": "PL"},
+    ]
+    got = _match(plugin_module, {"id": 1, "name": "CANAL+ 1", "channel_group__name": "Movies"},
+                 streams, db)
+    assert "NO: CANAL+ 1" in got
+    assert "PL: CANAL+ 1" in got
