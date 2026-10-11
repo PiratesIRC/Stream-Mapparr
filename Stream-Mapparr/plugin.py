@@ -4288,7 +4288,8 @@ class Plugin:
 
     def _same_country_ids_for(self, channel, streams, channels_data, logger,
                               restrict_matching_to_country,
-                              stream_country_memo=None, channel_info_cache=None):
+                              stream_country_memo=None, channel_info_cache=None,
+                              ignore_tags=None):
         """Identity set of `streams` proven to share `channel`'s country, or None.
 
         Recomputed at assignment time because the matcher does not return it: adding
@@ -4326,7 +4327,7 @@ class Plugin:
             return None
         channel_info, channel_info_matches = self._get_channel_info_and_matches(
             channel, channels_data, logger, True, channel_info_cache)
-        if self._channel_ota_callsign(channel, channel_info):
+        if self._channel_ota_callsign(channel, channel_info, ignore_tags=ignore_tags):
             return None
         channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
         if not channel_country_code:
@@ -5365,7 +5366,33 @@ class Plugin:
             return None
         return callsign
 
-    def _resolve_ota_callsign(self, channel_name):
+    @staticmethod
+    def _remove_ignore_tags(name, ignore_tags):
+        """Remove the user's Ignore Tags from `name`, with the same rules
+        normalize_name uses: a bracketed or punctuated tag is removed as a
+        literal, a plain word only as a whole word. Case-insensitive."""
+        for tag in ignore_tags or ():
+            escaped = re.escape(tag)
+            if re.match(r'^\w+$', tag):
+                name = re.sub(r'\b' + escaped + r'\b', '', name, flags=re.IGNORECASE)
+            else:
+                name = re.sub(escaped + r'\s*', '', name, flags=re.IGNORECASE)
+        return name
+
+    def _fcc_rejects_callsign(self, callsign):
+        """True when `callsign` is a three-letter word the loaded FCC station
+        table does not list (issue #62: "(WEB)" read as station WEB). Every real
+        three-letter callsign is grandfathered and present in networks.json.
+        False when the table is not loaded, since nothing can be checked then;
+        four-letter callsigns are never rejected here (bug-063 fallback)."""
+        if not callsign or len(callsign) != 3 or not self.fuzzy_matcher:
+            return False
+        if not getattr(self.fuzzy_matcher, 'broadcast_channels', None):
+            return False
+        station = self.fuzzy_matcher.channel_lookup.get(callsign)
+        return not (isinstance(station, dict) and station.get('callsign'))
+
+    def _resolve_ota_callsign(self, channel_name, ignore_tags=None):
         """Resolve an OTA callsign for a Dispatcharr channel name.
 
         Prefers a callsign validated against the FCC station table
@@ -5380,7 +5407,13 @@ class Plugin:
         suffixed, or end-of-name) — otherwise a non-station channel like
         "24/7 KING OF THE HILL" would resolve to the KING-TV affiliate and grab
         its streams. bug-098.
+
+        Issue #62: the user's Ignore Tags are removed first, so a declared tag
+        such as "(WEB)" is never a station, and a three-letter parenthesized
+        word the FCC table does not list is refused (_fcc_rejects_callsign).
         """
+        if channel_name and ignore_tags:
+            channel_name = self._remove_ignore_tags(channel_name, ignore_tags)
         if self.fuzzy_matcher:
             callsign, high_conf = self.fuzzy_matcher._extract_callsign_with_confidence(channel_name)
             if callsign:
@@ -5389,9 +5422,12 @@ class Plugin:
                     if self._callsign_needs_corroboration(callsign) and not high_conf:
                         return None
                     return callsign
-        return self._extract_paren_callsign(channel_name)
+        callsign = self._extract_paren_callsign(channel_name)
+        if self._fcc_rejects_callsign(callsign):
+            return None
+        return callsign
 
-    def _channel_ota_callsign(self, channel, channel_info):
+    def _channel_ota_callsign(self, channel, channel_info, ignore_tags=None):
         """The callsign that will actually gate OTA matching for `channel` at
         runtime, or None for a non-OTA channel (bug-161 review D1).
 
@@ -5416,7 +5452,7 @@ class Plugin:
         """
         if self._is_ota_channel(channel_info):
             return channel_info['callsign']
-        return self._resolve_ota_callsign(channel.get('name')) if channel else None
+        return self._resolve_ota_callsign(channel.get('name'), ignore_tags) if channel else None
 
     def _callsign_needs_corroboration(self, callsign):
         """True when an OTA callsign is also a common English word (KING/WHO/
@@ -5657,7 +5693,7 @@ class Plugin:
         # via _channel_ota_callsign -- see its docstring: NONE of the shipped
         # channel databases carry a `callsign` entry, so this fallback is the
         # ONLY path that ever resolves a callsign in production. bug-063.
-        callsign = self._channel_ota_callsign(channel, channel_info)
+        callsign = self._channel_ota_callsign(channel, channel_info, ignore_tags=ignore_tags)
 
         # bug-158: country restriction. The filter only REMOVES proven-foreign
         # streams — it must never REORDER working_streams, because that list feeds
@@ -6029,7 +6065,8 @@ class Plugin:
         # does not change which one actually callsign-matches.
         candidate_streams = all_streams
         same_country_ids = None
-        if restrict_matching_to_country and not self._channel_ota_callsign(channel, channel_info):
+        if restrict_matching_to_country and not self._channel_ota_callsign(
+                channel, channel_info, ignore_tags=ignore_tags):
             channel_country_code = self._channel_country_code(channel, channel_info, channel_info_matches)
             if channel_country_code:
                 kept, same_ids = [], set()
@@ -6544,7 +6581,7 @@ class Plugin:
         return [e for e in channels_data if e.get('channel_name', '').lower() == channel_name_lower]
 
     def _group_key_for_channel(self, base_key, channel, channel_info, restrict_to_country,
-                               channel_info_matches=None):
+                               channel_info_matches=None, ignore_tags=None):
         """Group key for a channel, country-qualified when the country filter is on.
 
         bug-158: matching runs once per group on the leader channel and the result is
@@ -6585,7 +6622,8 @@ class Plugin:
         checked FIRST so `_channel_ota_callsign` never runs on the setting-OFF
         path (byte-identical cost).
         """
-        if not restrict_to_country or self._channel_ota_callsign(channel, channel_info):
+        if not restrict_to_country or self._channel_ota_callsign(
+                channel, channel_info, ignore_tags=ignore_tags):
             return base_key
         code = self._channel_country_code(channel, channel_info, channel_info_matches)
         return f"{base_key}@@{code}" if code else base_key
@@ -6631,7 +6669,8 @@ class Plugin:
                     channel['name'], ignore_tags, ignore_quality, ignore_regional, ignore_geographic, ignore_misc)
 
             group_key = self._group_key_for_channel(
-                group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches)
+                group_key, channel, channel_info, restrict_matching_to_country, channel_info_matches,
+                ignore_tags=ignore_tags)
 
             channel_groups.setdefault(group_key, []).append(channel)
         return channel_groups
@@ -8126,7 +8165,8 @@ class Plugin:
                         self._same_country_ids_for(channel, matched_streams, channels_data,
                                                    logger, restrict_matching_to_country,
                                                    stream_country_memo=stream_country_memo,
-                                                   channel_info_cache=channel_info_cache))
+                                                   channel_info_cache=channel_info_cache,
+                                                   ignore_tags=ignore_tags))
                     if keep_existing:
                         # Issue 55: Match and Assign leaves this channel alone,
                         # so the preview says so instead of listing streams.
@@ -8652,7 +8692,8 @@ class Plugin:
                         self._same_country_ids_for(channel, matched_streams, channels_data,
                                                    logger, restrict_matching_to_country,
                                                    stream_country_memo=stream_country_memo,
-                                                   channel_info_cache=channel_info_cache))
+                                                   channel_info_cache=channel_info_cache,
+                                                   ignore_tags=ignore_tags))
                     if keep_existing:
                         # Issue 55: no matched stream belongs to this channel's
                         # zone and the channel already holds streams, so nothing
@@ -9477,7 +9518,8 @@ class Plugin:
                 # marked-zone channel with no opposite-zone sibling.
                 sorted_streams = self._sort_streams_by_quality(streams)
                 same_country_ids = self._same_country_ids_for(
-                    channel, sorted_streams, channels_data, logger, restrict_matching_to_country)
+                    channel, sorted_streams, channels_data, logger, restrict_matching_to_country,
+                    ignore_tags=_ig_tags)
                 sorted_streams = self._streams_for_channel(
                     sorted_streams, channel_id, zone_routed, same_country_ids)
 
