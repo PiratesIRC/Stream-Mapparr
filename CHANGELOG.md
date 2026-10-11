@@ -1,5 +1,23 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2841900 (2026-10-11)
+
+### Fixed
+
+- **A tag in parentheses at the end of a channel name could be read as a TV
+  station callsign** (issue #62). A channel named "Event 12 HD (WEB)" was
+  treated as a local station with the callsign WEB, so it received every
+  stream containing the word WEB at any Match Sensitivity, and a numbered
+  family of 20 such channels each received all 20 streams. Ignore Tags are
+  now removed from the channel name before a callsign is looked for, and a
+  three-letter callsign in parentheses is accepted only when the FCC station
+  list the plugin ships contains it (WGN, WWL, KYW and the other real
+  three-letter stations are all there).
+- **A numbered channel could collect streams whose number contains its own**
+  (issue #62). Below Exact (95), Event 1 received Events 10 to 19 and Event 2
+  received Event 20, because a channel name contained in a stream name
+  skipped the number check. That check now applies there too.
+
 ## 1.26.2841112 (2026-10-11)
 
 ### Added
