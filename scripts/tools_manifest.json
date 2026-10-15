@@ -5,6 +5,6 @@
     "bump_version.py": "51c343d1cdce45007f55c3dfa4bea07a9e507db2febeb1188ee4607a5be673f5",
     "check_version_sync.py": "97578ed48b83a7ce289dfc7b3bc1895321c336e5db93de2e0eed0e4584151100",
     "validate_zip.py": "613ec5a619bc4ded86470ea7fae516c7f2e8f55f81e94ba4a496e2380da8fab4",
-    "build_release_zip.py": "2967f07d141a8ca406e1da667ef9e41df8a5cb272a4e94be6fa8f1441953bf0c"
+    "build_release_zip.py": "97b34e2b674cd4de1566178effb481a87420aa9107fe1ec3b556c9c7d62cc579"
   }
 }
