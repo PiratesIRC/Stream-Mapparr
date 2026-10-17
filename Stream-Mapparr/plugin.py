@@ -309,7 +309,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.2841900"
+    PLUGIN_VERSION = "1.26.2901408"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -1701,6 +1701,21 @@ class Plugin:
         LOGGER.info(f"[Stream-Mapparr] Unloading {self.name}")
         self._stop_background_scheduler()
 
+    def stop(self, context=None):
+        """Called by Dispatcharr on disable, delete and reload.
+
+        PluginManager.stop_plugin() calls stop(context), or a "stop" action when
+        there is no stop(); it never calls on_unload, so before this the
+        scheduler thread survived a disable. On disable and delete this runs
+        inside the transaction that holds the plugin row locked, so it only
+        signals and joins the thread (at most SCHEDULER_STOP_TIMEOUT seconds)
+        and opens no database connection. It reaches only the worker that
+        handled the request; the scheduler loop stops itself in the other
+        worker when the row says the plugin is disabled (_enabled_in_db).
+        """
+        LOGGER.info(f"[Stream-Mapparr] Stopping {self.name}")
+        self._stop_background_scheduler()
+
     def _settings_from_db(self):
         """Return the plugin's saved settings from the database row.
 
@@ -1721,6 +1736,31 @@ class Plugin:
             return row if isinstance(row, dict) else {}
         except Exception:
             return None
+
+    def _enabled_in_db(self):
+        """Return the plugin row's enabled flag: True, False, or None when unknown.
+
+        None covers a missing row and a read that failed. The scheduler loop
+        stops only on an explicit False, so a database outage cannot end a
+        schedule that is running. The connection the read checks out is
+        returned in the finally, as in _refresh_schedule_from_db, because the
+        loop may exit straight after this call.
+        """
+        try:
+            from apps.plugins.models import PluginConfig as PluginConfigRow
+            enabled = PluginConfigRow.objects.filter(
+                key=PluginConfig.PLUGIN_DB_KEY).values_list('enabled', flat=True).first()
+            if enabled is None:
+                return None
+            return bool(enabled)
+        except Exception:
+            return None
+        finally:
+            try:
+                from django.db import close_old_connections
+                close_old_connections()
+            except Exception:
+                pass
 
     def _reconcile_schedule_with_db(self):
         """Make the schedule come from the DATABASE, not from a file that drifts.
@@ -2318,6 +2358,14 @@ class Plugin:
                     # differ from it, and that restart arms the same schedule.
                     if time.monotonic() >= next_db_refresh:
                         next_db_refresh = time.monotonic() + PluginConfig.SCHEDULER_DB_REFRESH_INTERVAL
+                        # stop() reaches only the worker that handled the
+                        # disable; this ends the thread in every other one.
+                        # Only an explicit False stops it (None is a failed
+                        # read), and nothing here touches state.lock.
+                        if self._enabled_in_db() is False:
+                            LOGGER.info("[Stream-Mapparr] Plugin is disabled; "
+                                        "scheduler thread exiting.")
+                            break
                         settings, scheduled_times = self._refresh_schedule_from_db(
                             settings, scheduled_times)
 

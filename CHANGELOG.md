@@ -1,5 +1,18 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2901408 (2026-10-17)
+
+### Fixed
+
+- **Disabling, deleting or reloading the plugin did not stop its scheduled
+  runs.** Dispatcharr stops a plugin by calling its `stop()` method, and the
+  plugin had none, so the scheduler kept running and could start the daily
+  job while the plugin was disabled. The plugin now has `stop()`. Dispatcharr
+  calls it in only one of its worker processes, so the scheduler in every
+  other worker now also checks, every five minutes, whether the plugin is
+  still enabled and stops when it is not. If that check cannot reach the
+  database, the schedule keeps running.
+
 ## 1.26.2841900 (2026-10-11)
 
 ### Fixed
