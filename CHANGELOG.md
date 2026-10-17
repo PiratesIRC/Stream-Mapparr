@@ -1,5 +1,27 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2901847 (2026-10-17)
+
+### Fixed
+
+- **Matching no longer pauses the rest of Dispatcharr while it prepares.** Before
+  matching, each run prepares every stream name once, and that step never paused
+  for other work: on an installation with about 7,000 distinct stream names it held
+  the Dispatcharr worker for half a second, so other requests and streams served by
+  that worker waited. It now pauses every 500 names. Match results are unchanged.
+- **Readout files are written even when /config cannot be written.** Check Stream
+  Countries, Scan Placeholder Names, Report a Bug and Test Regex Rules wrote their
+  file only to /config/stream-mapparr, which a stock Dispatcharr image does not
+  let plugins write, so the file was missing there. They now use
+  /config/stream-mapparr when it can be written and /data/stream_mapparr_readouts
+  otherwise. Installations where /config already worked are unchanged.
+
+### Changed
+
+- The release archive now carries signed build provenance. Check a downloaded
+  copy with `gh attestation verify Stream-Mapparr.zip -R PiratesIRC/Stream-Mapparr
+  --signer-workflow PiratesIRC/Stream-Mapparr/.github/workflows/ci.yml`. 
+
 ## 1.26.2901408 (2026-10-17)
 
 ### Fixed
