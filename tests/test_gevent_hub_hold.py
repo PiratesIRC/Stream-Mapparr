@@ -18,7 +18,6 @@ the whole run.
 import re
 
 import pytest
-
 from placeholder_scan import scan_families
 
 
