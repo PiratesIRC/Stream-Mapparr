@@ -182,7 +182,7 @@
     {
       "id": "report_a_bug",
       "label": "🐛 Report a Bug or Request a Feature",
-      "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+      "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ (or /data/stream_mapparr_readouts/ when /config cannot be written) with the version, your settings and the latest CSV, and show the issues address.",
       "button_label": "🐛 Report a Bug",
       "button_color": "cyan"
     },

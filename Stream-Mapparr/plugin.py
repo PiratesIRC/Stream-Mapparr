@@ -404,6 +404,11 @@ class PluginConfig:
     SCHEDULER_ERROR_WAIT = 60                   # Seconds to wait after error
     SCHEDULER_STOP_TIMEOUT = 5                  # Seconds to wait for graceful shutdown
     SCHEDULER_DB_REFRESH_INTERVAL = 300         # Seconds between re-reads of the saved schedule
+    # Readouts go to Plugin.BUG_REPORT_DIR (/config/stream-mapparr, a host bind
+    # mount on many installations) when it can be written, else here. Dispatcharr's
+    # plugin guide asks plugins to write only under /data, and a stock image has no
+    # writable /config.
+    READOUT_FALLBACK_DIR = "/data/stream_mapparr_readouts"
 
     # === CACHE SETTINGS ===
 
@@ -1643,7 +1648,7 @@ class Plugin:
             "id": "report_a_bug",
             "label": "🐛 Report a Bug or Request a Feature",
             "button_label": "🐛 Report a Bug",
-            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ with the version, your settings and the latest CSV, and show the issues address.",
+            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ (or /data/stream_mapparr_readouts/ when /config cannot be written) with the version, your settings and the latest CSV, and show the issues address.",
             "button_color": "cyan",
         },
         {
@@ -2467,6 +2472,23 @@ class Plugin:
 
     ISSUES_URL = "https://github.com/PiratesIRC/Stream-Mapparr/issues"
     BUG_REPORT_DIR = "/config/stream-mapparr"
+
+    def _readout_dir(self):
+        """Return the directory readout files are written to.
+
+        BUG_REPORT_DIR when it exists or can be created and is writable, else
+        PluginConfig.READOUT_FALLBACK_DIR under /data. When neither can be used it
+        returns BUG_REPORT_DIR, so the caller's own write fails and reports the
+        error as it did before the fallback existed.
+        """
+        for directory in (self.BUG_REPORT_DIR, PluginConfig.READOUT_FALLBACK_DIR):
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except (OSError, ValueError):
+                continue
+            if os.access(directory, os.W_OK):
+                return directory
+        return self.BUG_REPORT_DIR
     # The webhook FIELD is gone, but Dispatcharr never prunes a stored setting
     # when its field is removed, so the old value survives in the database
     # forever and a bug report must still mask it. It carried a Discord or
@@ -2606,8 +2628,7 @@ class Plugin:
 
         path = None
         try:
-            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
-            path = os.path.join(self.BUG_REPORT_DIR, "stream-country-check.txt")
+            path = os.path.join(self._readout_dir(), "stream-country-check.txt")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("\n".join(lines) + "\n")
         except Exception as e:
@@ -2694,8 +2715,7 @@ class Plugin:
 
         path = None
         try:
-            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
-            path = os.path.join(self.BUG_REPORT_DIR, "placeholder-name-scan.txt")
+            path = os.path.join(self._readout_dir(), "placeholder-name-scan.txt")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text)
         except Exception as e:
@@ -2813,8 +2833,7 @@ class Plugin:
                 raw = fh.read()
             cleaned = "\n".join(reports.sanitise_stream_label(line, accounts)
                                 for line in raw.splitlines())
-            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
-            out = os.path.join(self.BUG_REPORT_DIR, "report-a-bug-data.csv")
+            out = os.path.join(self._readout_dir(), "report-a-bug-data.csv")
             with open(out, "w", encoding="utf-8", newline="") as fh:
                 fh.write(cleaned + "\n")
             return out
@@ -2867,8 +2886,7 @@ class Plugin:
         goes in a file under /config, which is a normal folder on the host.
         """
         try:
-            os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
-            path = os.path.join(self.BUG_REPORT_DIR, "report-a-bug.txt")
+            path = os.path.join(self._readout_dir(), "report-a-bug.txt")
 
             exports = []
             try:
@@ -6490,8 +6508,7 @@ class Plugin:
             # hidden: the readout still has to reach the operator somehow.
             path = None
             try:
-                os.makedirs(self.BUG_REPORT_DIR, exist_ok=True)
-                path = os.path.join(self.BUG_REPORT_DIR, "test-regex-rules.txt")
+                path = os.path.join(self._readout_dir(), "test-regex-rules.txt")
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write("\n".join(msg_parts) + "\n")
             except Exception as write_error:

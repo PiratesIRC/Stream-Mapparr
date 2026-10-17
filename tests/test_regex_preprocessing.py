@@ -354,6 +354,8 @@ def test_action_still_answers_when_the_file_cannot_be_written(plugin_module, mon
     _fake_streams(plugin_module, monkeypatch, ["UK ▎BBC 1", "CNN"])
     p = _plugin(plugin_module)
     p.BUG_REPORT_DIR = "/nonexistent\x00dir"
+    # Both the /config directory and the /data fallback must be unusable.
+    monkeypatch.setattr(plugin_module.PluginConfig, "READOUT_FALLBACK_DIR", "/nonexistent\x00dir")
     out = p.test_regex_rules_action(
         {"stream_name_regex_rules": json.dumps([["\\s*▎\\s*", " "]])},
         logging.getLogger("t"))

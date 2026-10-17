@@ -229,6 +229,8 @@ def test_report_a_bug_sets_error_when_it_cannot_write(plugin_module, monkeypatch
     inst = P.__new__(P)
     inst.version = "1.26.9999999"
     monkeypatch.setattr(P, "BUG_REPORT_DIR", "/nonexistent\x00dir", raising=False)
+    # Both the /config directory and the /data fallback must be unusable.
+    monkeypatch.setattr(plugin_module.PluginConfig, "READOUT_FALLBACK_DIR", "/nonexistent\x00dir")
 
     import logging
     res = inst.report_a_bug_action({}, logging.getLogger("t"))
