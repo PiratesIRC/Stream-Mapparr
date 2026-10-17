@@ -6,6 +6,7 @@ Reusable across multiple plugins (Stream-Mapparr, Channel Mapparr, etc.)
 
 import os
 import re
+import time
 import json
 import logging
 import unicodedata
@@ -144,6 +145,13 @@ def is_designator_token(token):
     such as "sports" or "hd" is not one, and neither is a bare letter.
     """
     return bool(_DESIGNATOR_RE.match((token or "").strip().lower()))
+
+# Names between yields in precompute_normalizations. Dispatcharr runs plugins
+# under gevent with early monkey-patching, where time.sleep(0) is gevent.sleep(0)
+# and hands the worker back; on this installation 7,261 stream names held it for 0.5 s with no yield
+# (measured 2026-10-17). Elsewhere time.sleep(0) does nothing.
+PRECOMPUTE_YIELD_EVERY = 500
+
 
 class FuzzyMatcher(FuzzyMatcherCore):
     """Stream-Mapparr matcher: the shared pure core (FuzzyMatcherCore) plus this
@@ -475,7 +483,9 @@ class FuzzyMatcher(FuzzyMatcherCore):
             'ignore_misc': ignore_misc,
         }
 
-        for name in names:
+        for index, name in enumerate(names):
+            if index and index % PRECOMPUTE_YIELD_EVERY == 0:
+                time.sleep(0)
             norm = self.normalize_name(name, user_ignored_tags,
                                        ignore_quality=ignore_quality,
                                        ignore_regional=ignore_regional,
