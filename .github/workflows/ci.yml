@@ -117,6 +117,11 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      # The two below sign and store the build provenance attestation.
+      # Attestations work on public repositories on every plan; a private
+      # one needs GitHub Enterprise Cloud (actions/attest README, v4.2.2).
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,6 +154,17 @@ jobs:
           set -e
           if [ ! -f "$ZIP" ]; then echo "::error::expected archive $ZIP was not built"; ls -l dist; exit 1; fi
           python scripts/validate_zip.py "$ZIP"
+      # Signed build provenance for the exact archive this job built: anyone
+      # can check a downloaded copy with `gh attestation verify <zip> -R <repo>`.
+      - name: Attest the archive's build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/Stream-Mapparr.zip
+      - name: Verify the attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: dist/Stream-Mapparr.zip
+        run: gh attestation verify "$ZIP" -R "$GITHUB_REPOSITORY"
       - name: Extract this version's changelog entry
         env:
           VERSION: ${{ steps.version.outputs.version }}
