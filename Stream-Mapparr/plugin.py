@@ -4727,8 +4727,7 @@ class Plugin:
             m3u_priority = stream.get('_m3u_priority', 999)
 
             stats = stream.get('stats', {}) or {}
-            width = stats.get('width', 0) or 0
-            height = stats.get('height', 0) or 0
+            width, height = self._stats_dimensions(stats)
             fps = stats.get('source_fps', 0) or 0
             audio_pair = (
                 self._audio_rank(stats.get('audio_channels'), channels_priority),
@@ -4824,10 +4823,7 @@ class Plugin:
         stats = stream.get('stats') or {}
         if not isinstance(stats, dict):
             return False
-        try:
-            height = int(stats.get('height') or 0)
-        except (TypeError, ValueError):
-            return False
+        height = Plugin._stats_dimensions(stats)[1]
         if height < PluginConfig.CONTENT_STARVED_MIN_HEIGHT:
             return False
 
@@ -4891,7 +4887,7 @@ class Plugin:
         if not nominal or nominal <= 0:
             stats = stream.get('stats', {}) or {}
             nominal = self._estimate_nominal_bitrate(
-                stats.get('width', 0), stats.get('height', 0), stats.get('source_fps', 0)
+                *self._stats_dimensions(stats), stats.get('source_fps', 0)
             )
         try:
             mbps = float(mbps)
@@ -4903,6 +4899,39 @@ class Plugin:
         if mbps < nominal * PluginConfig.PROBE_HEALTHY_MARGIN_MULTIPLIER:
             return 1
         return 0
+
+    _RESOLUTION_RE = re.compile(r'^\s*(\d+)\s*[xX]\s*(\d+)')
+
+    @staticmethod
+    def _stats_dimensions(stats):
+        """Return (width, height) from a stream_stats dict, or (0, 0).
+
+        Dispatcharr's own preview writes only `resolution` ("1920x1080") and
+        never `width`/`height`; IPTV Checker writes all three. Reading only
+        width/height ranked every Dispatcharr-previewed stream as having no
+        stats. Integer width/height win when both are positive, then
+        `resolution` is parsed. When neither gives a full pair, whatever
+        width/height were read are returned as they are (a height-only record
+        still feeds placeholder detection), and unusable values read as 0.
+        """
+        if not isinstance(stats, dict):
+            return (0, 0)
+        try:
+            width = int(stats.get('width') or 0)
+        except (TypeError, ValueError):
+            width = 0
+        try:
+            height = int(stats.get('height') or 0)
+        except (TypeError, ValueError):
+            height = 0
+        if width > 0 and height > 0:
+            return (width, height)
+        resolution = stats.get('resolution')
+        if isinstance(resolution, str):
+            match = Plugin._RESOLUTION_RE.match(resolution)
+            if match:
+                return (int(match.group(1)), int(match.group(2)))
+        return (max(width, 0), max(height, 0))
 
     @staticmethod
     def _estimate_nominal_bitrate(width, height, fps):
@@ -9997,7 +10026,7 @@ class Plugin:
 
                 stats = stream.get('stream_stats') or {}
                 nominal = self._estimate_nominal_bitrate(
-                    stats.get('width', 0), stats.get('height', 0), stats.get('source_fps', 0)
+                    *self._stats_dimensions(stats), stats.get('source_fps', 0)
                 )
                 entry = {
                     'throughput_mbps': mbps,
