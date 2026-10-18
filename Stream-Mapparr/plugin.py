@@ -417,7 +417,7 @@ class PluginConfig:
     # Fill Mirror Backups writes each changed channel's previous stream order
     # here before it writes anything. Outside /data/plugins on purpose: a
     # directory there is loaded as a plugin.
-    CHANNEL_SNAPSHOT_DIR = "/data/plugin_backups"
+    CHANNEL_SNAPSHOT_DIR = "/data/stream_mapparr_snapshots"
     EXPORTS_DIR = "/data/exports"
     # /data/exports is SHARED. Measured 2026-09-05 it held 130 files from at
     # least seven plugins, so anything that DELETES in there must select on
