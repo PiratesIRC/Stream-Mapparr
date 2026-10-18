@@ -52,7 +52,7 @@ def _insert_position(streams, accounts):
     return position
 
 
-def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
+def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None, stats=None):
     """Return one entry per channel that gains at least one mirror stream.
 
     channel_streams: {channel_id: [{"id", "account_id", "provider_id"}, ...]}
@@ -61,6 +61,12 @@ def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
     mirror_index: {(account_id, provider_id): stream_id} for the accounts in
         server groups.
     tick: called once per channel, so a caller under gevent can yield.
+    stats: when a dict is passed, it is filled with how many channels fell
+        into each outcome: "gained" (in the plan), "covered" (already holds a
+        stream from every active host in its group), "no_source" (holds no
+        stream from a server-group account with a provider stream id, so there
+        is nothing to look a mirror up by), "no_mirror_found" (a host is
+        missing but no account on it carries the mirror).
 
     Each entry: {"channel_id", "old_order", "new_order", "added"}, where
     "added" lists {"stream_id", "account_id", "source_stream_id"}. Entries are
@@ -72,6 +78,7 @@ def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
         if group_id is not None:
             group_members.setdefault(group_id, []).append(account_id)
 
+    counts = {"gained": 0, "covered": 0, "no_source": 0, "no_mirror_found": 0}
     plan = []
     for channel_id in sorted(channel_streams):
         if tick is not None:
@@ -85,6 +92,7 @@ def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
                 hosts.add(account["host"])
 
         added = []
+        source_groups = set()
         for source in streams:
             provider_id = source.get("provider_id")
             source_account = accounts.get(source.get("account_id"))
@@ -93,6 +101,7 @@ def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
             group_id = source_account.get("group_id")
             if group_id is None:
                 continue
+            source_groups.add(group_id)
             for candidate_id in group_members.get(group_id, ()):
                 if candidate_id == source.get("account_id"):
                     continue
@@ -109,10 +118,21 @@ def plan_mirror_fill(channel_streams, accounts, mirror_index, tick=None):
                 hosts.add(host)
 
         if not added:
+            if not source_groups:
+                counts["no_source"] += 1
+            elif any(accounts[a].get("active") and accounts[a].get("host")
+                     and accounts[a]["host"] not in hosts
+                     for g in source_groups for a in group_members.get(g, ())):
+                counts["no_mirror_found"] += 1
+            else:
+                counts["covered"] += 1
             continue
+        counts["gained"] += 1
         old_order = [s["id"] for s in streams]
         at = _insert_position(streams, accounts)
         new_order = old_order[:at] + [a["stream_id"] for a in added] + old_order[at:]
         plan.append({"channel_id": channel_id, "old_order": old_order,
                      "new_order": new_order, "added": added})
+    if stats is not None:
+        stats.update(counts)
     return plan

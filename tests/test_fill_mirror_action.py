@@ -266,3 +266,23 @@ def test_the_schedule_setting_sits_in_the_scheduling_section(plugin_module):
     section = ids.index("_section_scheduling")
     nxt = min((i for i, fid in enumerate(ids) if fid.startswith("_section_") and i > section), default=len(ids))
     assert section < ids.index("scheduled_fill_mirror_backups") < nxt
+
+
+def test_nothing_to_add_reports_why_each_channel_gained_nothing(plugin, monkeypatch):
+    """A placeholder-only channel is not 'already covered'; the message says which is which."""
+    FakeChannelStream.store[100] = [10, 20, 99]
+    channels = [{"id": 100, "name": "CNN", "channel_number": 1},
+                {"id": 200, "name": "ESPN", "channel_number": 2},
+                {"id": 300, "name": "KFDA", "channel_number": 3},
+                {"id": 400, "name": "Empty", "channel_number": 4}]
+    monkeypatch.setattr(plugin, "_channels_in_scope", lambda settings, logger: (channels, None))
+    result = plugin.fill_mirror_backups_action({"dry_run_mode": True}, log)
+    msg = result["message"]
+    assert msg.startswith("Nothing to add.")
+    assert "Of 4 channels in scope: 2 already have every active host" in msg
+    assert "2 have no server-group stream to copy from" in msg
+    assert "0 miss a host" in msg
+    assert len(msg) <= 280
+    with open(result["file"], encoding="utf-8") as fh:
+        text = fh.read()
+    assert "No server-group stream to copy: 2" in text

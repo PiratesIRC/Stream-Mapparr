@@ -9547,8 +9547,11 @@ class Plugin:
                     'm3u_account_id', 'stream_id', 'id'):
                 mirror_index.setdefault((account_id, provider_id), stream_id)
 
+        stats = {}
         plan = mirror_backups.plan_mirror_fill(
-            channel_streams, accounts, mirror_index, tick=self._cooperative_yield)
+            channel_streams, accounts, mirror_index, tick=self._cooperative_yield, stats=stats)
+        # A channel in scope with no stream at all never reaches the planner.
+        stats["no_source"] = stats.get("no_source", 0) + len(channel_by_id) - len(channel_streams)
         added_total = sum(len(e['added']) for e in plan)
         logger.info(f"[Stream-Mapparr] Mirror backups: {added_total} stream(s) to add on "
                     f"{len(plan)} of {len(channel_by_id)} channel(s) in scope")
@@ -9599,11 +9602,14 @@ class Plugin:
 
         readout_path = self._write_mirror_fill_readout(
             plan, accounts, channel_by_id, dry_run, written, changed_meanwhile, snapshot_path,
-            len(channel_by_id), logger)
+            stats, logger)
 
+        outcome = (f"Of {len(channel_by_id)} channels in scope: {stats.get('covered', 0)} already have "
+                   f"every active host, {stats.get('no_source', 0)} have no server-group stream to copy "
+                   f"from, {stats.get('no_mirror_found', 0)} miss a host whose accounts lack the same "
+                   f"stream.")
         if not plan:
-            message = (f"Every one of the {len(channel_by_id)} channels in scope already has a stream "
-                       f"from each active provider host that carries its mirror. Nothing to add.")
+            message = f"Nothing to add. {outcome}"
         elif dry_run:
             message = (f"Dry run: would add {added_total} mirror stream(s) to {len(plan)} channel(s). "
                        f"Nothing was changed.")
@@ -9619,7 +9625,7 @@ class Plugin:
         return result
 
     def _write_mirror_fill_readout(self, plan, accounts, channel_by_id, dry_run, written,
-                                   changed_meanwhile, snapshot_path, in_scope, logger):
+                                   changed_meanwhile, snapshot_path, stats, logger):
         """Write every planned addition to a readout file and return its path, or None."""
         names = {}
         added_ids = [a['stream_id'] for e in plan for a in e['added']]
@@ -9635,9 +9641,12 @@ class Plugin:
             "===================================",
             "",
             f"Mode                          : {'DRY RUN, nothing changed' if dry_run else 'LIVE'}",
-            f"Channels in scope             : {in_scope}",
+            f"Channels in scope             : {len(channel_by_id)}",
             f"Channels that gain a mirror   : {len(plan)}",
             f"Mirror streams planned        : {sum(len(e['added']) for e in plan)}",
+            f"Already have every active host: {stats.get('covered', 0)}",
+            f"No server-group stream to copy: {stats.get('no_source', 0)}",
+            f"Host missing, mirror not there: {stats.get('no_mirror_found', 0)}",
         ]
         if not dry_run:
             lines.append(f"Channels written              : {written}")

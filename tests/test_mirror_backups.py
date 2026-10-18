@@ -191,3 +191,26 @@ def test_the_plan_never_removes_a_stream():
     entry = plan_mirror_fill(channels, ACCOUNTS, index)[0]
     assert set(entry["old_order"]) <= set(entry["new_order"])
     assert len(entry["new_order"]) == len(set(entry["new_order"]))
+
+
+# --------------------------------------------------------------------------- #
+# Why a channel gained nothing: three different reasons, reported apart
+# --------------------------------------------------------------------------- #
+def test_stats_separate_covered_no_source_and_no_mirror_found():
+    channels = {
+        100: [_s(10, 6, 555), _s(20, 7, 555), _s(99, 1, None)],  # both hosts: covered
+        200: [_s(99, 1, None)],                                    # placeholder only
+        300: [_s(11, 6, 777)],                                     # host B missing, no mirror there
+        400: [_s(12, 6, 888)],                                     # gains a mirror
+    }
+    index = _index((7, 888, 22))
+    stats = {}
+    plan = plan_mirror_fill(channels, ACCOUNTS, index, stats=stats)
+    assert [e["channel_id"] for e in plan] == [400]
+    assert stats == {"gained": 1, "covered": 1, "no_source": 1, "no_mirror_found": 1}
+
+
+def test_a_source_without_a_provider_id_counts_as_no_source():
+    stats = {}
+    plan_mirror_fill({100: [_s(10, 6, None)]}, ACCOUNTS, {}, stats=stats)
+    assert stats["no_source"] == 1
