@@ -1,5 +1,31 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2911937 (2026-10-18)
+
+### Added
+
+- **Fill Mirror Backups, a new button and an optional scheduled step.** Some
+  providers offer the same lineup from several servers. When those M3U
+  accounts are placed in one Dispatcharr server group, this button gives each
+  channel a stream from every server in the group. For every channel in the
+  selected profile and groups, it looks up the stream the channel already has
+  by its provider stream id on the other accounts in the group, and adds that
+  stream from each active account whose server the channel has no stream from
+  yet. Two accounts on the same server count as one, and inactive accounts are
+  skipped. Added streams go after the channel's existing provider streams and
+  before any custom stream. It only adds and never removes. It follows Dry Run
+  Mode. In live mode it first saves each changed channel's previous stream
+  order to /data/stream_mapparr_snapshots/ and changes nothing if that save
+  fails. The notification says how many channels gained a stream, how many
+  already had every server, and how many had no stream to copy from, and a
+  readout lists every addition. The new setting Schedule: Fill Mirror Backups,
+  off by default, runs it in scheduled runs before Sort Streams, so the added
+  streams are sorted in the same run.
+
+### Fixed
+
+- The step counter in the scheduled run log counted Sort Streams as two steps.
+
 ## 1.26.2911353 (2026-10-18)
 
 ### Fixed
