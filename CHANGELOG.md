@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2911353 (2026-10-18)
+
+### Fixed
+
+- **Streams previewed in Dispatcharr are now ranked by their real resolution.**
+  When Dispatcharr previews or plays a stream it records the resolution as text
+  such as "1920x1080", without separate width and height values. IPTV Checker
+  records all three. Sorting read only width and height, so a stream that had
+  only been previewed was ranked as if it had no stats at all, behind a lower
+  resolution stream that IPTV Checker had checked. A 1080p stream could end up
+  below a 576p one. Sorting now falls back to the resolution text. Placeholder
+  detection and the throughput bitrate estimate had the same gap and use the
+  same fallback. Reported by subzero79.
+
 ## 1.26.2901847 (2026-10-17)
 
 ### Fixed
