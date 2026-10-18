@@ -85,6 +85,18 @@
       }
     },
     {
+      "id": "fill_mirror_backups",
+      "label": "🪞 Fill Mirror Backups",
+      "description": "For M3U accounts in a server group that mirror each other, add each channel's matching stream from every other active account whose provider host the channel has no stream from yet, matched by provider stream id. Adds only, never removes.",
+      "button_color": "orange",
+      "button_label": "🪞 Fill Mirrors",
+      "confirm": {
+        "required": true,
+        "title": "Fill Mirror Backups?",
+        "message": "This will add (or preview if dry run enabled) mirror streams from the other provider hosts in each server group to the channels in the selected profile and groups. No stream is removed. Continue?"
+      }
+    },
+    {
       "id": "match_us_ota_only",
       "label": "📡 Match US OTA Only",
       "description": "Match US OTA channels by callsign.",

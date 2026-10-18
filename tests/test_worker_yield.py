@@ -28,6 +28,8 @@ HOT_LOOPS = [
     ("add_streams_to_channels_action", "channel_groups.items()"),
     ("match_us_ota_only_action", "enumerate(channels, 1)"),
     ("sort_streams_action", "channels_with_multiple_streams"),
+    # One ORM write per channel; on a first run that can be every channel.
+    ("fill_mirror_backups_action", "plan"),
 ]
 
 
@@ -138,3 +140,15 @@ def test_yield_call_sites_are_pinned(plugin_ast):
     assert len(module_calls) == expected, (
         f"expected one call per hot loop ({len(HOT_LOOPS)}) plus one per callback "
         f"site ({len(CALLBACK_SITES)}), found {len(module_calls)}")
+
+
+def test_the_mirror_plan_is_handed_a_yield(plugin_ast):
+    """plan_mirror_fill walks every channel in scope in mirror_backups.py, which
+    has no Django import, so the action passes the yield in as `tick`. A keyword
+    argument is not a call, so the pinned count above does not see it."""
+    func = _function(plugin_ast, "fill_mirror_backups_action")
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call) and ast.unparse(node.func).endswith("plan_mirror_fill"):
+            assert "tick=self._cooperative_yield" in ast.unparse(node)
+            return
+    raise AssertionError("no call to plan_mirror_fill in fill_mirror_backups_action")

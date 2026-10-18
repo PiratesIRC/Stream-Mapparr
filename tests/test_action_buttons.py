@@ -53,6 +53,7 @@ EXPECTED_COLOURS = {
     "manage_channel_visibility": "red",
     # orange: writes data or clears state, but removes nothing
     "sort_streams": "orange",
+    "fill_mirror_backups": "orange",
     "clear_csv_exports": "orange",
     "clear_operation_lock": "orange",
     "cleanup_periodic_tasks": "orange",

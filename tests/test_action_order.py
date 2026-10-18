@@ -32,6 +32,7 @@ EXPECTED = [
     "add_streams_to_channels",
     "probe_throughput",
     "sort_streams",
+    "fill_mirror_backups",
     # Other matching and tidying
     "match_us_ota_only",
     "manage_channel_visibility",

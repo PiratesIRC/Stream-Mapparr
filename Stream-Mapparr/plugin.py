@@ -414,6 +414,10 @@ class PluginConfig:
 
     # === FILE PATHS ===
     DATA_DIR = "/data"
+    # Fill Mirror Backups writes each changed channel's previous stream order
+    # here before it writes anything. Outside /data/plugins on purpose: a
+    # directory there is loaded as a plugin.
+    CHANNEL_SNAPSHOT_DIR = "/data/plugin_backups"
     EXPORTS_DIR = "/data/exports"
     # /data/exports is SHARED. Measured 2026-09-05 it held 130 files from at
     # least seven plugins, so anything that DELETES in there must select on
@@ -1311,7 +1315,7 @@ class Plugin:
                 "label": "\U0001f501 Run After IPTV Checker Scan",
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_RUN_AFTER_IPTV_CHECKER_SCAN,
-                "help_text": "When IPTV Checker finishes a scheduled scan, run the same steps the schedule below runs (Sort Alternate Streams and Match and Assign, whichever are ticked). IPTV Checker must have its 'Trigger Stream-Mapparr' setting on. A run already in progress is left alone and the next scan tries again.",
+                "help_text": "When IPTV Checker finishes a scheduled scan, run the same steps the schedule below runs (Fill Mirror Backups, Sort Alternate Streams and Match and Assign, whichever are ticked). IPTV Checker must have its 'Trigger Stream-Mapparr' setting on. A run already in progress is left alone and the next scan tries again.",
             },
             {
                 "id": "_section_scheduling",
@@ -1340,6 +1344,13 @@ class Plugin:
                 "type": "boolean",
                 "default": True,
                 "help_text": "When enabled, scheduled runs will match and assign new streams to channels using fuzzy matching. This is the main stream assignment feature.",
+            },
+            {
+                "id": "scheduled_fill_mirror_backups",
+                "label": "🪞 Schedule: Fill Mirror Backups",
+                "type": "boolean",
+                "default": False,
+                "help_text": "When enabled, scheduled runs add each channel's mirror stream from every other active M3U account in the same server group whose provider host the channel has no stream from yet, matched by provider stream id. Runs before Sort Streams, so the added mirrors are sorted in the same run. Adds only, never removes.",
             },
             {
                 "id": "enable_scheduled_csv_export",
@@ -1520,6 +1531,18 @@ class Plugin:
                 "required": True,
                 "title": "Sort Alternate Streams?",
                 "message": "This will sort (or preview if dry run enabled) existing alternate streams by quality for all channels. Continue?"
+            }
+        },
+        {
+            "id": "fill_mirror_backups",
+            "label": "🪞 Fill Mirror Backups",
+            "description": "For M3U accounts in a server group that mirror each other, add each channel's matching stream from every other active account whose provider host the channel has no stream from yet, matched by provider stream id. Adds only, never removes. Respects 'Dry Run Mode' setting. Writes a readout of every addition.",
+            "button_color": "orange",
+            "button_label": "🪞 Fill Mirrors",
+            "confirm": {
+                "required": True,
+                "title": "Fill Mirror Backups?",
+                "message": "This will add (or preview if dry run enabled) mirror streams from the other provider hosts in each server group to the channels in the selected profile and groups. No stream is removed. Continue?"
             }
         },
         {
@@ -7067,6 +7090,7 @@ class Plugin:
                 "preview_changes": self.preview_changes_action,
                 "add_streams_to_channels": self.add_streams_to_channels_action,
                 "sort_streams": self.sort_streams_action,
+                "fill_mirror_backups": self.fill_mirror_backups_action,
                 "manage_channel_visibility": self.manage_channel_visibility_action,
                 "match_us_ota_only": self.match_us_ota_only_action,
                 "probe_throughput": self.probe_throughput_action,
@@ -7091,6 +7115,7 @@ class Plugin:
             if action in background_actions:
                 lockable_actions = {
                     'preview_changes', 'add_streams_to_channels', 'sort_streams',
+                    'fill_mirror_backups',
                     'match_us_ota_only', 'manage_channel_visibility',
                     'probe_throughput',
                 }
@@ -7938,6 +7963,7 @@ class Plugin:
             f"# Scheduled Times: {(settings.get('scheduled_times') or '').strip() or '(none)'}",
             f"# Schedule: Sort Streams: {_yes_no(settings.get('scheduled_sort_streams'))}",
             f"# Schedule: Match & Assign Streams: {_yes_no(settings.get('scheduled_match_streams'), True)}",
+            f"# Schedule: Fill Mirror Backups: {_yes_no(settings.get('scheduled_fill_mirror_backups'))}",
             f"# Enable CSV Export: {_yes_no(settings.get('enable_scheduled_csv_export'), PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)}",
             "#",
             "# === API Settings ===",
@@ -8529,11 +8555,22 @@ class Plugin:
             return load_result
         logger.info(f"[Stream-Mapparr] {load_result.get('message', 'Channels loaded successfully')}")
 
+        do_mirror = self._get_bool_setting(settings, 'scheduled_fill_mirror_backups', False)
         do_sort = self._get_bool_setting(settings, 'scheduled_sort_streams', False)
         do_match = self._get_bool_setting(settings, 'scheduled_match_streams', True)
 
         step = 2
-        total_steps = (2 if do_sort else 0) + (1 if do_match else 0) + 1
+        total_steps = 1 + int(do_mirror) + int(do_sort) + int(do_match)
+
+        # Mirrors go in before Sort so the same run ranks them with the rest.
+        if do_mirror:
+            logger.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Filling mirror backups...")
+            mirror_result = self.fill_mirror_backups_action(settings, logger, is_scheduled=True, trigger=trigger)
+            if mirror_result.get("status") == "success":
+                logger.info(f"[Stream-Mapparr] {mirror_result.get('message', 'Mirror backups filled')}")
+            else:
+                logger.error(f"[Stream-Mapparr] Failed to fill mirror backups: {mirror_result.get('message', 'Unknown error')}")
+            step += 1
 
         if do_sort:
             logger.info(f"[Stream-Mapparr] Step {step}/{total_steps}: Sorting alternate streams...")
@@ -9408,6 +9445,228 @@ class Plugin:
             self._record_streams_matched(
                 "match_us_ota_only", success_count,
                 ota_streams_assigned, dry_run=dry_run)
+
+    @staticmethod
+    def _mirror_backups():
+        """The pure planning module behind Fill Mirror Backups."""
+        try:
+            from . import mirror_backups
+        except ImportError:
+            import mirror_backups
+        return mirror_backups
+
+    def _channels_in_scope(self, settings, logger):
+        """Channels in the selected profile(s) and group filter, as (channels, error).
+
+        The same scope Sort uses, resolved from the live settings dict (bug-139).
+        """
+        profile_name = (settings.get('profile_name') or '').strip()
+        if profile_name == "_none":
+            profile_name = ""
+        if not profile_name:
+            return None, "Profile name is required"
+        profile_names = [p.strip() for p in profile_name.split(',')]
+        profile_ids = [p['id'] for p in self._get_all_profiles(logger) if p['name'] in profile_names]
+        if not profile_ids:
+            return None, f"Profile(s) not found: {profile_name}"
+
+        member_ids = set(ChannelProfileMembership.objects.filter(
+            channel_profile_id__in=profile_ids, enabled=True
+        ).values_list('channel_id', flat=True))
+        channels = [ch for ch in self._get_all_channels(logger) if ch['id'] in member_ids]
+
+        selected_groups_str = (settings.get('selected_groups') or '').strip()
+        if selected_groups_str:
+            group_name_to_id = {g['name']: g['id'] for g in self._get_all_groups(logger)
+                                if 'name' in g and 'id' in g}
+            selected_groups = [g.strip() for g in selected_groups_str.split(',') if g.strip()]
+            valid_group_ids = [group_name_to_id[n] for n in selected_groups if n in group_name_to_id]
+            if not valid_group_ids:
+                return None, f"None of the specified channel groups were found: {selected_groups_str}"
+            channels = self._filter_by_group_ids(
+                channels, valid_group_ids, self._resolve_group_filter_mode(settings), 'channel_group_id')
+        return channels, None
+
+    def fill_mirror_backups_action(self, settings, logger, context=None, is_scheduled=False, trigger=None):
+        """Give each channel a stream from every active provider host in its server group.
+
+        M3U accounts in one server group are treated as mirrors: the same
+        provider stream id on a different host. For every channel in scope,
+        the streams it holds from a server-group account name the provider
+        stream ids; the mirror from each other ACTIVE account whose host the
+        channel has no stream from yet is added after the last provider stream
+        and before any trailing stream with no host (a custom placeholder).
+
+        Adds only. Before writing, every changed channel's previous order is
+        saved to PluginConfig.CHANNEL_SNAPSHOT_DIR; if that fails nothing is
+        written. Provider hosts are compared but never logged or reported.
+        """
+        from apps.m3u.models import M3UAccount
+        from django.db import transaction
+
+        mirror_backups = self._mirror_backups()
+        dry_run = self._get_bool_setting(settings, 'dry_run_mode', False)
+        mode_label = "DRY RUN (Preview)" if dry_run else "LIVE MODE"
+        logger.info(f"[Stream-Mapparr] === FILL MIRROR BACKUPS STARTED ({mode_label}) ===")
+
+        channels, error = self._channels_in_scope(settings, logger)
+        if error:
+            return {"status": "error", "message": error}
+
+        try:
+            rows = list(M3UAccount.objects.all().values(
+                'id', 'name', 'server_group_id', 'is_active', 'server_url'))
+        except Exception as e:
+            return {"status": "error",
+                    "message": f"Could not read M3U accounts or their server groups: {e}"}
+        accounts = {
+            r['id']: {"name": r['name'], "group_id": r['server_group_id'],
+                      "active": bool(r['is_active']), "host": mirror_backups.host_key(r['server_url'])}
+            for r in rows
+        }
+        del rows
+        grouped_ids = [a_id for a_id, a in accounts.items() if a['group_id'] is not None]
+        if not grouped_ids:
+            return {"status": "success",
+                    "message": "No M3U account is in a server group, so there are no mirrors to add."}
+
+        channel_by_id = {ch['id']: ch for ch in channels}
+        channel_streams = {}
+        for channel_id, stream_id, account_id, provider_id in ChannelStream.objects.filter(
+                channel_id__in=list(channel_by_id)).order_by('channel_id', 'order').values_list(
+                'channel_id', 'stream_id', 'stream__m3u_account_id', 'stream__stream_id'):
+            channel_streams.setdefault(channel_id, []).append(
+                {"id": stream_id, "account_id": account_id, "provider_id": provider_id})
+
+        wanted = {s['provider_id'] for streams in channel_streams.values() for s in streams
+                  if s['provider_id'] is not None and s['account_id'] in grouped_ids}
+        mirror_index = {}
+        if wanted:
+            for account_id, provider_id, stream_id in Stream.objects.filter(
+                    m3u_account_id__in=grouped_ids, stream_id__in=list(wanted)).order_by('id').values_list(
+                    'm3u_account_id', 'stream_id', 'id'):
+                mirror_index.setdefault((account_id, provider_id), stream_id)
+
+        plan = mirror_backups.plan_mirror_fill(
+            channel_streams, accounts, mirror_index, tick=self._cooperative_yield)
+        added_total = sum(len(e['added']) for e in plan)
+        logger.info(f"[Stream-Mapparr] Mirror backups: {added_total} stream(s) to add on "
+                    f"{len(plan)} of {len(channel_by_id)} channel(s) in scope")
+
+        snapshot_path = None
+        written, written_streams, changed_meanwhile = 0, 0, 0
+        if plan and not dry_run:
+            try:
+                os.makedirs(PluginConfig.CHANNEL_SNAPSHOT_DIR, exist_ok=True)
+                snapshot_path = os.path.join(
+                    PluginConfig.CHANNEL_SNAPSHOT_DIR,
+                    f"stream_mapparr_mirror_fill_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+                self._write_json_atomic(snapshot_path, {
+                    "action": "fill_mirror_backups",
+                    "written_at": datetime.now().isoformat(),
+                    "channels": {str(e['channel_id']): e['old_order'] for e in plan},
+                })
+                # _write_json_atomic logs and swallows its own failure, so the
+                # file on disk is the only proof the snapshot exists.
+                if not os.path.isfile(snapshot_path):
+                    raise OSError(f"{snapshot_path} was not written")
+            except Exception as e:
+                logger.error(f"[Stream-Mapparr] Could not save the channel snapshot, nothing written: {e}")
+                return {"status": "error",
+                        "message": f"Could not save the channel snapshot, so nothing was changed: {e}"}
+            logger.info(f"[Stream-Mapparr] Previous stream order of {len(plan)} channel(s) saved to {snapshot_path}")
+
+            for entry in plan:
+                self._cooperative_yield()
+                channel_id = entry['channel_id']
+                with transaction.atomic():
+                    current = list(ChannelStream.objects.select_for_update().filter(
+                        channel_id=channel_id).order_by('order').values_list('stream_id', flat=True))
+                    if current != entry['old_order']:
+                        # Something else changed this channel since it was read;
+                        # the plan no longer describes it, so leave it alone.
+                        changed_meanwhile += 1
+                        continue
+                    ChannelStream.objects.filter(channel_id=channel_id).delete()
+                    ChannelStream.objects.bulk_create([
+                        ChannelStream(channel_id=channel_id, stream_id=sid, order=index)
+                        for index, sid in enumerate(entry['new_order'])
+                    ])
+                written += 1
+                written_streams += len(entry['added'])
+            if written:
+                self._trigger_frontend_refresh(settings, logger)
+
+        readout_path = self._write_mirror_fill_readout(
+            plan, accounts, channel_by_id, dry_run, written, changed_meanwhile, snapshot_path,
+            len(channel_by_id), logger)
+
+        if not plan:
+            message = (f"Every one of the {len(channel_by_id)} channels in scope already has a stream "
+                       f"from each active provider host that carries its mirror. Nothing to add.")
+        elif dry_run:
+            message = (f"Dry run: would add {added_total} mirror stream(s) to {len(plan)} channel(s). "
+                       f"Nothing was changed.")
+        else:
+            message = f"Added {written_streams} mirror stream(s) to {written} channel(s)."
+            if changed_meanwhile:
+                message += (f" {changed_meanwhile} channel(s) changed while this ran and were left alone; "
+                            f"run it again to fill them.")
+        logger.info(f"[Stream-Mapparr] {message}")
+        result = {"status": "success", "message": message}
+        if readout_path:
+            result["file"] = readout_path
+        return result
+
+    def _write_mirror_fill_readout(self, plan, accounts, channel_by_id, dry_run, written,
+                                   changed_meanwhile, snapshot_path, in_scope, logger):
+        """Write every planned addition to a readout file and return its path, or None."""
+        names = {}
+        added_ids = [a['stream_id'] for e in plan for a in e['added']]
+        for i in range(0, len(added_ids), 1000):
+            names.update(dict(Stream.objects.filter(id__in=added_ids[i:i + 1000]).values_list('id', 'name')))
+        per_account = {}
+        for e in plan:
+            for a in e['added']:
+                per_account[a['account_id']] = per_account.get(a['account_id'], 0) + 1
+
+        lines = [
+            "Stream-Mapparr: Fill Mirror Backups",
+            "===================================",
+            "",
+            f"Mode                          : {'DRY RUN, nothing changed' if dry_run else 'LIVE'}",
+            f"Channels in scope             : {in_scope}",
+            f"Channels that gain a mirror   : {len(plan)}",
+            f"Mirror streams planned        : {sum(len(e['added']) for e in plan)}",
+        ]
+        if not dry_run:
+            lines.append(f"Channels written              : {written}")
+            lines.append(f"Changed meanwhile, left alone : {changed_meanwhile}")
+            if snapshot_path:
+                lines.append(f"Previous order saved to       : {snapshot_path}")
+        lines.append("")
+        lines.append("Server group accounts (only active ones are added from):")
+        for a_id, a in sorted(accounts.items()):
+            if a['group_id'] is not None:
+                lines.append(f"  {a['name']}  group {a['group_id']}  "
+                             f"{'active' if a['active'] else 'INACTIVE'}  added {per_account.get(a_id, 0)}")
+        if plan:
+            lines.append("")
+            lines.append("Additions, by channel:")
+            for e in plan:
+                ch = channel_by_id.get(e['channel_id'], {})
+                lines.append(f"  {ch.get('channel_number')}  {ch.get('name')}")
+                for a in e['added']:
+                    lines.append(f"      + {accounts[a['account_id']]['name']}: "
+                                 f"{names.get(a['stream_id'], a['stream_id'])}")
+        try:
+            path = os.path.join(self._readout_dir(), "fill-mirror-backups.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines) + "\n")
+            return path
+        except Exception as e:
+            logger.warning(f"[Stream-Mapparr] Could not write the mirror backup readout: {e}")
+            return None
 
     def sort_streams_action(self, settings, logger, context=None, is_scheduled=False, trigger=None):
         """Sort existing alternate streams by quality for all channels"""

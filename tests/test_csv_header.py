@@ -174,7 +174,8 @@ def _field_label(plugin_module, field_id):
 
 
 @pytest.mark.parametrize("field_id", [
-    "scheduled_sort_streams", "scheduled_match_streams", "enable_scheduled_csv_export",
+    "scheduled_sort_streams", "scheduled_match_streams", "scheduled_fill_mirror_backups",
+    "enable_scheduled_csv_export",
 ])
 def test_the_preamble_uses_the_label_the_setting_has_in_the_interface(plugin_module, field_id):
     """Renaming a setting only in the report leaves the reader unable to find it.
