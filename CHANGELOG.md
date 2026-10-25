@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.2981400 (2026-10-25)
+
+### Fixed
+
+- **A Custom Aliases entry now works for a channel whose name is one word that
+  cleans down to a single character** (issue #68). Before matching, names are
+  cleaned, and "Three" becomes "3". Matching skips any name shorter than two
+  characters, and the alias check applied the same limit to stream names, so
+  an entry such as {"Three": ["Three"]} matched nothing. An alias match needs
+  the whole cleaned name to be equal, so the limit no longer applies to it:
+  that entry now matches streams named "Three", "NZ: Three" or "Three HD" and
+  still leaves out "BBC Three" and "Three +1". A channel with no alias entry
+  is matched exactly as before.
+
 ## 1.26.2911937 (2026-10-18)
 
 ### Added
