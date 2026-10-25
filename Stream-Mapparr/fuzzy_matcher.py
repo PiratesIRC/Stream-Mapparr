@@ -766,6 +766,11 @@ class FuzzyMatcher(FuzzyMatcherCore):
             # Reuse the precompute cache for candidates (mirrors how fuzzy_match
             # normalizes candidates) — avoids re-normalizing every stream name.
             low, nospace = self._get_cached_norm(cand, user_ignored_tags)
+            if low is None:
+                # The cache drops names shorter than two characters, which fuzzy
+                # scoring cannot use. An alias hit is exact equality, so a name
+                # that cleans to "3" ("Three") can still equal its alias (#68).
+                low, nospace = _forms(cand)
             if low and (low in alias_low or nospace in alias_nospace):
                 hits.append(cand)
         return hits
