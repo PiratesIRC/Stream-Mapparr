@@ -7550,10 +7550,11 @@ class Plugin:
 
             # New option: prioritize quality before M3U source priority when sorting alternates
             self._prioritize_quality = self._resolve_prioritize_quality(settings)
-            # Resolved here from the live settings, not in _prime_throughput_state,
-            # which the sort primes from saved_settings: that copy is only
-            # rewritten by Update Schedule, so a changed step would be ignored
-            # by Preview and Match and Assign (bug-139 shape).
+            # Prime the sort state from the LIVE settings. Left unprimed, the sort
+            # primes it from saved_settings, a copy only Update Schedule rewrites,
+            # so Preview and Match and Assign ignored a changed Demote Placeholder
+            # Streams or throughput setting (bug-139 shape).
+            self._prime_throughput_state(settings)
             self._bitrate_sort_step_kbps = self._resolve_bitrate_sort_step(settings)
 
             ignore_quality, ignore_regional, ignore_geographic, ignore_misc = self._resolve_ignore_flags(settings)
@@ -9170,7 +9171,9 @@ class Plugin:
 
         try:
             allow_same_name_streams = self._resolve_allow_same_name_streams(settings)
-            # This action never calls load_process_channels_action.
+            # This action never calls load_process_channels_action, so it primes
+            # the sort state from its own live settings.
+            self._prime_throughput_state(settings)
             self._bitrate_sort_step_kbps = self._resolve_bitrate_sort_step(settings)
             # Check dry run mode
             dry_run = settings.get('dry_run_mode', False)
@@ -9772,7 +9775,10 @@ class Plugin:
             # issue 40: same reason again. Sort is the action that reorders a
             # channel's alternates, so if it does not resolve the placeholder
             # rule itself the getattr default decides, and a Sort run silently
-            # undoes what Match and Assign just applied.
+            # undoes what Match and Assign just applied. Priming also sets the
+            # primed flag, without which the sort re-primed from saved_settings
+            # and replaced the two values resolved below.
+            self._prime_throughput_state(settings)
             self._content_starved_enabled = self._resolve_demote_content_starved(settings)
             self._content_starved_floor_kbps = self._resolve_content_starved_floor(settings)
             logger.info(
