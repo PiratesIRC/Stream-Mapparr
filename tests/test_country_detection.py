@@ -121,3 +121,30 @@ def test_classify_unknown_stream_is_unknown_not_foreign():
 
 def test_classify_unknown_channel_is_unknown():
     assert classify(None, "UK") is UNKNOWN
+
+
+# --- U+258E LEFT ONE QUARTER BLOCK as the separator ------------------------- #
+# Some providers separate the country from the rest of a group or stream name
+# with "▎" instead of a pipe or a box bar ("NL ▎NEDERLAND HD"). The character
+# was not a delimiter, so every one of those streams came out UNKNOWN and was
+# kept on channels of every other country by the same-country filter.
+
+@pytest.mark.parametrize("name,expected", [
+    ("NL ▎NEDERLAND HD", "NL"),
+    ("BE ▎DISCOVERY CHANNEL HD", "BE"),
+    ("DE▎ZDF HD", "DE"),
+    ("UK ▎ BBC ONE", "UK"),
+])
+def test_left_quarter_block_separator_detects(name, expected):
+    assert country_from_name(name) == expected
+    assert country_from_group(name) == expected
+
+
+@pytest.mark.parametrize("name", [
+    "PPV ▎PAY PER VIEW",
+    "UEFA ▎CHAMPIONS LEAGUE",
+    "MULTI ▎ VIAPLAY",
+])
+def test_left_quarter_block_separator_without_country_returns_none(name):
+    assert country_from_name(name) is None
+    assert country_from_group(name) is None

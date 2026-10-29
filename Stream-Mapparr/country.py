@@ -115,7 +115,9 @@ GROUP_SHORT_ALIASES = {"USA": "US", "GBR": "UK", "CAN": "CA", "AUS": "AU", "MEX"
 # Curated: NO/IT/IN/AT/BE/TO/IS/DO are English words at the head of real titles.
 _BARE_CODES = "US|UK|CA|AU|FR|DE|MX|MEX|FRA|GER"
 
-_DELIM = r"[-:|┃│]"
+# U+258E (LEFT ONE QUARTER BLOCK) is a separator some providers use in place of
+# a pipe: "NL ▎NEDERLAND HD". It is never paired, so it is not a wrap delimiter.
+_DELIM = r"[-:|┃│▎]"
 
 _RE_WRAPPED = re.compile(r"^\s*[\(\[\|┃│]\s*([A-Za-z]{2,3})\s*[\)\]\|┃│]")
 _RE_TOKEN_DELIM = re.compile(r"^\s*([A-Za-z]{2,3})\s*" + _DELIM)
