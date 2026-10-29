@@ -130,6 +130,9 @@ database. This plugin modifies channel and stream assignments.
 - **Audio priority sorting** (opt-in): rank by audio channel layout and codec,
   using two comma-separated preference lists. Applied after the video tier, with
   layout ranked before codec
+- **Bitrate tie-breaker**: when two streams match on resolution, frame rate and
+  audio, the one with the higher measured video bitrate goes first, rounded to
+  the Bitrate Sort Step so small swings do not reorder them
 - **M3U source prioritization**: prefer streams from specific providers
 - **Dead stream filtering**: skip streams with 0x0 resolution
 - **Auto-deduplication**: collapse duplicate stream names during assignment

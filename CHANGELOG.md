@@ -1,5 +1,32 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3021330 (2026-10-29)
+
+### Added
+
+- **Bitrate Sort Step (kbps), a new setting under Stream Selection, default
+  500.** When two streams of a channel match on resolution, frame rate and
+  audio, the one with the higher measured video bitrate is now placed first.
+  Before, they tied and kept their existing order, so a provider's "HEVC LB"
+  feed could stay ahead of its "HEVC HB" feed on every channel. Bitrates are
+  rounded down to the step before they are compared, so two streams within one
+  step keep their order and a small change between IPTV Checker runs does not
+  swap them. A stream with no measured bitrate goes after one that has one.
+  Bitrate never outranks source order, resolution or frame rate. Set 0 to turn
+  it off.
+
+### Fixed
+
+- **Sort, Preview and Match and Assign now use the settings on the form.**
+  Demote Placeholder Streams, Placeholder Bitrate Floor and Enable
+  Throughput-Based Sorting were read from a saved copy that only Update
+  Schedule or a Dispatcharr restart refreshes, so a change to them could be
+  ignored until then.
+- **A country is now read from names that use the left quarter block
+  character as a separator**, such as "NL &#9614;NEDERLAND HD". Restrict
+  Matching To Same Country treated those streams as having no country and kept
+  them on channels of every country. Thanks to dillardblom (#69).
+
 ## 1.26.2981400 (2026-10-25)
 
 ### Fixed
