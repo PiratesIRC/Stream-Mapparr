@@ -3,6 +3,7 @@
 import inspect
 import logging
 import types
+from unittest.mock import MagicMock
 
 import fuzzy_matcher
 
@@ -971,12 +972,12 @@ def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypa
                                  channel_group=types.SimpleNamespace(name="US")),
     }
 
-    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
-                         _fake_orm_manager([9]))
-    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
-                         _fake_orm_manager([1, 2]))
-    monkeypatch.setattr(plugin_module.Stream, "objects",
-                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    monkeypatch.setattr(plugin_module, "ChannelProfileMembership",
+                         MagicMock(objects=_fake_orm_manager([9])))
+    monkeypatch.setattr(plugin_module, "ChannelStream",
+                         MagicMock(objects=_fake_orm_manager([1, 2])))
+    monkeypatch.setattr(plugin_module, "Stream",
+                         MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
 
     result = inst.sort_streams_action(
@@ -1023,12 +1024,12 @@ def test_sort_action_order_unchanged_when_disabled(plugin_module, monkeypatch):
                                  channel_group=types.SimpleNamespace(name="US")),
     }
 
-    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
-                         _fake_orm_manager([9]))
-    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
-                         _fake_orm_manager([1, 2]))
-    monkeypatch.setattr(plugin_module.Stream, "objects",
-                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    monkeypatch.setattr(plugin_module, "ChannelProfileMembership",
+                         MagicMock(objects=_fake_orm_manager([9])))
+    monkeypatch.setattr(plugin_module, "ChannelStream",
+                         MagicMock(objects=_fake_orm_manager([1, 2])))
+    monkeypatch.setattr(plugin_module, "Stream",
+                         MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
 
     result = inst.sort_streams_action(
@@ -1418,12 +1419,12 @@ def _sort_action_harness(plugin_module, monkeypatch, restrict_matching_to_countr
                                   channel_group=group),
     }
 
-    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
-                         _fake_orm_manager([9]))
-    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
-                         _fake_orm_manager([1, 2]))
-    monkeypatch.setattr(plugin_module.Stream, "objects",
-                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    monkeypatch.setattr(plugin_module, "ChannelProfileMembership",
+                         MagicMock(objects=_fake_orm_manager([9])))
+    monkeypatch.setattr(plugin_module, "ChannelStream",
+                         MagicMock(objects=_fake_orm_manager([1, 2])))
+    monkeypatch.setattr(plugin_module, "Stream",
+                         MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
 
     settings = {"profile_name": "Default", "dry_run_mode": False}
@@ -1566,12 +1567,12 @@ def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, 
                                   channel_group=types.SimpleNamespace(name="US")),
     }
 
-    monkeypatch.setattr(plugin_module.ChannelProfileMembership, "objects",
-                         _fake_orm_manager([9]))
-    monkeypatch.setattr(plugin_module.ChannelStream, "objects",
-                         _fake_orm_manager([1, 2]))
-    monkeypatch.setattr(plugin_module.Stream, "objects",
-                         types.SimpleNamespace(get=lambda id: fake_streams[id]))
+    monkeypatch.setattr(plugin_module, "ChannelProfileMembership",
+                         MagicMock(objects=_fake_orm_manager([9])))
+    monkeypatch.setattr(plugin_module, "ChannelStream",
+                         MagicMock(objects=_fake_orm_manager([1, 2])))
+    monkeypatch.setattr(plugin_module, "Stream",
+                         MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
 
     result = inst.sort_streams_action(
