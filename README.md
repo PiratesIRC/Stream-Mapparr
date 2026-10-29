@@ -222,6 +222,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Placeholder Bitrate Floor (kbps)** | number | 300 | The floor for the setting above. Standard definition is never checked. Where two bitrate figures disagree the higher is used, so a disagreement keeps the stream |
 | **Audio Channels Priority** | string | "" | Audio layouts, most preferred first, for example `7.1, 5.1, stereo`. Ranked before codec. Blank disables it |
 | **Audio Codec Priority** | string | "" | Audio codecs, most preferred first, for example `eac3, ac3, aac`. Ranked after layout. Blank disables it |
+| **Bitrate Sort Step (kbps)** | number | 500 | When streams match on resolution, frame rate and audio, the higher measured video bitrate is placed first. Bitrates are rounded down to this step before comparing, so streams within one step keep their order. A stream with no measured bitrate goes after one that has one. 0 turns it off |
 | **Share anonymous usage counts** | boolean | True | Sends this plugin's Streams Matched total and a random id to the plugin author's counter. See [Anonymous usage counts](#anonymous-usage-counts). |
 
 ## Actions
