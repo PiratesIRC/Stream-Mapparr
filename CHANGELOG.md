@@ -1,5 +1,21 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3052124 (2026-11-01)
+
+### Added
+
+- **Keep Custom Streams Last, a new setting under Matching and Run Behaviour,
+  default on.** Custom streams are the streams created in Dispatcharr rather
+  than read from an M3U source, such as the fallback stream the Could Not
+  Dispatch plugin adds to the end of every channel. Before, Match and Assign
+  with Overwrite Existing Streams on deleted them along with the provider
+  streams, and Sort could move one above the provider streams. Now Match and
+  Assign writes them back after the streams it matched, in their old order,
+  and Sort ranks only the provider streams and leaves the custom ones after
+  them. Turn it off to have Overwrite remove custom streams as before. The
+  CSV report header records the setting. Thanks to amddeus for the report
+  (#70).
+
 ## 1.26.3021330 (2026-10-29)
 
 ### Added
