@@ -323,6 +323,7 @@ class PluginConfig:
     # === MATCHING SETTINGS ===
     DEFAULT_FUZZY_MATCH_THRESHOLD = 85          # Minimum similarity score (0-100)
     DEFAULT_OVERWRITE_STREAMS = True            # Replace existing streams vs append
+    DEFAULT_KEEP_CUSTOM_STREAMS = True          # Issue 70: custom streams stay last on a channel
     DEFAULT_AUTO_MATCH_ON_M3U_REFRESH = False   # opt-in: run Match & Assign after each M3U refresh
     DEFAULT_VISIBLE_CHANNEL_LIMIT = 1           # Channels per group to enable
     DEFAULT_RESTRICT_MATCHING_TO_COUNTRY = False  # Only match streams from same detected country/group
@@ -917,6 +918,13 @@ class Plugin:
                 "type": "boolean",
                 "default": PluginConfig.DEFAULT_OVERWRITE_STREAMS,
                 "help_text": "If enabled, all existing streams will be removed and replaced with matched streams. If disabled, only new streams will be added (existing streams preserved).",
+            },
+            {
+                "id": "keep_custom_streams",
+                "label": "📌 Keep Custom Streams Last",
+                "type": "boolean",
+                "default": PluginConfig.DEFAULT_KEEP_CUSTOM_STREAMS,
+                "help_text": "If enabled, custom streams already on a channel (streams you or another plugin created in Dispatcharr, not from an M3U source) are kept when Overwrite Existing Streams replaces the list, and Sort keeps them after the provider streams. Use this with a fallback plugin such as Could Not Dispatch. If disabled, Overwrite removes them like any other stream.",
             },
             {
                 "id": "dry_run_mode",
@@ -7970,6 +7978,7 @@ class Plugin:
             "# === Matching Settings ===",
             f"# Name Match Threshold: {current_threshold} out of 100, set by Match Sensitivity (higher is stricter; a stream must score at least this to count as a match)",
             f"# Overwrite Streams: {_yes_no(settings.get('overwrite_streams'), PluginConfig.DEFAULT_OVERWRITE_STREAMS)} (Yes replaces a channel's whole stream list; No only adds)",
+            f"# Keep Custom Streams Last: {_yes_no(settings.get('keep_custom_streams'), PluginConfig.DEFAULT_KEEP_CUSTOM_STREAMS)} (Yes keeps custom streams, such as a fallback stream, after the streams written)",
             f"# Prioritize Quality Before Source: {_yes_no(settings.get('prioritize_quality'), PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
             f"# Bitrate Sort Step: {self._resolve_bitrate_sort_step(settings):.0f} kbps (0 means off)",
             f"# Restrict Matching To Same Country: {_yes_no(processed_data.get('restrict_matching_to_country'), PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
@@ -8778,6 +8787,8 @@ class Plugin:
             visible_channel_limit = processed_data.get('visible_channel_limit', PluginConfig.DEFAULT_VISIBLE_CHANNEL_LIMIT)
             overwrite_streams = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
             if isinstance(overwrite_streams, str): overwrite_streams = overwrite_streams.lower() in ('true', 'yes', '1')
+            keep_custom_streams = self._resolve_keep_custom_streams(settings)
+            total_custom_kept = 0
 
             ignore_quality = processed_data.get('ignore_quality', True)
             ignore_regional = processed_data.get('ignore_regional', True)
@@ -8910,26 +8921,15 @@ class Plugin:
                         if matched_streams:
                             # Only apply changes if not in dry run mode
                             if not dry_run:
-                                if overwrite_streams:
-                                    ChannelStream.objects.filter(channel_id=channel_id).delete()
-
-                                # Bulk insert to collapse N round-trips to 1. The list is
-                                # quality-sorted (see _sort_streams_by_quality), optionally
-                                # zone-reordered above, so the enumerate index is the
-                                # correct `order` value for each row.
-                                existing_stream_ids = (
-                                    set() if overwrite_streams
-                                    else set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
-                                )
-                                rows = [
-                                    ChannelStream(channel_id=channel_id, stream_id=stream['id'], order=index)
-                                    for index, stream in enumerate(streams_for_channel)
-                                    if overwrite_streams or stream['id'] not in existing_stream_ids
-                                ]
-                                if rows:
-                                    ChannelStream.objects.bulk_create(rows)
-                                streams_added = len(rows)
+                                # The list is quality-sorted (see _sort_streams_by_quality),
+                                # optionally zone-reordered above, so its order is the
+                                # `order` value written for each row. Custom streams
+                                # already on the channel go after it (issue 70).
+                                streams_added, custom_kept = self._write_channel_streams(
+                                    channel_id, [stream['id'] for stream in streams_for_channel],
+                                    overwrite_streams, keep_custom_streams, logger)
                                 total_streams_added += streams_added
+                                total_custom_kept += custom_kept
                             else:
                                 # Dry run: just count what would be added
                                 streams_added = len(matched_streams)
@@ -8957,6 +8957,8 @@ class Plugin:
             # Report the run's real cost, so the next estimate is calibrated
             # on this installation rather than on a shipped constant.
             progress_tracker.record_timing()
+            if total_custom_kept:
+                logger.info(f"[Stream-Mapparr] Kept {total_custom_kept} custom stream(s) at the end of their channels (Keep Custom Streams Last)")
             # Log channel group statistics
             logger.info(f"[Stream-Mapparr] Processed {len(channel_groups)} channel groups with {len(channels)} total channels")
             for group_key, stats in list(group_stats.items())[:10]:  # Log first 10 groups
@@ -9452,7 +9454,8 @@ class Plugin:
             overwrite = settings.get('overwrite_streams', PluginConfig.DEFAULT_OVERWRITE_STREAMS)
             if isinstance(overwrite, str):
                 overwrite = overwrite.lower() in ('true', 'yes', '1')
-            
+            keep_custom_streams = self._resolve_keep_custom_streams(settings)
+
             success_count = 0
             ota_streams_assigned = 0
             error_count = 0
@@ -9465,22 +9468,9 @@ class Plugin:
                     if idx % 50 == 0:
                         logger.info(f"[Stream-Mapparr] Assigning streams {idx}/{len(matched_channels)}...")
                     
-                    if overwrite:
-                        ChannelStream.objects.filter(channel_id=channel_id).delete()
-
-                    # Bulk insert to collapse N round-trips to 1.
-                    existing_stream_ids = (
-                        set() if overwrite
-                        else set(ChannelStream.objects.filter(channel_id=channel_id).values_list('stream_id', flat=True))
-                    )
-                    rows = [
-                        ChannelStream(channel_id=channel_id, stream_id=stream_id, order=order)
-                        for order, stream_id in enumerate(stream_ids)
-                        if overwrite or stream_id not in existing_stream_ids
-                    ]
-                    if rows:
-                        ChannelStream.objects.bulk_create(rows)
-                        ota_streams_assigned += len(rows)
+                    streams_added, _custom_kept = self._write_channel_streams(
+                        channel_id, stream_ids, overwrite, keep_custom_streams, logger)
+                    ota_streams_assigned += streams_added
 
                     success_count += 1
                     
@@ -9752,6 +9742,65 @@ class Plugin:
             logger.warning(f"[Stream-Mapparr] Could not write the mirror backup readout: {e}")
             return None
 
+    @staticmethod
+    def _resolve_keep_custom_streams(settings):
+        """Issue 70: read keep_custom_streams from the live settings dict."""
+        value = (settings or {}).get('keep_custom_streams', PluginConfig.DEFAULT_KEEP_CUSTOM_STREAMS)
+        if isinstance(value, str):
+            return value.strip().lower() in ('true', 'yes', '1', 'on')
+        return bool(value)
+
+    @staticmethod
+    def _split_custom_tail(streams):
+        """Split stream dicts into (provider streams, custom streams), each in its old order.
+
+        Issue 70: a custom stream such as the Could Not Dispatch fallback must
+        stay after every provider stream, so Sort ranks only the provider ones.
+        """
+        regular = [s for s in streams if not s.get('is_custom')]
+        custom = [s for s in streams if s.get('is_custom')]
+        return regular, custom
+
+    def _write_channel_streams(self, channel_id, stream_ids, overwrite, keep_custom, logger):
+        """Write a channel's matched streams; return (rows added, custom streams kept).
+
+        With overwrite on, every existing row is replaced by stream_ids. With
+        keep_custom on as well, the custom streams already on the channel
+        (Stream.is_custom) are written back after stream_ids in their old
+        order (issue 70). A failed read of those custom streams keeps nothing,
+        which is how overwrite behaved before, and logs a warning.
+        With overwrite off, only streams not on the channel yet are added.
+        """
+        from django.db import transaction
+
+        custom_tail = []
+        if overwrite and keep_custom:
+            try:
+                custom_tail = list(ChannelStream.objects.filter(
+                    channel_id=channel_id, stream__is_custom=True
+                ).order_by('order').values_list('stream_id', flat=True))
+            except Exception as e:
+                logger.warning(
+                    f"[Stream-Mapparr] Could not read the custom streams of channel {channel_id}, "
+                    f"so none are kept: {e}")
+                custom_tail = []
+
+        with transaction.atomic():
+            if overwrite:
+                ChannelStream.objects.filter(channel_id=channel_id).delete()
+                tail_set = set(custom_tail)
+                ordered = [sid for sid in stream_ids if sid not in tail_set] + custom_tail
+                rows = [ChannelStream(channel_id=channel_id, stream_id=sid, order=index)
+                        for index, sid in enumerate(ordered)]
+            else:
+                existing = set(ChannelStream.objects.filter(channel_id=channel_id)
+                               .values_list('stream_id', flat=True))
+                rows = [ChannelStream(channel_id=channel_id, stream_id=sid, order=index)
+                        for index, sid in enumerate(stream_ids) if sid not in existing]
+            if rows:
+                ChannelStream.objects.bulk_create(rows)
+        return len(rows) - len(custom_tail), len(custom_tail)
+
     def sort_streams_action(self, settings, logger, context=None, is_scheduled=False, trigger=None):
         """Sort existing alternate streams by quality for all channels"""
         try:
@@ -9799,6 +9848,7 @@ class Plugin:
             # would be a behaviour-invisible-but-still-a-change when off).
             restrict_matching_to_country = self._resolve_restrict_matching_to_country(settings)
             channels_data = self._load_channels_data(logger, settings) if restrict_matching_to_country else []
+            keep_custom_streams = self._resolve_keep_custom_streams(settings)
 
             # Get settings
             profile_name = settings.get('profile_name', '').strip()
@@ -9930,6 +9980,7 @@ class Plugin:
                                 'stats': stream.stream_stats or {},
                                 '_m3u_priority': m3u_priority,
                                 'channel_group__name': channel_group_name,
+                                'is_custom': bool(getattr(stream, 'is_custom', False)),
                             })
                         except Stream.DoesNotExist:
                             logger.warning(f"[Stream-Mapparr] Stream {stream_id} no longer exists, skipping")
@@ -9961,12 +10012,18 @@ class Plugin:
                 # zone-routed ones -- see its docstring), so Sort no longer reverts
                 # the country-first ordering on a scheduled run, including for a lone
                 # marked-zone channel with no opposite-zone sibling.
-                sorted_streams = self._sort_streams_by_quality(streams)
+                # Issue 70: custom streams (a fallback such as Could Not
+                # Dispatch) are not ranked; they stay after the provider streams.
+                if keep_custom_streams:
+                    provider_streams, custom_streams = self._split_custom_tail(streams)
+                else:
+                    provider_streams, custom_streams = streams, []
+                sorted_streams = self._sort_streams_by_quality(provider_streams)
                 same_country_ids = self._same_country_ids_for(
                     channel, sorted_streams, channels_data, logger, restrict_matching_to_country,
                     ignore_tags=_ig_tags)
                 sorted_streams = self._streams_for_channel(
-                    sorted_streams, channel_id, zone_routed, same_country_ids)
+                    sorted_streams, channel_id, zone_routed, same_country_ids) + custom_streams
 
                 # Check if order changed
                 original_ids = [s['id'] for s in streams]

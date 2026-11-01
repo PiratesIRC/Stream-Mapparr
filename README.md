@@ -180,6 +180,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | Setting | Type | Default | Description |
 |:---|:---|:---|:---|
 | **Overwrite Existing Streams** | boolean | True | Replace existing streams rather than appending. A run matching 0 streams never clears a channel |
+| **Keep Custom Streams Last** | boolean | True | Custom streams already on a channel (created in Dispatcharr, not from an M3U source, such as the fallback stream Could Not Dispatch adds) are kept when Overwrite replaces the list, and Sort keeps them after the provider streams. Off: Overwrite removes them like any other stream |
 | **Match Sensitivity** | select | Normal (80) | Relaxed (70), Normal (80), Strict (90), Exact (95) |
 | **Channel Profile** | select | - | Profile to process channels from |
 | **Channel Groups** | string | (all) | Groups to process, comma-separated. Empty means all groups |
