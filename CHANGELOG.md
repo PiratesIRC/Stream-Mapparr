@@ -1,5 +1,21 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3071258 (2026-11-03)
+
+### Added
+
+- **Bitrate Sort Tolerance (%), a new setting under Stream Selection, default
+  20.** Two streams in different bitrate steps now change places only when the
+  higher bitrate is more than this percentage above the lower one; otherwise
+  they keep the channel's current order. A stream's measured bitrate varies
+  from one IPTV Checker scan to the next, and a small change across a step
+  boundary reordered the channel on every scan: on this author's server the
+  Sort after a scan changed 288 and 240 channels, against 90 to 118 before the
+  bitrate tie-breaker, and 357 streams crossed a step and crossed back between
+  two scans. Bitrate is still compared before measured throughput speed. Set 0
+  to compare the steps only, as before. The CSV report header records the
+  setting.
+
 ## 1.26.3052124 (2026-11-01)
 
 ### Added

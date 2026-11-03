@@ -309,7 +309,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.3052124"
+    PLUGIN_VERSION = "1.26.3071258"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -539,6 +539,11 @@ class PluginConfig:
     # this step so run-to-run variation does not reorder near-equal streams.
     # Medians measured on a live box: 720p HEVC 1,502, 1080p HEVC 2,491 kbps.
     DEFAULT_BITRATE_SORT_STEP_KBPS = 500       # 0 turns the tie-breaker off
+    # Two streams in different steps change places only when the later one's
+    # bitrate is more than this percentage above the earlier one's. Measured
+    # 2026-11-03: half the step changes between two scans were moves under
+    # 500 kbps, and 357 streams crossed a step and crossed back.
+    DEFAULT_BITRATE_SORT_TOLERANCE_PCT = 20    # 0 compares the steps only
     DEAD_FILTER_QUERY_CHUNK = 10000            # ids per stream_stats query; PostgreSQL caps bound parameters at 65,535
     # Marker shown in the CSV export and the emailed report, so a demotion is
     # visible rather than silent. Plain ASCII on purpose: the CSV is opened in
@@ -1281,6 +1286,13 @@ class Plugin:
                 "type": "number",
                 "default": PluginConfig.DEFAULT_BITRATE_SORT_STEP_KBPS,
                 "help_text": "When two streams match on resolution, frame rate and audio, the one with the higher video bitrate measured by IPTV Checker or Dispatcharr is placed first. Bitrates are rounded down to this step before they are compared, so streams within the same step keep their current order and small changes between checks do not reorder them. A stream with no measured bitrate is placed after one that has a bitrate. Set 0 to turn this off.",
+            },
+            {
+                "id": "bitrate_sort_tolerance_pct",
+                "label": "📶 Bitrate Sort Tolerance (%)",
+                "type": "number",
+                "default": PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT,
+                "help_text": "Two streams in different bitrate steps change places only when the higher bitrate is more than this percentage above the lower one. Otherwise they keep their current order. A stream's measured bitrate varies from one IPTV Checker scan to the next, and without this a small change across a step boundary reorders the channel on every scan. Set 0 to compare the steps only.",
             },
             {
                 "id": "visible_channel_limit",
@@ -4766,6 +4778,12 @@ class Plugin:
                                 PluginConfig.DEFAULT_CONTENT_BITRATE_FLOOR_KBPS)
         bitrate_step = getattr(self, '_bitrate_sort_step_kbps',
                                PluginConfig.DEFAULT_BITRATE_SORT_STEP_KBPS)
+        bitrate_tolerance = getattr(self, '_bitrate_sort_tolerance_pct',
+                                    PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT)
+        # The bitrate is not part of the sort key. Streams equal on every other
+        # dimension are ordered afterwards by _order_by_bitrate_band, which
+        # needs their current order, and a key function cannot see it.
+        bitrate_pair = (0, 0)
 
         def get_stream_quality_score(stream):
             m3u_priority = stream.get('_m3u_priority', 999)
@@ -4777,7 +4795,6 @@ class Plugin:
                 self._audio_rank(stats.get('audio_channels'), channels_priority),
                 self._audio_rank(stats.get('audio_codec'), codec_priority),
             )
-            bitrate_pair = self._bitrate_sort_key(stats, bitrate_step)
 
             if width == 0 or height == 0:
                 if getattr(self, '_prioritize_quality', False):
@@ -4820,7 +4837,83 @@ class Plugin:
                 score = (score,)
             return (starved,) + score
 
-        return sorted(streams, key=scored)
+        keyed = [(scored(stream), stream) for stream in streams]
+        keyed.sort(key=lambda pair: pair[0])
+        if not self._bitrate_step_is_on(bitrate_step):
+            return [stream for _key, stream in keyed]
+
+        # Bitrate ranks after every dimension above and ahead of the measured
+        # throughput speed, which is the last key element when throughput
+        # sorting is on. Streams equal on everything before the speed form one
+        # group; within a group the list is already in speed order, then the
+        # current channel order, and the bitrate band is applied on top.
+        def group_of(key):
+            return key[:-1] if throughput_enabled else key
+
+        result = []
+        i = 0
+        while i < len(keyed):
+            j = i + 1
+            group = group_of(keyed[i][0])
+            while j < len(keyed) and group_of(keyed[j][0]) == group:
+                j += 1
+            result.extend(self._order_by_bitrate_band(
+                [stream for _key, stream in keyed[i:j]], bitrate_step, bitrate_tolerance))
+            i = j
+        return result
+
+    @staticmethod
+    def _bitrate_step_is_on(step_kbps):
+        """False when the bitrate tie-breaker is turned off (a step of 0)."""
+        try:
+            step = float(step_kbps)
+        except (TypeError, ValueError):
+            step = PluginConfig.DEFAULT_BITRATE_SORT_STEP_KBPS
+        return step > 0
+
+    @staticmethod
+    def _order_by_bitrate_band(streams, step_kbps, tolerance_pct):
+        """Order streams that tie on every other dimension by measured bitrate.
+
+        Streams with a measured bitrate come first, then the unmeasured ones,
+        each part keeping its input order. Within the measured part, a stream
+        moves ahead of the one before it only when its bitrate is in a higher
+        step AND more than tolerance_pct percent higher. Otherwise the two keep
+        the order they arrived in, which is the channel's current order on a
+        Sort. A strict, transitive rule, so the passes always finish, and a
+        second Sort of the result changes nothing.
+        """
+        try:
+            step = float(step_kbps)
+        except (TypeError, ValueError):
+            step = PluginConfig.DEFAULT_BITRATE_SORT_STEP_KBPS
+        try:
+            tolerance = float(tolerance_pct)
+        except (TypeError, ValueError):
+            tolerance = PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT
+        if not 0 <= tolerance < float('inf'):
+            tolerance = PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT
+        if not step > 0:
+            return list(streams)
+        factor = 1.0 + tolerance / 100.0
+
+        measured, unmeasured = [], []
+        for stream in streams:
+            rate = Plugin._stats_bitrate_kbps(stream.get('stats') or {})
+            if rate is None:
+                unmeasured.append(stream)
+            else:
+                measured.append((rate, stream))
+
+        swapped = True
+        while swapped:
+            swapped = False
+            for k in range(len(measured) - 1):
+                earlier, later = measured[k][0], measured[k + 1][0]
+                if int(later // step) > int(earlier // step) and later > earlier * factor:
+                    measured[k], measured[k + 1] = measured[k + 1], measured[k]
+                    swapped = True
+        return [stream for _rate, stream in measured] + unmeasured
 
     @staticmethod
     def _resolve_content_starved_floor(settings):
@@ -4856,6 +4949,23 @@ class Plugin:
         # False for not-a-number, negative and infinite values alike.
         if not 0 <= value < float('inf'):
             return PluginConfig.DEFAULT_BITRATE_SORT_STEP_KBPS
+        return value
+
+    @staticmethod
+    def _resolve_bitrate_sort_tolerance(settings):
+        """Bitrate sort tolerance in percent, from the LIVE settings dict.
+
+        Zero is kept, because the help text offers it as the way to compare
+        the steps only. Anything else unusable (absent, blank, non-numeric,
+        negative or not finite) falls back to the default.
+        """
+        raw = (settings or {}).get('bitrate_sort_tolerance_pct')
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT
+        if not 0 <= value < float('inf'):
+            return PluginConfig.DEFAULT_BITRATE_SORT_TOLERANCE_PCT
         return value
 
     @staticmethod
@@ -7564,6 +7674,7 @@ class Plugin:
             # Streams or throughput setting (bug-139 shape).
             self._prime_throughput_state(settings)
             self._bitrate_sort_step_kbps = self._resolve_bitrate_sort_step(settings)
+            self._bitrate_sort_tolerance_pct = self._resolve_bitrate_sort_tolerance(settings)
 
             ignore_quality, ignore_regional, ignore_geographic, ignore_misc = self._resolve_ignore_flags(settings)
 
@@ -7981,6 +8092,7 @@ class Plugin:
             f"# Keep Custom Streams Last: {_yes_no(settings.get('keep_custom_streams'), PluginConfig.DEFAULT_KEEP_CUSTOM_STREAMS)} (Yes keeps custom streams, such as a fallback stream, after the streams written)",
             f"# Prioritize Quality Before Source: {_yes_no(settings.get('prioritize_quality'), PluginConfig.DEFAULT_PRIORITIZE_QUALITY)}",
             f"# Bitrate Sort Step: {self._resolve_bitrate_sort_step(settings):.0f} kbps (0 means off)",
+            f"# Bitrate Sort Tolerance: {self._resolve_bitrate_sort_tolerance(settings):.0f} percent (streams in different steps swap only when more than this far apart)",
             f"# Restrict Matching To Same Country: {_yes_no(processed_data.get('restrict_matching_to_country'), PluginConfig.DEFAULT_RESTRICT_MATCHING_TO_COUNTRY)}",
         ]
         if processed_data.get('restrict_matching_to_country'):
@@ -9177,6 +9289,7 @@ class Plugin:
             # the sort state from its own live settings.
             self._prime_throughput_state(settings)
             self._bitrate_sort_step_kbps = self._resolve_bitrate_sort_step(settings)
+            self._bitrate_sort_tolerance_pct = self._resolve_bitrate_sort_tolerance(settings)
             # Check dry run mode
             dry_run = settings.get('dry_run_mode', False)
             if isinstance(dry_run, str):
@@ -9835,9 +9948,13 @@ class Plugin:
                 f"(floor {self._content_starved_floor_kbps:.0f} kbps at 720p and above)"
             )
             self._bitrate_sort_step_kbps = self._resolve_bitrate_sort_step(settings)
+            self._bitrate_sort_tolerance_pct = self._resolve_bitrate_sort_tolerance(settings)
             logger.info(
                 f"[Stream-Mapparr] Bitrate sort step: {self._bitrate_sort_step_kbps:.0f} kbps"
                 f"{' (off)' if not self._bitrate_sort_step_kbps else ''}"
+            )
+            logger.info(
+                f"[Stream-Mapparr] Bitrate sort tolerance: {self._bitrate_sort_tolerance_pct:.0f} percent"
             )
 
             # bug-158 review I2: Sort must resolve this itself too, for the same
