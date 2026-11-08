@@ -1,5 +1,18 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3122141 (2026-11-08)
+
+### Fixed
+
+- **A placeholder stream no longer keeps its rank because of an old video
+  bitrate.** When a working channel starts serving a provider placeholder,
+  the stored stats keep the video bitrate of the real broadcast beside the
+  low output bitrate of the placeholder. The higher value was used, so the
+  stream was not demoted and its 1080p label could put it ahead of a working
+  720p source. It is now demoted when the output bitrate is under the floor,
+  the video bitrate is more than four times the output bitrate, and the audio
+  is 44100 Hz at about 44 kbit/s. Any missing value still keeps the stream.
+
 ## 1.26.3071258 (2026-11-03)
 
 ### Added

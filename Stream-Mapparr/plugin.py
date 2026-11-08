@@ -309,7 +309,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.3071258"
+    PLUGIN_VERSION = "1.26.3122141"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -535,6 +535,13 @@ class PluginConfig:
     DEFAULT_DEMOTE_CONTENT_STARVED = True
     DEFAULT_CONTENT_BITRATE_FLOOR_KBPS = 300   # Below this while claiming >= 720p
     CONTENT_STARVED_MIN_HEIGHT = 720           # Floor only applies at 720p and above
+    # A video_bitrate this many times the output bitrate is left over from before
+    # the stream became a placeholder. Measured: normal streams reach 3.1 times,
+    # placeholders start at 4.2 times.
+    PLACEHOLDER_OLD_BITRATE_RATIO = 4.0
+    PLACEHOLDER_SAMPLE_RATE_HZ = 44100         # Audio format of the provider placeholder
+    PLACEHOLDER_AUDIO_KBPS = 44.0
+    PLACEHOLDER_AUDIO_TOLERANCE_KBPS = 2.0
     # Measured bitrate breaks a tie after resolution and FPS, rounded down to
     # this step so run-to-run variation does not reorder near-equal streams.
     # Medians measured on a live box: 720p HEVC 1,502, 1080p HEVC 2,491 kbps.
@@ -5028,7 +5035,9 @@ class Plugin:
         Two bitrate fields are recorded and they were measured disagreeing on
         real streams, for example 124 against 389 kbps on one. The HIGHER of
         the two is used, so a disagreement resolves in favour of keeping the
-        stream rather than demoting it.
+        stream rather than demoting it. The one exception is a video_bitrate
+        left over from before the stream became a placeholder, which
+        _has_placeholder_old_bitrate proves from the audio format as well.
 
         Both fields are in kbps, matching what Dispatcharr writes into
         stream_stats.
@@ -5044,7 +5053,36 @@ class Plugin:
         best = Plugin._stats_bitrate_kbps(stats)
         if best is None:
             return False
-        return best < float(floor_kbps)
+        if best < float(floor_kbps):
+            return True
+        return Plugin._has_placeholder_old_bitrate(stats, floor_kbps)
+
+    @staticmethod
+    def _has_placeholder_old_bitrate(stats, floor_kbps):
+        """True when the stats prove a placeholder beside an old video_bitrate.
+
+        Dispatcharr leaves video_bitrate in place when a source does not report
+        one, so a channel that turned into the provider's placeholder keeps the
+        bitrate of the real broadcast. All of these must hold, because a large
+        ratio alone also describes a working stream whose OUTPUT value is the
+        old one: output below the floor, video far above output, and the
+        placeholder's audio format. Any missing or unreadable value is False.
+        """
+        try:
+            video = float(stats.get('video_bitrate'))
+            output = float(stats.get('ffmpeg_output_bitrate'))
+            sample_rate = float(stats.get('sample_rate'))
+            audio = float(stats.get('audio_bitrate'))
+        except (TypeError, ValueError):
+            return False
+        if not 0 < output < float(floor_kbps):
+            return False
+        if not video > output * PluginConfig.PLACEHOLDER_OLD_BITRATE_RATIO:
+            return False
+        if sample_rate != PluginConfig.PLACEHOLDER_SAMPLE_RATE_HZ:
+            return False
+        return (abs(audio - PluginConfig.PLACEHOLDER_AUDIO_KBPS)
+                <= PluginConfig.PLACEHOLDER_AUDIO_TOLERANCE_KBPS)
 
     def _stream_tier_label(self, stream, cache, margin):
         """The per-stream label written into the CSV export's `tiers` column.
