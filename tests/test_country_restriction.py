@@ -979,6 +979,11 @@ def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypa
     monkeypatch.setattr(plugin_module, "Stream",
                          MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
+    # Issue 75: Sort writes the order through _apply_sorted_order (rows
+    # reordered in place), so the final order is the list it receives.
+    written = []
+    monkeypatch.setattr(inst, "_apply_sorted_order",
+                        lambda cid, expected, new_ids, logger: written.append(list(new_ids)) or True)
 
     result = inst.sort_streams_action(
         {"profile_name": "Default", "dry_run_mode": False,
@@ -986,7 +991,7 @@ def test_sort_action_country_first_ordering_when_enabled(plugin_module, monkeypa
         LOGGER)
 
     assert result["status"] == "success"
-    constructed_order = [c.kwargs["stream_id"] for c in plugin_module.ChannelStream.call_args_list]
+    constructed_order = written[0] if written else []
     assert constructed_order == [2, 1], (
         f"expected the group-confirmed same-country stream (2) first, got {constructed_order}")
 
@@ -1574,6 +1579,11 @@ def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, 
     monkeypatch.setattr(plugin_module, "Stream",
                          MagicMock(objects=types.SimpleNamespace(get=lambda id: fake_streams[id])))
     plugin_module.ChannelStream.reset_mock()
+    # Issue 75: Sort writes the order through _apply_sorted_order (rows
+    # reordered in place), so the final order is the list it receives.
+    written = []
+    monkeypatch.setattr(inst, "_apply_sorted_order",
+                        lambda cid, expected, new_ids, logger: written.append(list(new_ids)) or True)
 
     result = inst.sort_streams_action(
         {"profile_name": "Default", "dry_run_mode": False,
@@ -1581,7 +1591,7 @@ def test_sort_action_country_first_ordering_when_not_zone_routed(plugin_module, 
         LOGGER)
 
     assert result["status"] == "success"
-    constructed_order = [c.kwargs["stream_id"] for c in plugin_module.ChannelStream.call_args_list]
+    constructed_order = written[0] if written else []
     assert constructed_order == [2, 1], (
         f"expected the group-confirmed same-country stream (2) first even though "
         f"the channel is not zone-routed, got {constructed_order}")

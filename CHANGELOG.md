@@ -1,5 +1,23 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3221213 (2026-11-18)
+
+### Fixed
+
+- **Sort Alternate Streams no longer turns off a channel's catch-up (issue
+  #75).** Sort deleted a channel's stream rows and created them again in the
+  new order. Dispatcharr recalculates a channel's catch-up flags when a stream
+  row is deleted, but not when rows are created in bulk, so the channel lost
+  its archive: the Xtream Codes output showed `tv_archive=0` and archive
+  playback had no stream to use, while the catch-up stream was still assigned.
+  Sort now changes the order of the existing rows and deletes only a stream it
+  removes, such as an opposite-zone feed. Sort, Match and Assign, and Fill
+  Mirror Backups then ask Dispatcharr to recalculate the channel's catch-up
+  flags, which also repairs a channel an earlier version left without them.
+  If the recalculation is not available or fails, a warning is logged and the
+  stream changes are kept. Sort also leaves a channel alone when its streams
+  changed while Sort was running, and logs how many it left.
+
 ## 1.26.3122141 (2026-11-08)
 
 ### Fixed

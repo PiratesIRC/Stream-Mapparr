@@ -309,7 +309,7 @@ class PluginConfig:
     """
 
     # === PLUGIN METADATA ===
-    PLUGIN_VERSION = "1.26.3122141"
+    PLUGIN_VERSION = "1.26.3221213"
     FUZZY_MATCHER_MIN_VERSION = "25.358.0200"  # Requires custom ignore tags Unicode fix
 
     # Match sensitivity presets (maps select value to threshold number)
@@ -9811,6 +9811,9 @@ class Plugin:
                         ChannelStream(channel_id=channel_id, stream_id=sid, order=index)
                         for index, sid in enumerate(entry['new_order'])
                     ])
+                # Issue 75: bulk_create sends no post_save, so the added
+                # mirrors never reached Dispatcharr's catch-up hook.
+                self._rollup_catchup([channel_id], logger)
                 written += 1
                 written_streams += len(entry['added'])
             if written:
@@ -9950,7 +9953,75 @@ class Plugin:
                         for index, sid in enumerate(stream_ids) if sid not in existing]
             if rows:
                 ChannelStream.objects.bulk_create(rows)
+        # Issue 75: bulk_create sends no post_save, so Dispatcharr's catch-up
+        # hook never sees the new rows. Recompute the channel's flags here.
+        if overwrite or rows:
+            self._rollup_catchup([channel_id], logger)
         return len(rows) - len(custom_tail), len(custom_tail)
+
+    def _rollup_catchup(self, channel_ids, logger):
+        """Recompute Channel.is_catchup / catchup_days with Dispatcharr's own helper.
+
+        Issue 75: Dispatcharr derives those fields in a post_save/post_delete
+        hook on ChannelStream, and bulk_create sends no post_save. This is a
+        backstop: a Dispatcharr without rollup_catchup_for_channels, or a
+        rollup that raises, logs a warning and returns False; it never undoes
+        or blocks the stream write that came before it.
+        """
+        ids = [cid for cid in channel_ids if cid is not None]
+        if not ids:
+            return True
+        try:
+            from apps.channels.utils import rollup_catchup_for_channels
+        except ImportError:
+            logger.warning(
+                "[Stream-Mapparr] This Dispatcharr has no rollup_catchup_for_channels, so "
+                f"the catch-up flags of channel(s) {ids} were not recomputed")
+            return False
+        try:
+            rollup_catchup_for_channels(ids)
+            return True
+        except Exception as e:
+            logger.warning(
+                f"[Stream-Mapparr] Could not recompute the catch-up flags of channel(s) {ids}: {e}")
+            return False
+
+    def _apply_sorted_order(self, channel_id, expected_ids, new_ids, logger):
+        """Write a sorted stream order onto the channel's existing ChannelStream rows.
+
+        Issue 75: deleting every row and bulk-creating them again cleared the
+        channel's catch-up flags. This changes ChannelStream.order in place
+        (bulk_update, which sends no signal and leaves the flags alone) and
+        deletes only the rows Sort drops (an opposite-zone stream), whose
+        post_delete hook recomputes the flags itself. The rollup afterwards
+        also repairs a channel an earlier version left with cleared flags.
+
+        Returns False and writes nothing when the channel's stream list is no
+        longer expected_ids, since the sort was planned from that list.
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            rows = list(ChannelStream.objects.select_for_update().filter(
+                channel_id=channel_id).order_by('order'))
+            if [r.stream_id for r in rows] != list(expected_ids):
+                logger.info(
+                    f"[Stream-Mapparr] Channel {channel_id} changed since Sort read it, left as it is")
+                return False
+            position = {sid: index for index, sid in enumerate(new_ids)}
+            dropped = [r.pk for r in rows if r.stream_id not in position]
+            if dropped:
+                ChannelStream.objects.filter(channel_id=channel_id, pk__in=dropped).delete()
+            moved = []
+            for r in rows:
+                index = position.get(r.stream_id)
+                if index is not None and r.order != index:
+                    r.order = index
+                    moved.append(r)
+            if moved:
+                ChannelStream.objects.bulk_update(moved, ['order'])
+        self._rollup_catchup([channel_id], logger)
+        return True
 
     def sort_streams_action(self, settings, logger, context=None, is_scheduled=False, trigger=None):
         """Sort existing alternate streams by quality for all channels"""
@@ -10142,6 +10213,9 @@ class Plugin:
                     
                     if len(streams) > 1:
                         channel['streams'] = streams
+                        # Issue 75: the rows as read, so the write can check
+                        # nothing changed the channel in between.
+                        channel['_db_stream_ids'] = stream_ids
                         channels_with_multiple_streams.append(channel)
             
             if not channels_with_multiple_streams:
@@ -10153,7 +10227,8 @@ class Plugin:
             sorted_count = 0
             changes = []
             already_sorted_count = 0
-            
+            changed_meanwhile = 0
+
             for channel in channels_with_multiple_streams:
                 self._cooperative_yield()
                 channel_id = channel['id']
@@ -10224,19 +10299,22 @@ class Plugin:
                     })
                     
                     # Apply changes if not dry run
-                    if not dry_run:
-                        ChannelStream.objects.filter(channel_id=channel_id).delete()
-                        rows = [
-                            ChannelStream(channel_id=channel_id, stream_id=stream['id'], order=index)
-                            for index, stream in enumerate(sorted_streams)
-                        ]
-                        if rows:
-                            ChannelStream.objects.bulk_create(rows)
+                    # Issue 75: reorder the existing rows in place; delete and
+                    # bulk_create cleared the channel's catch-up flags.
+                    if not dry_run and not self._apply_sorted_order(
+                            channel_id, channel.get('_db_stream_ids', original_ids),
+                            sorted_ids, logger):
+                        changes.pop()
+                        sorted_count -= 1
+                        changed_meanwhile += 1
                 else:
                     already_sorted_count += 1
             
             # Log summary with clarification
             logger.info(f"[Stream-Mapparr] Sorted streams for {sorted_count} channels ({already_sorted_count} already in correct order)")
+            if changed_meanwhile:
+                logger.warning(
+                    f"[Stream-Mapparr] {changed_meanwhile} channel(s) changed while Sort ran and were not reordered")
             
             # Create CSV if dry run OR if export setting enabled
             create_csv = settings.get('enable_scheduled_csv_export', PluginConfig.DEFAULT_ENABLE_CSV_EXPORT)

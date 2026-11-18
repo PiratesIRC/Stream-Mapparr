@@ -174,6 +174,26 @@ def test_a_live_run_adds_the_other_hosts_mirror_before_the_placeholder(plugin, p
     assert "Added 1 mirror stream(s) to 1 channel(s)" in result["message"]
 
 
+def test_a_live_run_recomputes_catch_up_flags_of_written_channels(plugin, monkeypatch):
+    # Issue 75: bulk_create sends no post_save, so Dispatcharr's catch-up hook
+    # never sees an added mirror; the action must run the rollup itself.
+    calls = []
+    utils = types.ModuleType("apps.channels.utils")
+    utils.rollup_catchup_for_channels = lambda ids: calls.append(list(ids))
+    monkeypatch.setitem(sys.modules, "apps.channels.utils", utils)
+    plugin.fill_mirror_backups_action({}, log)
+    assert calls == [[100]]
+
+
+def test_dry_run_recomputes_nothing(plugin, monkeypatch):
+    calls = []
+    utils = types.ModuleType("apps.channels.utils")
+    utils.rollup_catchup_for_channels = lambda ids: calls.append(list(ids))
+    monkeypatch.setitem(sys.modules, "apps.channels.utils", utils)
+    plugin.fill_mirror_backups_action({"dry_run_mode": True}, log)
+    assert calls == []
+
+
 def test_a_live_run_saves_the_previous_order_first(plugin, plugin_module):
     plugin.fill_mirror_backups_action({}, log)
     snap_dir = plugin_module.PluginConfig.CHANNEL_SNAPSHOT_DIR
