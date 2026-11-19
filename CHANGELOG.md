@@ -2,6 +2,20 @@
 
 ## 1.26.3221213 (2026-11-18)
 
+### Added
+
+- **Bitrate Sort Tolerance (%), a new setting under Stream Selection, default
+  20.** Two streams in different bitrate steps now change places only when the
+  higher bitrate is more than this percentage above the lower one; otherwise
+  they keep the channel's current order. A stream's measured bitrate varies
+  from one IPTV Checker scan to the next, and a small change across a step
+  boundary reordered the channel on every scan: on this author's server the
+  Sort after a scan changed 288 and 240 channels, against 90 to 118 before the
+  bitrate tie-breaker, and 357 streams crossed a step and crossed back between
+  two scans. Bitrate is still compared before measured throughput speed. Set 0
+  to compare the steps only, as before. The CSV report header records the
+  setting.
+
 ### Fixed
 
 - **Sort Alternate Streams no longer turns off a channel's catch-up (issue
@@ -16,11 +30,8 @@
   flags, which also repairs a channel an earlier version left without them.
   If the recalculation is not available or fails, a warning is logged and the
   stream changes are kept. Sort also leaves a channel alone when its streams
-  changed while Sort was running, and logs how many it left.
-
-## 1.26.3122141 (2026-11-08)
-
-### Fixed
+  changed while Sort was running, and logs how many it left. Thanks to
+  mclgoerg for the report and the suggested fix (#75).
 
 - **A placeholder stream no longer keeps its rank because of an old video
   bitrate.** When a working channel starts serving a provider placeholder,
@@ -30,22 +41,6 @@
   720p source. It is now demoted when the output bitrate is under the floor,
   the video bitrate is more than four times the output bitrate, and the audio
   is 44100 Hz at about 44 kbit/s. Any missing value still keeps the stream.
-
-## 1.26.3071258 (2026-11-03)
-
-### Added
-
-- **Bitrate Sort Tolerance (%), a new setting under Stream Selection, default
-  20.** Two streams in different bitrate steps now change places only when the
-  higher bitrate is more than this percentage above the lower one; otherwise
-  they keep the channel's current order. A stream's measured bitrate varies
-  from one IPTV Checker scan to the next, and a small change across a step
-  boundary reordered the channel on every scan: on this author's server the
-  Sort after a scan changed 288 and 240 channels, against 90 to 118 before the
-  bitrate tie-breaker, and 357 streams crossed a step and crossed back between
-  two scans. Bitrate is still compared before measured throughput speed. Set 0
-  to compare the steps only, as before. The CSV report header records the
-  setting.
 
 ## 1.26.3052124 (2026-11-01)
 
