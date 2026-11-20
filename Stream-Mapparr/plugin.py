@@ -28,6 +28,11 @@ from .fuzzy_matcher import FuzzyMatcher
 from .usage_client import UsageReporter, jsonl_sum, load_plugin_settings, with_usage_field
 from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES as ALIAS_COUNTRY_OVERRIDES
 from . import country as country_detect
+from . import sm_fields
+
+# Whether this Dispatcharr draws the 0.34 settings form (Plugin._host_draws_034_form).
+# Cached for the life of the module; a reload asks again, which is cheap.
+_FORM_034_STATE = {}
 # Import fuzzy_matcher version for CSV header
 from . import fuzzy_matcher
 
@@ -1517,6 +1522,57 @@ class Plugin:
         })
         return with_usage_field(static_fields, USAGE)
 
+    def get_fields(self, context=None):
+        """The settings form for Dispatcharr 0.34 and later.
+
+        Dispatcharr 0.34 calls this at discovery and on a reload instead of
+        reading ``fields``; 0.33 and earlier never call it and keep the flat
+        form, which holds no field type they do not know. The 0.34 form groups
+        the settings into collapsible sections and draws nine text settings as
+        pick lists and tables under new ids (``sm_fields``). The loader does not
+        catch an exception raised here, so any failure falls back to the flat
+        form rather than breaking discovery of the plugin.
+        """
+        flat = self.fields
+        try:
+            settings = (context or {}).get("settings") or {}
+            return sm_fields.build_form(
+                flat, settings, self._pick_list_names(),
+                sorted(country_detect.KNOWN_COUNTRY_CODES), LOGGER)
+        except Exception as exc:
+            LOGGER.warning(f"[Stream-Mapparr] Sectioned settings form failed, using the flat form: {exc}")
+            return flat
+
+    @staticmethod
+    def _pick_list_names():
+        """Names for the settings pick lists, keyed by pick-list id. Read once
+        when the plugin loads. Never raises: on a database error a list is empty
+        and the saved values still show, because they are always options."""
+        def m3u_names():
+            from apps.m3u.models import M3UAccount
+            return M3UAccount.objects.values_list("name", flat=True)
+
+        names = {}
+        queries = {
+            # Groups that hold at least one channel, and at least one stream:
+            # Dispatcharr keeps both kinds in ChannelGroup. order_by() clears the
+            # model's default ordering, which DISTINCT would otherwise include:
+            # measured 2026-11-19, the stream query returned 22,836 rows for 69
+            # group names without it.
+            "channel_group_list": lambda: Channel.objects.exclude(channel_group__isnull=True)
+                .order_by().values_list("channel_group__name", flat=True).distinct(),
+            "stream_group_list": lambda: Stream.objects.exclude(channel_group__isnull=True)
+                .order_by().values_list("channel_group__name", flat=True).distinct(),
+            "m3u_source_list": m3u_names,
+        }
+        for new_id, query in queries.items():
+            try:
+                names[new_id] = [str(n) for n in query() if n]
+            except Exception as exc:
+                LOGGER.warning(f"[Stream-Mapparr] Could not read names for the {new_id} settings list: {exc}")
+                names[new_id] = []
+        return names
+
     actions = [
         {
             "id": "validate_settings",
@@ -1799,9 +1855,47 @@ class Plugin:
                 key=PluginConfig.PLUGIN_DB_KEY).values_list('settings', flat=True).first()
             if row is None:
                 return {}
-            return row if isinstance(row, dict) else {}
+            # A 0.34 save stores the pick-list and table values under new ids
+            # and leaves the old text ids stale, so the row is read through the
+            # same write-back run() uses. Without this a schedule picked in the
+            # 0.34 form would never reach the scheduler, which reads this row.
+            return self._legacy_settings(row) if isinstance(row, dict) else {}
         except Exception:
             return None
+
+    @staticmethod
+    def _host_draws_034_form():
+        """True when this Dispatcharr calls get_fields and draws its 0.34 form.
+
+        Decided by whether Dispatcharr ships apps.plugins.field_versions, the
+        0.34 module that lists the new field types. A process-level answer is
+        needed, not a flag set by get_fields, because the scheduler reads the
+        database row from Plugin.__init__ before discovery calls get_fields.
+        On 0.33 and earlier the answer is False, so a pick-list value left in
+        the row by an earlier 0.34 save cannot overwrite a text value the
+        operator has since edited in the flat form.
+        """
+        cached = _FORM_034_STATE.get("supported")
+        if cached is None:
+            try:
+                import importlib.util
+                cached = importlib.util.find_spec("apps.plugins.field_versions") is not None
+            except Exception:
+                cached = False
+            _FORM_034_STATE["supported"] = cached
+        return cached
+
+    def _legacy_settings(self, settings):
+        """``settings`` with the 0.34 pick-list and table values written back
+        into the old text settings every parser reads (sm_fields.legacy_settings).
+        Returned unchanged on 0.33 and earlier, and on any error."""
+        if not isinstance(settings, dict) or not self._host_draws_034_form():
+            return settings
+        try:
+            return sm_fields.legacy_settings(settings)
+        except Exception as exc:
+            LOGGER.warning(f"[Stream-Mapparr] Could not read the 0.34 settings form values: {exc}")
+            return settings
 
     def _enabled_in_db(self):
         """Return the plugin row's enabled flag: True, False, or None when unknown.
@@ -2026,7 +2120,7 @@ class Plugin:
         try:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
-                    self.saved_settings = json.load(f)
+                    self.saved_settings = self._legacy_settings(json.load(f))
                     LOGGER.debug("[Stream-Mapparr] Loaded saved settings")
             else:
                 self.saved_settings = {}
@@ -2563,7 +2657,9 @@ class Plugin:
     # provider hostname three times and the account suffixes three times, in a
     # file whose own opening lines tell the reader to paste it into a PUBLIC issue.
     # The count is kept because it is diagnostically useful and names nothing.
-    _ACCOUNT_NAME_SETTING_KEYS = ("selected_m3us",)
+    # m3u_source_list is the Dispatcharr 0.34 pick list that stores the same
+    # names as a list (sm_fields.LIST_SETTINGS).
+    _ACCOUNT_NAME_SETTING_KEYS = ("selected_m3us", "m3u_source_list")
 
     def _redact_settings_for_report(self, settings):
         """Settings with secrets and provider identifiers masked.
@@ -7292,6 +7388,11 @@ class Plugin:
                 if 'settings' in context:
                     settings = context['settings']
 
+            # Dispatcharr 0.34's form stores nine settings as pick lists and
+            # tables under new ids; write them back into the text settings
+            # every parser below reads (sm_fields.legacy_settings).
+            settings = self._legacy_settings(settings)
+
             # Force throughput sort state to re-prime from current settings on the
             # next sort call. Without this, a long-lived plugin instance would
             # carry stale flags/cache between action runs.
@@ -8698,7 +8799,8 @@ class Plugin:
         accounts are not dropped. Returns None when disabled/skipped to avoid
         per-refresh toast noise.
         """
-        real_settings = context.get("settings", {}) if isinstance(context, dict) else {}
+        real_settings = self._legacy_settings(
+            context.get("settings", {}) if isinstance(context, dict) else {})
 
         if not self._should_auto_match_on_refresh(real_settings):
             return None
@@ -8863,7 +8965,8 @@ class Plugin:
         and nothing is queued: the next scan fires again. Returns None when
         nothing ran so the caller gets no toast noise.
         """
-        real_settings = context.get("settings", {}) if isinstance(context, dict) else {}
+        real_settings = self._legacy_settings(
+            context.get("settings", {}) if isinstance(context, dict) else {})
         if not self._should_run_after_iptv_checker_scan(real_settings):
             return None
 

@@ -6,6 +6,11 @@
   "license": "MIT",
   "repo_url": "https://github.com/PiratesIRC/Stream-Mapparr",
   "min_dispatcharr_version": "v0.20.0",
+  "manifest_version": 1,
+  "capabilities": [
+    "outbound_network",
+    "filesystem_write"
+  ],
   "help_url": "https://github.com/PiratesIRC/Stream-Mapparr",
   "_fields_note": "Settings fields are defined dynamically by the Plugin.fields property in plugin.py (the single source of truth — it builds live dropdowns for channel profiles, groups, stream groups, M3U sources, and the channel database, and stays in sync with the code). Dispatcharr only falls back to a manifest 'fields' array when the plugin provides none, so it is intentionally left empty here to prevent drift (the previous static copy had gone stale).",
   "fields": [],
