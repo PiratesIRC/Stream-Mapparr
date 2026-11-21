@@ -7,7 +7,8 @@ drop a field of a type they do not know with only a log warning. So the plugin
 keeps its flat form in ``Plugin.fields``, which every version reads, and builds
 the 0.34 form here for ``Plugin.get_fields``, which only 0.34 and later call.
 
-Nine text settings are drawn as pick lists and tables under NEW ids
+Nine text settings and the Channel Database select are drawn as pick lists
+and tables under NEW ids
 (``LIST_SETTINGS``, ``TABLE_SETTINGS``). A multiselect calls ``.map`` on its
 value, so a stored text value under the same id would break the form.
 ``legacy_settings`` writes the new values back into the old text settings at run
@@ -27,7 +28,34 @@ LIST_SETTINGS = {
     "stream_group_list": ("selected_stream_groups", ", "),
     "m3u_source_list": ("selected_m3us", ", "),
     "scheduled_time_list": ("scheduled_times", ","),
+    "channel_database_list": ("channel_database", ","),
 }
+
+# Channel Database: the 0.33 select stores one value, "_all", "_none" or a
+# country code. The pick list stores a list, written back as "_all" when empty
+# (every database), "_none", or the codes joined by commas, which
+# Plugin._resolve_enabled_databases reads.
+DATABASE_ALL = "_all"
+DATABASE_NONE = "_none"
+DATABASE_NONE_LABEL = "None - no channel database"
+
+
+def database_list_from_text(text):
+    """The pick-list value for a saved Channel Database setting."""
+    codes = split_list(text)
+    if not codes or DATABASE_ALL in codes:
+        return []
+    named = [c for c in codes if c != DATABASE_NONE]
+    return named or [DATABASE_NONE]
+
+
+def database_text_from_list(values):
+    """The Channel Database setting for a pick-list value."""
+    codes = split_list(values)
+    if not codes or DATABASE_ALL in codes:
+        return DATABASE_ALL
+    named = [c for c in codes if c != DATABASE_NONE]
+    return ",".join(named) if named else DATABASE_NONE
 
 # --------------------------------------------------------------------------
 # Tables: new id -> (old id, kind). The kind picks the converter pair.
@@ -64,6 +92,10 @@ NEW_FIELDS = {
     "m3u_source_list": {
         "label": "📡 M3U Sources (in priority order)",
         "help_text": "The M3U sources to use when matching, or leave empty for all of them. The order you pick them in is the priority order: streams from an earlier source are placed before streams from a later one when sorting by quality. To change the order, remove a source and pick it again, which moves it to the end. Without the * entry, Match and Assign uses only the sources picked. Pick * to stand for every other source, so nothing is left out: picking Free Provider and then * puts Free Provider first and every other source after it, including sources added later. The list is read when the plugin loads: after adding an M3U account, press the refresh control on the Plugins page to see it here.",
+    },
+    "channel_database_list": {
+        "label": "Channel Database",
+        "help_text": "Which countries' channel lists to load for name and callsign matching. Pick one or more, or leave empty for every database; pick None to load no list. This also decides a channel's country, which is the signal Restrict Matching To Same Country filters on, so a selection that does not cover the channels you are processing makes that filter drop the streams you wanted to keep.",
     },
     "scheduled_time_list": {
         "label": "⏰ Scheduled Run Times",
@@ -344,7 +376,11 @@ def legacy_settings(settings):
     out = dict(settings or {})
     for new_id, (old_id, separator) in LIST_SETTINGS.items():
         value = out.get(new_id)
-        if isinstance(value, list):
+        if not isinstance(value, list):
+            continue
+        if new_id == "channel_database_list":
+            out[old_id] = database_text_from_list(value)
+        else:
             out[old_id] = separator.join(split_list(value))
     for new_id, (old_id, kind) in TABLE_SETTINGS.items():
         value = out.get(new_id)
@@ -405,11 +441,32 @@ def _stored_rows(settings, new_id):
     return [r for r in value if isinstance(r, dict)] if isinstance(value, list) else []
 
 
-def _list_field(new_id, default, stored, names):
+def _database_options(choices, extra=()):
+    """The databases the select offers, by label, plus None, plus any saved
+    code with no database file (a saved value with no option makes Dispatcharr
+    reject the save). The select's All entry is dropped: empty means all."""
+    options, known = [], set()
+    for choice in choices or ():
+        value = str((choice or {}).get("value") or "").strip()
+        if not value or value in known or value in (DATABASE_ALL, DATABASE_NONE):
+            continue
+        known.add(value)
+        options.append({"label": str(choice.get("label") or value), "value": value})
+    for value in extra or ():
+        if value not in known and value not in (DATABASE_ALL, DATABASE_NONE):
+            known.add(value)
+            options.append({"label": value, "value": value})
+    options.append({"label": DATABASE_NONE_LABEL, "value": DATABASE_NONE})
+    return options
+
+
+def _list_field(new_id, default, stored, names, choices=()):
     meta = NEW_FIELDS[new_id]
     used = default + stored
     if new_id == "scheduled_time_list":
         options = _schedule_options(used)
+    elif new_id == "channel_database_list":
+        options = _database_options(choices, used)
     else:
         options = _options(names.get(new_id, ()), used, forbidden=",")
         if new_id == "m3u_source_list":
@@ -437,7 +494,7 @@ def _table_columns(new_id, kind, default, stored, country_codes):
 
 
 def pick_list_fields(flat_fields, settings=None, names=None, country_codes=(), logger=None):
-    """Return the flat form with the nine text settings replaced by pick lists
+    """Return the flat form with the ten settings above replaced by pick lists
     and tables under their new ids. The input is not modified.
 
     ``settings`` are the saved settings; a field's default is built from the old
@@ -460,6 +517,11 @@ def pick_list_fields(flat_fields, settings=None, names=None, country_codes=(), l
         new_id = NEW_ID_BY_OLD_ID[old_id]
         old_value = settings.get(old_id, field.get("default", ""))
 
+        if new_id == "channel_database_list":
+            out.append(_list_field(new_id, database_list_from_text(old_value),
+                                   _stored_list(settings, new_id), names,
+                                   choices=field.get("options") or ()))
+            continue
         if new_id in LIST_SETTINGS:
             out.append(_list_field(new_id, split_list(old_value),
                                    _stored_list(settings, new_id), names))

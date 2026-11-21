@@ -200,7 +200,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Enable CSV Export** | boolean | True | Write a CSV on a scheduled Match and Assign run. A dry run always writes one |
 | **Delete CSV Exports Older Than (Days)** | number | 0 | Remove this plugin's older reports after each new one is written. 0, the default, keeps everything. Only files this plugin wrote are ever considered, because that directory is shared with other plugins. The newest report and the one just written always survive |
 | **Tag Handling** | select | Strip All | Strip All, Keep Regional, or Keep All |
-| **Channel Database** | select | US | Which channel database to use. You choose this, never your provider's country prefix, so one database per country serves every provider and none needs duplicating |
+| **Channel Database** | select (a pick list on Dispatcharr 0.34, where you can pick several, or leave it empty for every database) | US | Which channel database to use. You choose this, never your provider's country prefix, so one database per country serves every provider and none needs duplicating |
 | **Visible Channel Limit** | number | 1 | Channels per group to enable and assign streams to |
 | **Rate Limiting** | select | None | None, Low, Medium or High |
 | **Filter Dead Streams** | boolean | False | Skip 0x0 resolution streams. Requires IPTV Checker |

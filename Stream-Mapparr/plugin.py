@@ -1528,7 +1528,8 @@ class Plugin:
         Dispatcharr 0.34 calls this at discovery and on a reload instead of
         reading ``fields``; 0.33 and earlier never call it and keep the flat
         form, which holds no field type they do not know. The 0.34 form groups
-        the settings into collapsible sections and draws nine text settings as
+        the settings into collapsible sections and draws nine text settings and
+        the Channel Database select as
         pick lists and tables under new ids (``sm_fields``). The loader does not
         catch an exception raised here, so any failure falls back to the flat
         form rather than breaking discovery of the plugin.
@@ -3395,12 +3396,16 @@ class Plugin:
         """Resolve which channel databases are enabled from new channel_database select or legacy db_enabled_XX booleans.
         Returns set of enabled country codes (e.g., {'US', 'UK'}) or None for all."""
         db_setting = settings.get("channel_database", "")
-        if db_setting == "_all":
+        # One value from the 0.33 select, or a comma list written back from the
+        # 0.34 pick list (sm_fields.database_text_from_list).
+        codes = [c.strip() for c in str(db_setting or "").split(",") if c.strip()]
+        if "_all" in codes:
             return None  # None means all enabled
-        elif db_setting == "_none":
-            return set()  # Empty set means none enabled
-        elif db_setting:
-            return {db_setting.upper()}
+        named = {c.upper() for c in codes if c != "_none"}
+        if named:
+            return named
+        if codes:
+            return set()  # only _none: empty set means none enabled
         # Fallback: legacy per-database booleans
         databases = self._get_channel_databases()
         enabled = set()
@@ -4048,8 +4053,13 @@ class Plugin:
         """
         alias_map = {k: list(v) for k, v in CHANNEL_ALIASES.items()}
 
-        if country:
-            for k, v in ALIAS_COUNTRY_OVERRIDES.get(str(country).upper(), {}).items():
+        # `country` is the channel_database setting: one code, "_all", "_none",
+        # or a comma list from the 0.34 pick list; every listed code is merged.
+        for code in str(country or "").split(","):
+            code = code.strip().upper()
+            if not code:
+                continue
+            for k, v in ALIAS_COUNTRY_OVERRIDES.get(code, {}).items():
                 alias_map[k] = list(dict.fromkeys(alias_map.get(k, []) + list(v)))
 
         custom_str = (settings.get("custom_aliases") or "").strip()
@@ -7388,7 +7398,7 @@ class Plugin:
                 if 'settings' in context:
                     settings = context['settings']
 
-            # Dispatcharr 0.34's form stores nine settings as pick lists and
+            # Dispatcharr 0.34's form stores ten settings as pick lists and
             # tables under new ids; write them back into the text settings
             # every parser below reads (sm_fields.legacy_settings).
             settings = self._legacy_settings(settings)
