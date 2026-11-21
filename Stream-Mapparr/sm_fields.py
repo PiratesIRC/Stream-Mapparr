@@ -95,6 +95,7 @@ NEW_FIELDS = {
     },
     "channel_database_list": {
         "label": "Channel Database",
+        "placeholder": "Every database",
         "help_text": "Which countries' channel lists to load for name and callsign matching. Pick one or more, or leave empty for every database; pick None to load no list. This also decides a channel's country, which is the signal Restrict Matching To Same Country filters on, so a selection that does not cover the channels you are processing makes that filter drop the streams you wanted to keep.",
     },
     "scheduled_time_list": {
@@ -473,10 +474,15 @@ def _list_field(new_id, default, stored, names, choices=()):
             # The wildcard is offered first, with a label saying what it does.
             options = [o for o in options if o["value"] != M3U_WILDCARD]
             options.insert(0, {"label": M3U_WILDCARD_LABEL, "value": M3U_WILDCARD})
-    return {
+    field = {
         "id": new_id, "label": meta["label"], "type": "multiselect",
         "default": default, "options": options, "help_text": meta["help_text"],
     }
+    if meta.get("placeholder"):
+        # Dispatcharr passes a field's placeholder to the MultiSelect, which
+        # shows it while nothing is picked.
+        field["placeholder"] = meta["placeholder"]
+    return field
 
 
 def _table_columns(new_id, kind, default, stored, country_codes):

@@ -106,3 +106,7 @@ def test_alias_map_merges_every_selected_country(plugin_module, inst, monkeypatc
     one = inst._build_alias_map({}, "UK")
     assert "ZZ Alpha" in one and "ZZ Beta" not in one
     assert "ZZ Alpha" not in inst._build_alias_map({}, "_all")
+
+
+def test_empty_pick_list_says_it_means_every_database(sm, inst):
+    assert _field(sm, inst, {"channel_database": "_all"})["placeholder"] == "Every database"
