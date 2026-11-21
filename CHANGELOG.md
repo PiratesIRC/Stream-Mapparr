@@ -1,5 +1,23 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3251830 (2026-11-21)
+
+### Changed
+
+- **The settings page uses the new form in Dispatcharr 0.34.** Settings are
+  grouped into collapsible sections. Channel Groups, Stream Groups, M3U
+  Sources, Scheduled Run Times and Channel Database are pick lists, so a name
+  can no longer be mistyped. Custom Aliases, Stream Prefix Countries and the
+  three regex rule lists are tables with one row per entry, so no JSON has to
+  be written by hand. Your saved settings carry over: each pick list and table
+  starts from the value you had.
+- **Channel Database can now hold several countries** on Dispatcharr 0.34.
+  Pick one or more databases, pick None to load no list, or leave it empty for
+  every database. Aliases for each picked country are used.
+- **This version needs Dispatcharr 0.34.0 or later in the Plugin Hub.**
+  Dispatcharr 0.33 still shows the old flat form if the plugin is installed by
+  hand.
+
 ## 1.26.3221213 (2026-11-18)
 
 ### Added
