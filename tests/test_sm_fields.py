@@ -331,6 +331,9 @@ def test_run_applies_the_write_back(inst, host_034, monkeypatch):
     monkeypatch.setattr(inst, "validate_settings_action", fake_validate)
     monkeypatch.setattr(inst, "_initialize_fuzzy_matcher", lambda *a: None)
     monkeypatch.setattr(inst, "_build_alias_map", lambda *a: {})
+    # run() reports usage after an action; on Linux the client would start a
+    # real send, which the conftest guard refuses (CI failure 2026-11-21).
+    monkeypatch.setattr(inst, "_report_usage", lambda *a, **k: None)
     inst.run("validate_settings", {"selected_groups": "stale", "channel_group_list": ["News"]})
     assert seen["selected_groups"] == "News"
 
