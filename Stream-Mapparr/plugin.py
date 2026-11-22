@@ -6585,7 +6585,8 @@ class Plugin:
                                    ignore_regional, ignore_geographic, ignore_misc, channels_data,
                                    current_threshold, restrict_matching_to_country=False,
                                    allow_same_name_streams=False,
-                                   stream_country_memo=None, channel_info_cache=None):
+                                   stream_country_memo=None, channel_info_cache=None,
+                                   clean_name_memo=None):
         """Get streams that match at different threshold levels.
 
         Returns a dict with threshold levels as keys and matched streams as values.
@@ -6651,13 +6652,21 @@ class Plugin:
                 same_country_ids = same_ids
 
         # For OTA channels, callsign matching doesn't use threshold
-        if self._is_ota_channel(channel_info):
-            callsign = channel_info['callsign']
+        # The same call-letter test _match_streams_to_channel uses. This read
+        # _is_ota_channel(channel_info), which is always False in production
+        # (bug-161), so every station took the fuzzy loop below: 7 thresholds
+        # x every stream, and about 10 seconds per channel in the container
+        # (measured 2026-11-22, a 166-channel Preview estimated 30 minutes).
+        callsign = self._channel_ota_callsign(channel, channel_info, ignore_tags=ignore_tags)
+        if callsign:
             callsign_pattern = r'\b' + re.escape(callsign) + r'\b'
+            needs_corroboration = self._callsign_needs_corroboration(callsign)
             matching_streams = []
 
             for stream in candidate_streams:
                 if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
+                    if needs_corroboration and not self._callsign_corroborated(_mname(stream), callsign):
+                        continue
                     matching_streams.append(stream)
             matching_streams = self._drop_network_conflicts(channel['name'], matching_streams, logger)
 
@@ -6668,8 +6677,10 @@ class Plugin:
                     'streams': sorted_streams,
                     'match_type': 'Callsign match'
                 }
-            return results
-        
+                return results
+            # No stream carries the call letters: fall through to the name
+            # search, as _match_streams_to_channel does.
+
         # For non-OTA channels, test each threshold.
         # Alias hits are threshold-independent — collect once, before the loop.
         alias_streams = self._collect_alias_streams(
@@ -6677,16 +6688,34 @@ class Plugin:
             ignore_regional, ignore_geographic, ignore_misc)
         alias_ids = {id(s) for s in alias_streams}
 
+        # Cleaning a stream name is the expensive step (97% of the time,
+        # measured 2026-11-22), and the result depends only on the stream and
+        # on whether the channel is a Cinemax channel, never on the threshold
+        # or the channel. So each name is cleaned once per run: `clean_name_memo`
+        # is one dict for the whole Preview, keyed by (stream id, max flag).
+        if clean_name_memo is None:
+            clean_name_memo = {}
+
+        def _cleaned_lower(stream):
+            key = (stream.get('id', id(stream)), channel_has_max)
+            if key not in clean_name_memo:
+                cleaned = self._clean_channel_name(
+                    _mname(stream), ignore_tags, ignore_quality, ignore_regional,
+                    ignore_geographic, ignore_misc, remove_cinemax=channel_has_max)
+                clean_name_memo[key] = cleaned.lower() if cleaned and len(cleaned) >= 2 else None
+            return clean_name_memo[key]
+
+        stream_names = [_mname(stream) for stream in candidate_streams]
+
         for threshold in thresholds_to_test:
             if not self.fuzzy_matcher:
                 continue
-                
+
             # Temporarily set the threshold
             original_threshold = self.fuzzy_matcher.match_threshold
             self.fuzzy_matcher.match_threshold = threshold
-            
+
             try:
-                stream_names = [_mname(stream) for stream in candidate_streams]
                 matched_stream_name, score, match_type = self.fuzzy_matcher.fuzzy_match(
                     channel_name, stream_names, ignore_tags, remove_cinemax=channel_has_max,
                     ignore_quality=ignore_quality, ignore_regional=ignore_regional,
@@ -6700,21 +6729,13 @@ class Plugin:
                     ) if matched_stream_name else ""
 
                     matching_streams = list(alias_streams)
-                    for stream in candidate_streams:
-                        if id(stream) in alias_ids:
-                            continue  # already force-included via alias
-                        cleaned_stream = self._clean_channel_name(
-                            _mname(stream), ignore_tags, ignore_quality, ignore_regional,
-                            ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
-                        )
-
-                        if not cleaned_stream or len(cleaned_stream) < 2:
-                            continue
-                        if not cleaned_matched or len(cleaned_matched) < 2:
-                            continue
-
-                        if cleaned_stream.lower() == cleaned_matched.lower():
-                            matching_streams.append(stream)
+                    if cleaned_matched and len(cleaned_matched) >= 2:
+                        target = cleaned_matched.lower()
+                        for stream in candidate_streams:
+                            if id(stream) in alias_ids:
+                                continue  # already force-included via alias
+                            if _cleaned_lower(stream) == target:
+                                matching_streams.append(stream)
 
                     if matching_streams:
                         sorted_streams = self._finalize_streams(
@@ -8772,6 +8793,10 @@ class Plugin:
                 if restrict_matching_to_country else None
             )
             channel_info_cache = {}
+            # One cleaned-name cache for the whole Preview, read by
+            # _get_matches_at_thresholds (measured 2026-11-22: cleaning names
+            # was 97% of a Preview's time).
+            clean_name_memo = {}
 
             channel_groups = self._build_channel_groups(
                 channels, channels_data, logger, ignore_tags, ignore_quality, ignore_regional,
@@ -8864,9 +8889,10 @@ class Plugin:
                         ignore_regional, ignore_geographic, ignore_misc, channels_data,
                         current_threshold, restrict_matching_to_country,
                         allow_same_name_streams,
-                        stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache
+                        stream_country_memo=stream_country_memo, channel_info_cache=channel_info_cache,
+                        clean_name_memo=clean_name_memo
                     )
-                    
+
                     # Store threshold analysis for recommendations
                     threshold_data[channel['name']] = threshold_matches
                     

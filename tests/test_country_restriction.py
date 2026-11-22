@@ -1703,14 +1703,13 @@ def test_real_shape_get_matches_at_thresholds_ota_exemption_via_paren_fallback(
     plugin_module, fuzzy_module, tmp_path
 ):
     """_get_matches_at_thresholds must reach the same OTA verdict as
-    _match_streams_to_channel for the country-filter exemption, even though
-    (documented, pre-existing, not fixed here) its own callsign-MATCHING
-    branch still only fires for a database callsign entry and so never
-    actually callsign-matches this channel. The exemption must still hold:
-    with channels_data=[], the IL-collision stream must survive into
-    candidate_streams and (since it fails the OTA callsign-match branch here)
-    fall through to fuzzy threshold matching rather than being silently
-    dropped by the country filter first."""
+    _match_streams_to_channel for the country-filter exemption. Its
+    call-letter branch reads the parenthesized callsign too (2026-11-22), but
+    no stream here carries WGN, so it falls through to the name search, as
+    _match_streams_to_channel does. The exemption must still hold: with
+    channels_data=[], the IL-collision stream must survive into
+    candidate_streams and reach fuzzy threshold matching rather than being
+    silently dropped by the country filter first."""
     inst = _fallback_matcher_inst(plugin_module, fuzzy_module, tmp_path)
     channel = {"id": 1, "name": "CW - Chicago (WGN)", "channel_group__name": "US: LOCALS"}
     streams = [
