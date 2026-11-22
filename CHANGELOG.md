@@ -1,5 +1,55 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3262042 (2026-11-22)
+
+### Changed
+
+- **Long actions report their real result in Dispatcharr 0.34.** Preview,
+  Match & Assign, Sort, Fill Mirror Backups, the US OTA match, Probe
+  Throughput and Channel Visibility now run as Dispatcharr tasks. The task
+  banner turns green or red with the plugin's own message when the run ends,
+  and the plugin page's Tasks list shows the percentage while it runs. A
+  Plugins page reload waits until a running action finishes.
+- **One View Status button replaces View Check Progress and View Last
+  Results.** It shows the running operation's progress and estimate, or the
+  last finished result when nothing is running. Scheduled runs appear here
+  and not in Dispatcharr's Tasks list.
+- **Times are shown in Dispatcharr's time zone.** View Status shows when the
+  last run finished and how long ago, and report file names use local time
+  instead of UTC.
+- **The "started in background" estimate uses this machine's measured speed.**
+  It said 47 minutes for a run that took 5.6 seconds.
+- **Preview is much faster.** A TV station channel whose name ends in its call
+  letters, such as "CBS - IN Evansville (WEVV)", now takes the same
+  call-letter path as Match & Assign, and each stream name is cleaned once per
+  run. A Preview of 166 station channels took 13.5 seconds where it had
+  estimated 30 minutes.
+- **New M3U sources and stream groups appear in the settings lists after an
+  M3U refresh** without reloading the plugin by hand. The plugin asks
+  Dispatcharr to reload it only when those names changed.
+- **Built-in aliases for channels that were being missed:** ESPN8 The Ocho,
+  Yahoo Finance, ITV (ITV1), National Geographic Wild, Crime + Investigation,
+  Great! Movies and Sky Cinema Sci-Fi & Horror.
+
+### Fixed
+
+- **A station channel no longer gets another network's streams.** Many
+  stations carry a second network on a subchannel under the same call
+  letters, so a CBS channel could receive the FOX, ABC, NBC, CW or MyNetwork
+  feed. A call-letter match whose name names a different network is now
+  dropped, including names written like "ABC7" or "FOX2". When every stream
+  with those call letters belongs to another network, the channel gets none
+  and keeps the streams it has.
+- **A channel marked East with no West sibling drops West feeds,** for
+  example "HBO Drama HD East".
+- **Foreign platform feeds stay off channels of another country.** A stream
+  tagged "(PLUTO Brazil)", "(PLUTO UK)" or "(PLUTO Latin)" is now read as that
+  country even when the provider files it under a United States category.
+- **The Match & Assign report lists each channel's own streams.** It listed
+  the whole group's streams, so "HBO" and "HBO West" both showed East and West
+  feeds although the streams written were correct. Dry-run counts use each
+  channel's own list as well.
+
 ## 1.26.3251830 (2026-11-21)
 
 ### Changed
