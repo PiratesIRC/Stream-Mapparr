@@ -482,8 +482,8 @@ class PluginConfig:
     # 19,493 streams in 18.2 seconds. That installation could never learn its
     # own speed, so every estimate stayed 200 times too high, permanently.
     #
-    # The floor was then 0.001 and rejected a real 0.0009 measured on this box
-    # on 2026-11-22 (100 groups over 33,743 streams in 2.9 seconds), so the
+    # The floor was then 0.001 and rejected a real 0.0009 measured on a live
+    # installation on 2026-11-22 (100 groups over 33,743 streams in 2.9 seconds), so the
     # "started in background" message estimated 47 minutes for a run that took
     # 5.6 seconds. The floor no longer guards the synchronous path: the dispatch
     # decision takes the SLOWER of the measured rate and the shipped fallback

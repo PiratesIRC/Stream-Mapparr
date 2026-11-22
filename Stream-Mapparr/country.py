@@ -220,7 +220,7 @@ def country_from_group(text):
 
 
 # A FAST platform tag that names the feed's country: "(PLUTO Brazil) Tastemade",
-# "(PLUTO UK) Dog Whisperer". The provider on this box files every one of these
+# "(PLUTO UK) Dog Whisperer". At least one provider files every one of these
 # under the group "United States" (measured 2026-11-22: Denmark, UK, Sweden,
 # Germany, Latin, Norway, Brazil, Spain, France and Italy feeds), so the group
 # answered US and foreign versions were added to US channels. The tag states
