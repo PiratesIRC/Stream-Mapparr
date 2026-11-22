@@ -219,6 +219,45 @@ def country_from_group(text):
     return _scan_words(str(text), combined)
 
 
+# A FAST platform tag that names the feed's country: "(PLUTO Brazil) Tastemade",
+# "(PLUTO UK) Dog Whisperer". The provider on this box files every one of these
+# under the group "United States" (measured 2026-11-22: Denmark, UK, Sweden,
+# Germany, Latin, Norway, Brazil, Spain, France and Italy feeds), so the group
+# answered US and foreign versions were added to US channels. The tag states
+# the feed itself, so it is read before the group.
+_PLATFORM_TAG_RE = re.compile(
+    r"^\s*[\(\[]\s*(?:PLUTO|TUBI|XUMO|PLEX|STIRR|SAMSUNG|RAKUTEN)\s+([A-Za-z][A-Za-z .]*?)\s*[\)\]]",
+    re.IGNORECASE)
+
+# Region words a platform tag uses that are not one country. The code is not a
+# channel country, so classify() reads a stream carrying it as FOREIGN on every
+# channel whose country is known, and UNKNOWN (kept) on a channel without one.
+PLATFORM_REGIONS = {"LATIN": "LATAM", "LATAM": "LATAM", "LATIN AMERICA": "LATAM"}
+
+_PLATFORM_COUNTRY_WORDS = {
+    "USA": "US", "US": "US", "UK": "UK", "DENMARK": "DK", "SWEDEN": "SE",
+    "ITALY": "IT", "ITALIA": "IT",
+}
+
+
+def country_from_platform_tag(text):
+    """Country named by a leading FAST platform tag, else None.
+
+    Only the wrapped "(PLATFORM Country)" shape counts. A bare platform prefix
+    such as "PLUTO: History" names no country and returns None.
+    """
+    if not text:
+        return None
+    m = _PLATFORM_TAG_RE.match(str(text))
+    if not m:
+        return None
+    word = re.sub(r"\s+", " ", m.group(1)).strip().upper().rstrip(".")
+    if word in PLATFORM_REGIONS:
+        return PLATFORM_REGIONS[word]
+    code = _PLATFORM_COUNTRY_WORDS.get(word) or GROUP_NAME_ALIASES.get(word)
+    return code if code in KNOWN_COUNTRY_CODES else None
+
+
 def country_from_name(text):
     """Country for a CHANNEL or STREAM name.
 

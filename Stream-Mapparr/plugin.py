@@ -4815,7 +4815,10 @@ class Plugin:
         if not stream:
             return None
         return (
-            country_detect.country_from_group(stream.get('channel_group__name'))
+            # A "(PLUTO Brazil)" tag states the feed's own country and beats a
+            # catch-all provider group ("United States" for every Pluto feed).
+            country_detect.country_from_platform_tag(stream.get('name'))
+            or country_detect.country_from_group(stream.get('channel_group__name'))
             or country_detect.country_from_name(stream.get('name'))
             or country_detect.country_from_prefix_overrides(
                 stream.get('name'), prefix_overrides)
@@ -8894,7 +8897,6 @@ class Plugin:
                 channels_not_updated = [c for c in sorted_channels if c['id'] not in _updated_ids]
 
                 for channel in channels_to_update:
-                    match_count = len(matched_streams)
                     streams_for_channel, keep_existing = self._streams_to_assign(
                         matched_streams, channel['id'], zone_routed,
                         self._same_country_ids_for(channel, matched_streams, channels_data,
@@ -8917,6 +8919,10 @@ class Plugin:
                             "is_current": True
                         })
                         continue
+
+                    # This channel's own count after zone routing, not the
+                    # group's (the group lists East and West for HBO and HBO West).
+                    match_count = len(streams_for_channel)
 
                     # Get detailed threshold analysis
                     threshold_matches = self._get_matches_at_thresholds(
@@ -9400,6 +9406,11 @@ class Plugin:
             # Cache matched streams per group so the CSV export phase can reuse
             # them instead of re-running the fuzzy-match pipeline.
             group_match_cache = {}
+            # Each channel's own list after zone routing and the country tier,
+            # keyed by channel id, for the CSV. The group's list is the same for
+            # "HBO" and "HBO West", so a report built from it listed East and
+            # West streams for both (2026-11-22) while the write was correct.
+            channel_streams_for_report = {}
 
             for group_key, group_channels in channel_groups.items():
                 self._cooperative_yield()
@@ -9445,6 +9456,7 @@ class Plugin:
                                                    stream_country_memo=stream_country_memo,
                                                    channel_info_cache=channel_info_cache,
                                                    ignore_tags=ignore_tags))
+                    channel_streams_for_report[channel_id] = [] if keep_existing else streams_for_channel
                     if keep_existing:
                         # Issue 55: no matched stream belongs to this channel's
                         # zone and the channel already holds streams, so nothing
@@ -9469,8 +9481,9 @@ class Plugin:
                                 total_streams_added += streams_added
                                 total_custom_kept += custom_kept
                             else:
-                                # Dry run: just count what would be added
-                                streams_added = len(matched_streams)
+                                # Dry run: count this channel's own list, as
+                                # the write would use it.
+                                streams_added = len(streams_for_channel)
                                 total_streams_added += streams_added
 
                             channels_updated += 1
@@ -9592,21 +9605,22 @@ class Plugin:
                     current_threshold = self._resolve_match_threshold(settings)
 
                     for group_key, cache_entry in group_match_cache.items():
-                        matched_streams = cache_entry['matched_streams']
+                        group_streams = cache_entry['matched_streams']
                         for channel in cache_entry['channels_to_update']:
-                            match_count = len(matched_streams)
+                            own = channel_streams_for_report.get(channel['id'], group_streams)
+                            match_count = len(own)
                             csv_data.append({
                                 'channel_id': channel['id'],
                                 'channel_name': channel['name'],
                                 'threshold': current_threshold,
                                 'matched_streams': match_count,
-                                'stream_names': '; '.join(self._label_streams(matched_streams, logger)),
+                                'stream_names': '; '.join(self._label_streams(own, logger)),
                             })
                             if 0 < match_count <= 3:
                                 low_match_channels.append({
                                     'name': channel['name'],
                                     'count': match_count,
-                                    'streams': self._label_streams(matched_streams[:3], logger),
+                                    'streams': self._label_streams(own[:3], logger),
                                 })
 
                     with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:

@@ -299,6 +299,20 @@ CHANNEL_ALIASES = {
     "Univision tINovelas": ["Univision tINovelas", "Univision tlnovelas", "Univision tlNovelas", "tlnovelas"],
     "TV Games Network": ["TV Games Network", "TVG Network"],
     "Christian Television Network": ["Christian Television Network", "CTN"],
+    # Missed by a 95-threshold run on 2026-11-22 although the provider carries
+    # them under these names. UK-only brands sit here rather than in a "UK"
+    # COUNTRY_ALIASES block because a block is merged only when its code is
+    # selected, and the "All" channel database selects none; the country filter
+    # keeps a UK feed off a US channel.
+    "ESPN8: The Ocho": ["ESPN8 The Ocho", "ESPN 8 The Ocho", "ESPN Ocho"],
+    "Yahoo Finance": ["Yahoo Finance", "Yahoo Finance Live"],
+    "ITV": ["ITV1", "ITV 1"],
+    "National Geographic Wild": ["Nat Geo Wild", "NatGeo Wild", "National Geographic Wild"],
+    "Crime+Investigation": ["Crime & Investigation", "Crime and Investigation", "Crime Investigation",
+                            "Crime + Investigation"],
+    "Great! Movies": ["Great Movies"],
+    "Sky Cinema Sci-Fi & Horror HD": ["Sky Cinema Sci-Fi", "Sky Cinema SciFi", "Sky Cinema SciFi/Horror",
+                                      "Sky Cinema Sci-Fi Horror", "Sky Cinema Sci-Fi & Horror"],
 }
 
 # Country-scoped overrides (Phase 2), keyed by channel database code. The merge mechanism
