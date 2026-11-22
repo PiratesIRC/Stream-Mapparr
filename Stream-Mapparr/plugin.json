@@ -9,7 +9,8 @@
   "manifest_version": 1,
   "capabilities": [
     "outbound_network",
-    "filesystem_write"
+    "filesystem_write",
+    "background_tasks"
   ],
   "help_url": "https://github.com/PiratesIRC/Stream-Mapparr",
   "_fields_note": "Settings fields are defined dynamically by the Plugin.fields property in plugin.py (the single source of truth — it builds live dropdowns for channel profiles, groups, stream groups, M3U sources, and the channel database, and stays in sync with the code). Dispatcharr only falls back to a manifest 'fields' array when the plugin provides none, so it is intentionally left empty here to prevent drift (the previous static copy had gone stale).",
@@ -58,6 +59,7 @@
     },
     {
       "id": "preview_changes",
+      "async": true,
       "label": "👁️ Preview Changes (Dry Run)",
       "description": "Generate a CSV preview without making changes.",
       "button_variant": "outline",
@@ -66,6 +68,7 @@
     },
     {
       "id": "add_streams_to_channels",
+      "async": true,
       "label": "✅ Match & Assign Streams",
       "description": "Match and assign streams to channels.",
       "button_variant": "filled",
@@ -79,6 +82,7 @@
     },
     {
       "id": "sort_streams",
+      "async": true,
       "label": "🔄 Sort Alternate Streams",
       "description": "Sort existing alternate streams by quality.",
       "button_color": "orange",
@@ -91,6 +95,7 @@
     },
     {
       "id": "fill_mirror_backups",
+      "async": true,
       "label": "🪞 Fill Mirror Backups",
       "description": "For M3U accounts in a server group that mirror each other, add each channel's matching stream from every other active account whose provider host the channel has no stream from yet, matched by provider stream id. Adds only, never removes.",
       "button_color": "orange",
@@ -103,6 +108,7 @@
     },
     {
       "id": "match_us_ota_only",
+      "async": true,
       "label": "📡 Match US OTA Only",
       "description": "Match US OTA channels by callsign.",
       "button_color": "red",
@@ -115,6 +121,7 @@
     },
     {
       "id": "probe_throughput",
+      "async": true,
       "label": "🚀 Probe Stream Throughput",
       "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting.",
       "button_color": "green",
@@ -127,6 +134,7 @@
     },
     {
       "id": "manage_channel_visibility",
+      "async": true,
       "label": "👁️ Manage Channel Visibility",
       "description": "Enable or disable channels based on stream count.",
       "button_color": "red",

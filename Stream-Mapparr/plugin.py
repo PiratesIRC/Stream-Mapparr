@@ -1647,6 +1647,7 @@ class Plugin:
         },
         {
             "id": "preview_changes",
+            "async": True,
             "label": "👁️ Preview Changes (Dry Run)",
             "button_variant": "outline",
             "button_label": "👁️ Preview",
@@ -1655,6 +1656,7 @@ class Plugin:
         },
         {
             "id": "add_streams_to_channels",
+            "async": True,
             "label": "✅ Match & Assign Streams",
             "description": "Match and assign streams to channels using fuzzy matching. Respects 'Dry Run Mode' setting - preview only if enabled, actually assigns if disabled. May take several minutes - monitor Docker logs (docker logs -f dispatcharr) for progress and completion.",
             "button_variant": "filled",
@@ -1668,6 +1670,7 @@ class Plugin:
         },
         {
             "id": "probe_throughput",
+            "async": True,
             "label": "🚀 Probe Stream Throughput",
             "description": "Measure sustained throughput for streams currently assigned to channels in the selected profile. Updates the throughput cache used by alternate-stream sorting. Probes are serialized per M3U account and capped by 'Probe Rate'. Monitor Docker logs for progress.",
             "button_color": "green",
@@ -1680,6 +1683,7 @@ class Plugin:
         },
         {
             "id": "sort_streams",
+            "async": True,
             "label": "🔄 Sort Alternate Streams",
             "description": "Sort existing alternate streams by quality (4K -> UHD -> FHD -> HD -> SD). Only affects channels with multiple streams already assigned. Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
             "button_color": "orange",
@@ -1692,6 +1696,7 @@ class Plugin:
         },
         {
             "id": "fill_mirror_backups",
+            "async": True,
             "label": "🪞 Fill Mirror Backups",
             "description": "For M3U accounts in a server group that mirror each other, add each channel's matching stream from every other active account whose provider host the channel has no stream from yet, matched by provider stream id. Adds only, never removes. Respects 'Dry Run Mode' setting. Writes a readout of every addition.",
             "button_color": "orange",
@@ -1704,6 +1709,7 @@ class Plugin:
         },
         {
             "id": "match_us_ota_only",
+            "async": True,
             "label": "📡 Match US OTA Only",
             "description": "Match ONLY US Over-The-Air broadcast channels by callsign. Uses US_channels.json as authoritative source. Searches streams for uppercase callsigns only (e.g., WKRG, WABC). Respects 'Dry Run Mode' setting. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
             "button_color": "red",
@@ -1716,6 +1722,7 @@ class Plugin:
         },
         {
             "id": "manage_channel_visibility",
+            "async": True,
             "label": "👁️ Manage Channel Visibility",
             "description": "Disable all channels, then enable only channels with 1 or more streams. Monitor Docker logs (docker logs -f dispatcharr) for progress.",
             "button_color": "red",
@@ -6691,6 +6698,8 @@ class Plugin:
                 _persisted_state = None
                 LOGGER.debug(f"[Stream-Mapparr] progress persist failed: {e}")
 
+            self._report_task_progress(context, action_id, progress, message)
+
             is_complete = progress >= 100 or status in ('success', 'completed', 'error')
             if not is_complete:
                 LOGGER.debug(f"[Stream-Mapparr] Progress: {action_id} - {progress}% - {message}")
@@ -7375,6 +7384,39 @@ class Plugin:
             return None
         return max(measured, PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS)
 
+    @staticmethod
+    def _in_celery_task():
+        """True when this code runs inside a Celery task.
+
+        Dispatcharr 0.34 runs every plugin action through the
+        run_plugin_action task on the plugins queue; 0.33 and earlier run them
+        in the uWSGI request. Never raises; False when Celery is absent.
+        """
+        try:
+            from celery import current_task
+            return bool(current_task is not None and getattr(current_task.request, "id", None))
+        except Exception:
+            return False
+
+    def _report_task_progress(self, context, action_id, progress, message):
+        """Pass a progress update to Dispatcharr 0.34's task progress reporter.
+
+        0.34 puts a throttled report_progress(percent, message) callable in
+        the action context; it updates the plugin page's Tasks list. It is
+        absent on 0.33 and is a no-op outside a task. Internal sub-steps are
+        skipped so their own 0 to 100 does not move the parent's percent
+        backwards. Never raises.
+        """
+        if action_id in self._INTERNAL_PROGRESS_ACTIONS:
+            return
+        reporter = context.get("report_progress") if isinstance(context, dict) else None
+        if not callable(reporter):
+            return
+        try:
+            reporter(max(0, min(100, int(progress or 0))), message)
+        except Exception as exc:
+            LOGGER.debug(f"[Stream-Mapparr] task progress report failed: {exc}")
+
     def _display_eta_seconds(self, dispatch_eta):
         """The estimate to SHOW the operator, from the one that gated dispatch.
 
@@ -7576,8 +7618,18 @@ class Plugin:
                 # run synchronously (so the Mantine completion toast fires with the
                 # real result); anything else backgrounds and returns a "started"
                 # placeholder. See _should_run_sync for why the bar is this low.
-                eta_seconds = self._estimate_eta_seconds(settings, logger)
-                run_sync = self._should_run_sync(action, eta_seconds, lockable_actions)
+                #
+                # Inside a Celery task (Dispatcharr 0.34 runs every action in
+                # one) the job always runs inline. A Celery worker is not a
+                # gevent uWSGI worker, so bug-117 does not apply there, and an
+                # inline run is what lets Dispatcharr's task banner and the
+                # Tasks list show the real result when the task finishes
+                # (plugin.json marks these actions "async"). A daemon thread
+                # would end the task at once, and the autoscaled pool can reap
+                # the idle child it runs in.
+                in_task = self._in_celery_task()
+                eta_seconds = None if in_task else self._estimate_eta_seconds(settings, logger)
+                run_sync = in_task or self._should_run_sync(action, eta_seconds, lockable_actions)
 
                 def _execute_with_progress():
                     # Reset per-op item count so progress-toast cadence doesn't

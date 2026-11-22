@@ -347,5 +347,7 @@ def test_plugin_json_declares_manifest_version_1(plugin_module):
     from pathlib import Path
     data = json.loads((Path(plugin_module.__file__).parent / "plugin.json").read_text(encoding="utf-8"))
     assert data["manifest_version"] == 1
-    assert set(data["capabilities"]) == {"outbound_network", "filesystem_write"}
+    # background_tasks: the long actions are "async" so the 0.34 task banner
+    # shows their real result (Dispatcharr infers it from "async" anyway).
+    assert set(data["capabilities"]) == {"outbound_network", "filesystem_write", "background_tasks"}
     assert data["fields"] == []

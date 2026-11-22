@@ -139,7 +139,7 @@ def test_the_manifest_and_the_served_list_hold_the_same_actions(plugin_module):
     assert served == manifest
 
 
-@pytest.mark.parametrize("key", ["button_label", "button_color", "confirm",
+@pytest.mark.parametrize("key", ["button_label", "button_color", "confirm", "async",
                                  "button_variant"])
 def test_the_manifest_and_the_served_list_agree_on_button_metadata(plugin_module, key):
     """They drifted in BOTH directions, so reading either alone misled.
