@@ -631,6 +631,38 @@ def _progress_toast_interval_for(total_items):
     return 3 if total_items <= 50 else 5 if total_items <= 200 else 10
 
 
+# US broadcast network labels, for the call-letter match guard. Many stations
+# carry a second network on a subchannel under the same call letters (WEVV is
+# CBS on its main channel and FOX on DT2), so a call-letter match alone put FOX,
+# ABC, NBC and CW streams on CBS channels: 77 of them in group US: CBS,
+# measured 2026-11-22. MY, MYTV and MYNETWORK are one network.
+_NETWORK_LABEL_RE = re.compile(r'\b(ABC|NBC|CBS|FOX|CW|PBS|MY|MYTV|MYNETWORK)\b', re.IGNORECASE)
+
+
+def networks_named(name):
+    """The set of US broadcast networks a channel or stream name names."""
+    found = set()
+    for m in _NETWORK_LABEL_RE.finditer(name or ''):
+        label = m.group(1).upper()
+        found.add('MY' if label.startswith('MY') else label)
+    return found
+
+
+def network_conflicts(channel_name, stream_name):
+    """True when the stream names another network and not the channel's own.
+
+    The channel must name exactly one network; with none or several the answer
+    is False, because there is nothing to compare. A stream that names no
+    network, or that names the channel's network among others, does not
+    conflict.
+    """
+    channel_nets = networks_named(channel_name)
+    if len(channel_nets) != 1:
+        return False
+    stream_nets = networks_named(stream_name)
+    return bool(stream_nets) and not (channel_nets & stream_nets)
+
+
 # Stream ordering tables for a zoned channel (lower = assigned earlier/primary).
 # bug-068 routing policy, named so the two tables are greppable side by side:
 _WEST_CHANNEL_ZONE_RANK = {'WEST': 0, 'DEFAULT': 2, 'EAST': 2}   # West: own > East+generic
@@ -6281,6 +6313,8 @@ class Plugin:
                         continue
                     matching_streams.append(stream)
 
+            matching_streams = self._drop_network_conflicts(channel_name, matching_streams, logger)
+
             if matching_streams:
                 sorted_streams = self._finalize_streams(
                     matching_streams, allow_same_name_streams, same_country_ids)
@@ -6525,6 +6559,28 @@ class Plugin:
 
         return [], cleaned_channel_name, [], "No match", database_used
 
+    @staticmethod
+    def _drop_network_conflicts(channel_name, streams, logger):
+        """Remove call-letter matches whose name names a different network.
+
+        Reads the raw stream name, as zone and country detection do. If every
+        stream conflicts the list is kept unchanged and logged, the same
+        fail-open rule zones use: a station whose streams all carry another
+        network's label (a provider label that is out of date, or a station
+        that changed network) keeps its streams rather than ending with none.
+        """
+        kept = [s for s in streams if not network_conflicts(channel_name, s.get('name', ''))]
+        dropped = len(streams) - len(kept)
+        if not dropped:
+            return streams
+        if not kept:
+            logger.info(f"[Stream-Mapparr] Every call-letter match for {channel_name!r} names another "
+                        f"network; keeping all {len(streams)} rather than leaving none")
+            return streams
+        logger.debug(f"[Stream-Mapparr] Dropped {dropped} call-letter match(es) naming another "
+                     f"network for {channel_name!r}")
+        return kept
+
     def _get_matches_at_thresholds(self, channel, all_streams, logger, ignore_tags, ignore_quality,
                                    ignore_regional, ignore_geographic, ignore_misc, channels_data,
                                    current_threshold, restrict_matching_to_country=False,
@@ -6603,7 +6659,8 @@ class Plugin:
             for stream in candidate_streams:
                 if re.search(callsign_pattern, _mname(stream), re.IGNORECASE):
                     matching_streams.append(stream)
-            
+            matching_streams = self._drop_network_conflicts(channel['name'], matching_streams, logger)
+
             if matching_streams:
                 sorted_streams = self._finalize_streams(
                     matching_streams, allow_same_name_streams, same_country_ids)
@@ -9769,7 +9826,8 @@ class Plugin:
                         if needs_corroboration and not self._callsign_corroborated(stream_name, base_callsign):
                             continue
                         matching_streams.append(stream)
-                
+                matching_streams = self._drop_network_conflicts(channel_name, matching_streams, logger)
+
                 if not matching_streams:
                     logger.debug(f"[Stream-Mapparr] No streams found for '{channel_name}' (callsign: {base_callsign})")
                     skipped_no_streams += 1
