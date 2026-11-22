@@ -84,10 +84,12 @@ def test_a_missing_file_falls_back_rather_than_raising(plugin_module, tmp_path):
 
 def test_the_floor_still_keeps_a_real_job_off_the_synchronous_path(plugin_module):
     """A CPU-bound matching loop on the synchronous path freezes the whole uWSGI
-    worker, not one request. A rate small enough to predict under the sync
-    threshold would send a real job there, so the floor is load-bearing."""
+    worker, not one request. The dispatch decision prices a job with
+    _dispatch_rate, so even a measured rate at the floor must not predict a
+    117-group run under the sync threshold."""
     cfg = plugin_module.PluginConfig
-    seconds = plugin_module.estimate_run_seconds(117, 19493, rate=cfg.MEASURED_MIN_RATE)
+    rate = plugin_module.Plugin._dispatch_rate(cfg.MEASURED_MIN_RATE)
+    seconds = plugin_module.estimate_run_seconds(117, 19493, rate=rate)
     assert cfg.ETA_SAFETY_FACTOR * seconds >= cfg.SYNC_THRESHOLD_SECONDS, (
         "at the floor a 117-group run estimates %.2fs, which dispatches "
         "synchronously" % seconds)

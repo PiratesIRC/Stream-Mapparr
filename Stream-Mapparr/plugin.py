@@ -448,6 +448,7 @@ class PluginConfig:
     M3U_REFRESH_LOCK_STALE_SECONDS = 1800   # break a leaked/forked-fd auto-match flock older than this
     PROGRESS_STATE_FILE = "/data/stream_mapparr_progress.json"      # live op progress (View Check Progress)
     LAST_RESULTS_FILE = "/data/stream_mapparr_last_results.json"    # last completed run (View Last Results)
+    PICK_LIST_NAMES_FILE = "/data/stream_mapparr_pick_list_names.json"  # names last seen by on_m3u_refresh
     PROGRESS_TOAST_MIN_INTERVAL = 5  # default seconds between live progress toasts
     PROGRESS_STALE_SECONDS = 180     # a 'running' flag older than this is treated as stalled/crashed
 
@@ -481,15 +482,14 @@ class PluginConfig:
     # 19,493 streams in 18.2 seconds. That installation could never learn its
     # own speed, so every estimate stayed 200 times too high, permanently.
     #
-    # THE FLOOR IS NOT ARBITRARY AND MUST NOT BE LOWERED CASUALLY. A rate small
-    # enough to predict under SYNC_THRESHOLD_SECONDS / ETA_SAFETY_FACTOR, which
-    # is 1.25 seconds, sends the job down the SYNCHRONOUS path, and a CPU-bound
-    # matching loop there freezes the whole uWSGI worker rather than one request
-    # (bug-117). At 0.001 that same 117-group run estimates 2.3 seconds and
-    # still dispatches to the background, while leaving an eightfold margin
-    # below the real measurement. At 0.0001 it estimates 0.23 seconds and would
-    # run inline.
-    MEASURED_MIN_RATE = 0.001
+    # The floor was then 0.001 and rejected a real 0.0009 measured on this box
+    # on 2026-11-22 (100 groups over 33,743 streams in 2.9 seconds), so the
+    # "started in background" message estimated 47 minutes for a run that took
+    # 5.6 seconds. The floor no longer guards the synchronous path: the dispatch
+    # decision takes the SLOWER of the measured rate and the shipped fallback
+    # (_dispatch_rate), so a low measured rate cannot send a job inline
+    # (bug-117). It now only rejects a reading that rounds to almost nothing.
+    MEASURED_MIN_RATE = 0.0001
     MEASURED_MAX_RATE = 1000.0
     # Retained: the throughput probe paces itself per stream, not per group.
     ESTIMATED_SECONDS_PER_ITEM = 0.8
@@ -1543,6 +1543,68 @@ class Plugin:
         except Exception as exc:
             LOGGER.warning(f"[Stream-Mapparr] Sectioned settings form failed, using the flat form: {exc}")
             return flat
+
+    def _pick_list_names_changed(self, logger, path=None):
+        """True when the pick-list names differ from the ones last recorded.
+
+        Dispatcharr 0.34 calls get_fields only when the plugin loads and serves
+        that stored form until the next reload, so an M3U source added later is
+        missing from the M3U Sources list until the operator reloads the plugin
+        (reported 2026-11-22). The names are recorded in PICK_LIST_NAMES_FILE
+        each time they change, so every change is reported exactly once, which
+        is what decides whether a reload is requested. The first call only
+        records. Any empty list skips the check, because _pick_list_names
+        returns an empty list on a database error and that must not be read as
+        a change. Never raises; on any error the answer is False.
+        """
+        path = path or PluginConfig.PICK_LIST_NAMES_FILE
+        try:
+            current = {k: sorted(set(v)) for k, v in self._pick_list_names().items()}
+            if not current or any(not v for v in current.values()):
+                return False
+            previous = self._read_json_file(path)
+            if previous == current:
+                return False
+            self._write_json_atomic(path, current)
+            if not isinstance(previous, dict):
+                return False
+            changed = sorted(k for k in current if current.get(k) != previous.get(k))
+            logger.info(f"[Stream-Mapparr] Settings pick lists changed ({', '.join(changed)}); requesting a plugin reload")
+            return True
+        except Exception as exc:
+            logger.warning(f"[Stream-Mapparr] Could not compare the settings pick-list names: {exc}")
+            return False
+
+    def _with_pick_list_reload(self, result, logger):
+        """Add Dispatcharr's plugin-reload request to an on_m3u_refresh result
+        when the pick-list names changed, so a new M3U source or stream group
+        appears in the settings form without a manual reload.
+
+        Dispatcharr 0.34's run_plugin_action_task reloads the plugin when a
+        result carries {"_dispatcharr": {"refresh": "plugin"}}; the reload
+        touches the shared reload token, and each web worker reloads on its
+        next plugin list request (read in apps/plugins/tasks.py and loader.py,
+        2026-11-22). A reload re-imports every plugin in those workers, the same
+        as the Plugins page refresh, so it is requested only on a change, not
+        on every refresh. Only on a host that draws the 0.34 form. An error
+        result is left alone and the names are not recorded, because the task
+        raises on an error result before it reads the reload request, so the
+        next refresh must still see the change.
+        """
+        try:
+            if isinstance(result, dict) and result.get("status") == "error":
+                return result
+            if not self._host_draws_034_form() or not self._pick_list_names_changed(logger):
+                return result
+            out = dict(result) if isinstance(result, dict) else {
+                "status": "success",
+                "message": "Reloading Stream-Mapparr so its settings lists show the new names.",
+            }
+            out["_dispatcharr"] = {"refresh": "plugin"}
+            return out
+        except Exception as exc:
+            logger.warning(f"[Stream-Mapparr] Could not request a plugin reload: {exc}")
+            return result
 
     @staticmethod
     def _pick_list_names():
@@ -6769,7 +6831,7 @@ class Plugin:
         action = (data.get('action') or 'operation').replace('_', ' ').title()
         lines = [f"📋 Last Results — {action}"]
         if data.get('completed_at'):
-            lines.append(f"🕐 {data['completed_at']}")
+            lines.append(f"🕐 {self._completed_at_label(data['completed_at'])}")
         if data.get('duration_seconds') is not None:
             lines.append(f"⏱️ Took {format_eta(data['duration_seconds'])}")
         lines.append("")
@@ -6782,6 +6844,26 @@ class Plugin:
             for k, v in printable.items():
                 lines.append(f"  • {k.replace('_', ' ')}: {v}")
         return "\n".join(lines)
+
+    def _completed_at_label(self, completed_at, now=None):
+        """A stored UTC completion time shown in Dispatcharr's timezone with its age.
+
+        The last-results file stores UTC ISO text ("2026-11-22T17:52:50Z"). Shown
+        raw, a run that ended three minutes ago read as a time five hours away
+        and looked like an old run (2026-11-22). Returns e.g.
+        "2026-11-22 11:52:50 CST (3m 5s ago)". Falls back to the stored text on
+        any error.
+        """
+        try:
+            ended = datetime.fromisoformat(str(completed_at).replace('Z', '+00:00'))
+            if ended.tzinfo is None:
+                ended = ended.replace(tzinfo=pytz.utc)
+            local = ended.astimezone(pytz.timezone(self._dispatcharr_timezone()))
+            now = now if now is not None else datetime.now(pytz.utc)
+            age = format_eta((now - ended).total_seconds())
+            return f"{local.strftime('%Y-%m-%d %H:%M:%S %Z')} ({age} ago)"
+        except Exception:
+            return str(completed_at)
 
     def view_check_progress_action(self, settings, logger):
         """📊 Show live progress + ETA of the currently running operation."""
@@ -6805,8 +6887,10 @@ class Plugin:
         last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
         if last:
             label = (last.get('action') or 'operation').replace('_', ' ').title()
+            ended = (f" (finished {self._completed_at_label(last['completed_at'])})"
+                     if last.get('completed_at') else "")
             return {"status": "success", "message":
-                    f"No operation is currently running.\n\nLast run — {label}: {last.get('message', '')}"}
+                    f"No operation is currently running.\n\nLast run — {label}{ended}: {last.get('message', '')}"}
         return {"status": "success", "message":
                 "No operation is currently running.\n\nStart Match & Assign, Sort, or Probe "
                 "Throughput, then check back here for live progress and ETA."}
@@ -7223,7 +7307,7 @@ class Plugin:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump({"groups": groups, "streams": streams,
                            "duration_seconds": round(duration, 1),
-                           "seconds_per_group_per_1k_streams": round(rate, 4),
+                           "seconds_per_group_per_1k_streams": round(rate, 6),
                            "recorded_at": time.time()}, f)
             os.replace(tmp, path)
         except Exception:
@@ -7290,6 +7374,27 @@ class Plugin:
         if measured is None:
             return None
         return max(measured, PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS)
+
+    def _display_eta_seconds(self, dispatch_eta):
+        """The estimate to SHOW the operator, from the one that gated dispatch.
+
+        `dispatch_eta` was priced with _dispatch_rate, the slower of the measured
+        rate and the shipped fallback. That is right for deciding synchronous
+        versus background and wrong for a message: on 2026-11-22 it told the
+        operator 47 minutes for a run that took 5.6 seconds. The estimate is
+        linear in the rate, so it is rescaled to the measured rate here without
+        sizing the job a second time. Returns None when `dispatch_eta` is None.
+        """
+        if dispatch_eta is None:
+            return None
+        fallback = PluginConfig.ESTIMATED_SECONDS_PER_GROUP_PER_1K_STREAMS
+        measured = self._observed_rate(PluginConfig.RUN_TIMING_FILE)
+        priced_with = self._dispatch_rate(measured) or fallback
+        shown_rate = measured if measured is not None else fallback
+        try:
+            return float(dispatch_eta) * shown_rate / priced_with
+        except (TypeError, ValueError, ZeroDivisionError):
+            return dispatch_eta
 
     def _estimate_scope_channels(self, channels, settings):
         """Narrow a CACHED channel list to what the CURRENT settings would process.
@@ -7389,7 +7494,8 @@ class Plugin:
             logger = LOGGER
 
             if action == "on_m3u_refresh":
-                return self.on_m3u_refresh_action(settings, logger, context)
+                result = self.on_m3u_refresh_action(settings, logger, context)
+                return self._with_pick_list_reload(result, logger)
             if action == "on_iptv_checker_scan":
                 return self.on_iptv_checker_scan_action(settings, logger, context)
 
@@ -7534,14 +7640,13 @@ class Plugin:
 
                 threading.Thread(target=background_runner, name=f"stream-mapparr-{action}", daemon=True).start()
 
-                if eta_seconds is not None:
-                    eta_msg = f" Estimated ~{int(eta_seconds // 60)}m{int(eta_seconds % 60)}s." if eta_seconds >= 60 else f" Estimated ~{int(eta_seconds)}s."
-                else:
-                    eta_msg = ""
+                shown_eta = self._display_eta_seconds(eta_seconds)
+                eta_msg = f" Estimated ~{format_eta(shown_eta)}." if shown_eta is not None else ""
                 action_label = action.replace("_", " ").title()
                 return {
                     'status': 'success',
-                    'message': f'{action_label} started in background.{eta_msg} Monitor docker logs for completion.',
+                    'message': (f'{action_label} started in background.{eta_msg} '
+                                'Use View Check Progress and View Last Results to follow it.'),
                     'background': True,
                 }
             
@@ -8736,7 +8841,7 @@ class Plugin:
                 processed_data['country_stats'] = country_stats
 
             self._send_progress_update("preview_changes", 'running', 85, 'Generating CSV report...', context)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = self._epg_local_now().strftime("%Y%m%d_%H%M%S")
             filename = f"stream_mapparr_preview_{timestamp}.csv"
             filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
             os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
@@ -9302,7 +9407,7 @@ class Plugin:
             if dry_run or create_csv:
                 self._send_progress_update("add_streams_to_channels", 'running', 85, 'Generating CSV export...', context)
                 try:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = self._epg_local_now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_{timestamp}.csv"
                     filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
                     os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
@@ -9648,7 +9753,7 @@ class Plugin:
                 return {"status": "error", "message": error_msg}
             
             # Generate CSV export
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = self._epg_local_now().strftime("%Y%m%d_%H%M%S")
             csv_filename = f"stream_mapparr_us_ota_{timestamp}.csv"
             csv_filepath = os.path.join(PluginConfig.EXPORTS_DIR, csv_filename)
             
@@ -10437,7 +10542,7 @@ class Plugin:
             csv_created = None
             if dry_run or create_csv:
                 try:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = self._epg_local_now().strftime("%Y%m%d_%H%M%S")
                     filename = f"stream_mapparr_sorted_{timestamp}.csv" if not dry_run else f"stream_mapparr_preview_{timestamp}.csv"
                     filepath = os.path.join(PluginConfig.EXPORTS_DIR, filename)
                     os.makedirs(PluginConfig.EXPORTS_DIR, exist_ok=True)
