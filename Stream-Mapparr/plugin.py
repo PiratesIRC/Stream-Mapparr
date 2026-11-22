@@ -4481,8 +4481,13 @@ class Plugin:
             zone = self.fuzzy_matcher.extract_zone(name)
             per_channel[ch['id']] = (base, zone)
             base_zones.setdefault(base, set()).add(zone)
+        # A lone EAST channel is routed like a lone DEFAULT one, so it drops West
+        # feeds: "HBO Drama HD East" has no West sibling here and a run on
+        # 2026-11-22 would have added "US HBO Drama (West) (H)" to it. A lone
+        # WEST channel stays out, which keeps the brand-word false positive
+        # ("Key West") harmless.
         return {cid: zone for cid, (base, zone) in per_channel.items()
-                if len(base_zones[base]) >= 2 or zone == 'DEFAULT'}
+                if len(base_zones[base]) >= 2 or zone in ('DEFAULT', 'EAST')}
 
     def _channels_to_update_for_group(self, sorted_channels, visible_channel_limit, zone_routed):
         """Channels in a group that receive streams: the top `visible_channel_limit`,

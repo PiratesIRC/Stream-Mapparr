@@ -261,8 +261,9 @@ def test_zone_routed_map_marks_siblings_and_lone_default(plugin_module, matcher)
     """A channel is zone-ordered when it has a different-zone sibling (bug-068) OR when
     it is itself unmarked/DEFAULT (bug-126 follow-up: a lone unmarked channel like
     'Cinemax' must prefer its East/national feed over any West alternates it picked up).
-    A lone MARKED channel is still left alone, which keeps the brand-word false positives
-    ('Key West' -> WEST) harmless."""
+    A lone EAST channel is routed too (2026-11-22: 'HBO Drama HD East' had no West
+    sibling and would have taken West feeds). A lone WEST channel is still left
+    alone, which keeps the brand-word false positives ('Key West' -> WEST) harmless."""
     p = plugin_module.Plugin.__new__(plugin_module.Plugin)
     p.fuzzy_matcher = matcher()
     channels = [
@@ -270,9 +271,23 @@ def test_zone_routed_map_marks_siblings_and_lone_default(plugin_module, matcher)
         {'id': 2, 'name': 'STARZ Encore (W)'},     # WEST (has an East/default sibling)
         {'id': 3, 'name': 'Cinemax'},              # lone DEFAULT -> now routed (prefer East)
         {'id': 4, 'name': 'Key West'},             # lone WEST brand-word -> NOT routed
+        {'id': 5, 'name': 'HBO Drama HD East'},    # lone EAST -> routed (drops West)
     ]
     routed = p._zone_routed_map(channels, None, True, True, True, True)
-    assert routed == {1: 'DEFAULT', 2: 'WEST', 3: 'DEFAULT'}   # Key West (4) NOT routed
+    assert routed == {1: 'DEFAULT', 2: 'WEST', 3: 'DEFAULT', 5: 'EAST'}   # Key West (4) NOT routed
+
+
+def test_a_lone_east_channel_drops_west_feeds(plugin_module, matcher):
+    """The streams a real run on 2026-11-22 would have given 'HBO Drama HD East'."""
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.fuzzy_matcher = matcher()
+    streams = [{'id': 1, 'name': 'US HBO Drama (East) (H)'},
+               {'id': 2, 'name': 'US HBO Drama (West) (H)'},
+               {'id': 3, 'name': 'US: HBO SIGNATURE WEST'},
+               {'id': 4, 'name': 'US: HBO DRAMA HD'}]
+    routed = p._zone_routed_map([{'id': 9, 'name': 'HBO Drama HD East'}], None, True, True, True, True)
+    kept = p._streams_for_channel(streams, 9, routed, None)
+    assert sorted(s['id'] for s in kept) == [1, 4]
 
 
 def test_order_streams_for_zone_west_channel_promotes_west(plugin_module, matcher):
