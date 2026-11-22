@@ -25,6 +25,11 @@ def _bare(plugin_module):
     ("US: CBS 19 (WOIO) SHAKER HEIGHTS HD", {"CBS"}),
     ("US CBS 8 (WAKA) Selma (H)", {"CBS"}),
     ("Fox Sports 1", {"FOX"}),
+    ("RK: KGO ABC7 BAY AREA", {"ABC"}),      # label glued to the channel number
+    ("US: FOX2 DETROIT", {"FOX"}),
+    ("(US) (FOX1) KTVU PLUS (KICUDT)", {"FOX"}),
+    ("MYTV 20", {"MY"}),
+    ("WABC7", set()),                        # call letters, not a label
     ("CNBC", set()),          # a network label inside a longer word is not one
     ("ABCDEF", set()),
     ("", set()),
@@ -38,6 +43,8 @@ def test_networks_named(plugin_module, name, expected):
     ("CBS - LA Alexandria (KALB)", "US NBC 5 (KALB) Alexandria (H)", True),
     ("CBS - MS Biloxi (WLOX)", "ABC: BILOXI WLOX", True),
     ("CBS - CA Chico (KHSL)", "US CW 12 (KHSL LD2) Chico/Redding (H)", True),
+    ("FOX - CA SAN FRANCISCO (KTVU)", "RK: KGO ABC7 BAY AREA", True),
+    ("FOX - CA SAN FRANCISCO (KTVU)", "RK: FOX 2 KTVU (BAY AREA)", False),
     ("CBS - IN Evansville (WEVV)", "US: CBS 44 (WEVV) EVANSVILLE HD", False),
     ("CBS - IN South Bend (WSBT)", "PRIME: CBS SOUTH BEND NEWS (WSBT)", False),
     ("CBS - OH Cleveland (WOIO)", "NFL Teams: CBS Browns (WOIO) Clevland OH", False),
@@ -60,13 +67,43 @@ def test_conflicting_streams_are_dropped(plugin_module):
     assert [s["id"] for s in kept] == [1]
 
 
-def test_all_conflicting_keeps_every_stream(plugin_module):
-    """Fail open, like zones: a station whose streams all carry another
-    network's label keeps them rather than ending with none."""
-    streams = [{"id": 1, "name": "US : CW   CA   LOS ANGELES (KCAL)"}]
+def test_all_conflicting_adds_none(plugin_module):
+    """Keeping them all put 13 CBS streams on FOX - ID Twin Falls (KMVT) on
+    2026-11-22, so a station whose call-letter streams all name another network
+    now gets none."""
+    streams = [{"id": 1, "name": "US: CBS 11 (KMVT) TWIN FALLS HD"},
+               {"id": 2, "name": "US : CBS   ID   TWIN FALLS (KMVT)"}]
     kept = _bare(plugin_module)._drop_network_conflicts(
-        "CBS - CA Los Angeles (KCAL)", streams, logging.getLogger("t"))
-    assert kept == streams
+        "FOX - ID Twin Falls (KMVT)", streams, logging.getLogger("t"))
+    assert kept == []
+
+
+def test_all_conflicting_stops_the_match_without_a_name_search(plugin_module, fuzzy_module, tmp_path):
+    p = _bare(plugin_module)
+    p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=95)
+    p._sort_streams_by_quality = lambda s: s
+    p._deduplicate_streams = lambda s, allow_same_name_streams=False: s
+    called = []
+    real = p.fuzzy_matcher.fuzzy_match
+    p.fuzzy_matcher.fuzzy_match = lambda *a, **k: called.append(1) or real(*a, **k)
+    streams = [{"id": 1, "name": "US: CBS 11 (KMVT) TWIN FALLS HD", "m3u_account": 1},
+               {"id": 2, "name": "FOX TWIN FALLS", "m3u_account": 1}]
+    matched, _c, _s, reason, _db = p._match_streams_to_channel(
+        {"id": 1, "name": "FOX - ID Twin Falls (KMVT)"}, streams, logging.getLogger("t"), channels_data=[])
+    assert matched == []
+    assert reason == "Call-letter streams name another network"
+    assert called == []
+
+
+def test_the_threshold_analysis_also_adds_none(plugin_module, fuzzy_module, tmp_path):
+    p = _bare(plugin_module)
+    p.fuzzy_matcher = fuzzy_module.FuzzyMatcher(plugin_dir=str(tmp_path), match_threshold=95)
+    p._alias_map = {}
+    streams = [{"id": 1, "name": "US: CBS 11 (KMVT) TWIN FALLS HD", "m3u_account": 1}]
+    result = p._get_matches_at_thresholds(
+        {"id": 1, "name": "FOX - ID Twin Falls (KMVT)"}, streams, logging.getLogger("t"),
+        [], True, True, True, True, [], 95, False, False)
+    assert result == {}
 
 
 def test_the_call_letter_match_drops_the_other_network(plugin_module, fuzzy_module, tmp_path):

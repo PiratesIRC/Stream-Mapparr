@@ -635,8 +635,11 @@ def _progress_toast_interval_for(total_items):
 # carry a second network on a subchannel under the same call letters (WEVV is
 # CBS on its main channel and FOX on DT2), so a call-letter match alone put FOX,
 # ABC, NBC and CW streams on CBS channels: 77 of them in group US: CBS,
-# measured 2026-11-22. MY, MYTV and MYNETWORK are one network.
-_NETWORK_LABEL_RE = re.compile(r'\b(ABC|NBC|CBS|FOX|CW|PBS|MY|MYTV|MYNETWORK)\b', re.IGNORECASE)
+# measured 2026-11-22. MY, MYTV and MYNETWORK are one network. A label may be
+# followed directly by a channel number ("RK: KGO ABC7 BAY AREA", "FOX2"): 106
+# of 29,243 provider names write it that way (measured 2026-11-22). A letter
+# after the label still ends the match, so CNBC and ABCDEF name no network.
+_NETWORK_LABEL_RE = re.compile(r'\b(ABC|NBC|CBS|FOX|CW|PBS|MYTV|MYNETWORK|MY)(?=\d|\b)', re.IGNORECASE)
 
 
 def networks_named(name):
@@ -6313,6 +6316,7 @@ class Plugin:
                         continue
                     matching_streams.append(stream)
 
+            had_call_letter_matches = bool(matching_streams)
             matching_streams = self._drop_network_conflicts(channel_name, matching_streams, logger)
 
             if matching_streams:
@@ -6323,6 +6327,11 @@ class Plugin:
                     ignore_geographic, ignore_misc, remove_cinemax=channel_has_max
                 ) for s in sorted_streams]
                 return sorted_streams, cleaned_channel_name, cleaned_stream_names, "Callsign match", database_used
+            if had_call_letter_matches:
+                # Every stream with these call letters is another network's
+                # service. Stop here: the name search below must not pick a
+                # stream for this station from its name alone.
+                return [], cleaned_channel_name, [], "Call-letter streams name another network", database_used
 
         # Use fuzzy matching if available
         if self.fuzzy_matcher:
@@ -6563,11 +6572,12 @@ class Plugin:
     def _drop_network_conflicts(channel_name, streams, logger):
         """Remove call-letter matches whose name names a different network.
 
-        Reads the raw stream name, as zone and country detection do. If every
-        stream conflicts the list is kept unchanged and logged, the same
-        fail-open rule zones use: a station whose streams all carry another
-        network's label (a provider label that is out of date, or a station
-        that changed network) keeps its streams rather than ending with none.
+        Reads the raw stream name, as zone and country detection do. When every
+        stream conflicts the result is empty. It used to keep them all, and on
+        2026-11-22 that put 13 CBS streams on FOX - ID Twin Falls (KMVT), whose
+        FOX service is a subchannel no provider stream names. The caller
+        reports the channel as matched by call letters with nothing to add,
+        so a channel with Overwrite off keeps the streams it has.
         """
         kept = [s for s in streams if not network_conflicts(channel_name, s.get('name', ''))]
         dropped = len(streams) - len(kept)
@@ -6575,10 +6585,10 @@ class Plugin:
             return streams
         if not kept:
             logger.info(f"[Stream-Mapparr] Every call-letter match for {channel_name!r} names another "
-                        f"network; keeping all {len(streams)} rather than leaving none")
-            return streams
-        logger.debug(f"[Stream-Mapparr] Dropped {dropped} call-letter match(es) naming another "
-                     f"network for {channel_name!r}")
+                        f"network; adding none of the {len(streams)}")
+        else:
+            logger.debug(f"[Stream-Mapparr] Dropped {dropped} call-letter match(es) naming another "
+                         f"network for {channel_name!r}")
         return kept
 
     def _get_matches_at_thresholds(self, channel, all_streams, logger, ignore_tags, ignore_quality,
@@ -6668,6 +6678,7 @@ class Plugin:
                     if needs_corroboration and not self._callsign_corroborated(_mname(stream), callsign):
                         continue
                     matching_streams.append(stream)
+            had_call_letter_matches = bool(matching_streams)
             matching_streams = self._drop_network_conflicts(channel['name'], matching_streams, logger)
 
             if matching_streams:
@@ -6678,6 +6689,8 @@ class Plugin:
                     'match_type': 'Callsign match'
                 }
                 return results
+            if had_call_letter_matches:
+                return results  # every call-letter stream names another network
             # No stream carries the call letters: fall through to the name
             # search, as _match_streams_to_channel does.
 
