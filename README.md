@@ -154,9 +154,11 @@ database. This plugin modifies channel and stream assignments.
 - **Dry run mode**: preview results with a CSV export and no changes
 - **Emailed reports**: an HTML report and a CSV through Newsflasharr. See
   [Notifications](docs/notifications.md)
-- **Live progress**: **View Check Progress** and **View Last Results** report
-  the running operation and the last completed one, backed by on-disk state so
-  they survive a UI reload
+- **Live progress**: on Dispatcharr 0.34 a long action shows a task banner that
+  turns green or red with the real result, and its progress appears in the
+  plugin's Tasks list. **View Status** shows the running operation, or the last
+  completed one, backed by on-disk state so it survives a UI reload; scheduled
+  runs appear there and not in the Tasks list
 
 ## How a run reports back
 
@@ -248,8 +250,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Probe Stream Throughput** | Measure sustained throughput for assigned streams. Run this before Sort Alternate Streams |
 | **Fill Mirror Backups** | For M3U accounts placed in one Dispatcharr server group that carry the same streams from different provider hosts, add to each channel the matching stream, found by provider stream id, from every other active account whose host the channel has no stream from yet. Two accounts on the same host count as one, and inactive accounts are skipped. New streams go after the existing provider streams and before any custom stream. Adds only and never removes. In live mode it first saves each changed channel's previous stream order to `/data/stream_mapparr_snapshots/`, and changes nothing if that save fails. Writes every addition to `/config/stream-mapparr/fill-mirror-backups.txt` |
 | **Manage Channel Visibility** | Enable or disable channels based on stream count |
-| **View Check Progress** | Show the running operation's percentage and estimated time |
-| **View Last Results** | Show a summary of the last completed operation |
+| **View Status** | Show the running operation's percentage and estimated time, or a summary of the last completed operation when nothing is running |
 | **Clear CSV Exports** | Delete plugin CSV files, skipping any written in the last 40 minutes |
 | **Cleanup Orphaned Tasks** | Remove scheduled task entries left by an older version |
 | **Report a Bug or Request a Feature** | Write a ready-to-paste report with your settings, secrets masked |
