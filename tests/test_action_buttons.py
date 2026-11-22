@@ -66,8 +66,7 @@ EXPECTED_COLOURS = {
     # blue: reads and reports
     "validate_settings": "blue",
     "preview_changes": "blue",
-    "view_check_progress": "blue",
-    "view_last_results": "blue",
+    "view_status": "blue",
     "test_regex_rules": "blue",
     "check_stream_countries": "blue",
     "scan_placeholder_names": "blue",

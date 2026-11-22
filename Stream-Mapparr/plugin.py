@@ -951,7 +951,7 @@ class Plugin:
                 "id": "_section_quickstart",
                 "label": "🚀 Quick Start",
                 "type": "info",
-                "description": "New here? Typical workflow: 1) ✅ Validate Settings, 2) choose a Channel Profile and Channel Groups below, 3) 👁️ Preview Changes, which is a dry run that changes nothing and writes a CSV report, 4) ✅ Match & Assign Streams. 🔄 Sort Alternate Streams reorders streams a channel already has, without rematching. Preview first, every time: with Overwrite Existing Streams on, Match & Assign REPLACES a channel's entire stream list. Most runs finish in the background, so use 📊 View Check Progress and 📋 View Last Results instead of waiting on the popup, which disappears after a few seconds and truncates long text. The CSV export in /data/exports is the full report.",
+                "description": "New here? Typical workflow: 1) ✅ Validate Settings, 2) choose a Channel Profile and Channel Groups below, 3) 👁️ Preview Changes, which is a dry run that changes nothing and writes a CSV report, 4) ✅ Match & Assign Streams. 🔄 Sort Alternate Streams reorders streams a channel already has, without rematching. Preview first, every time: with Overwrite Existing Streams on, Match & Assign REPLACES a channel's entire stream list. Most runs finish in the background, so use 📊 View Status instead of waiting on the popup, which disappears after a few seconds and truncates long text. The CSV export in /data/exports is the full report.",
             },
             {
                 "id": "version_status",
@@ -1769,20 +1769,12 @@ class Plugin:
             }
         },
         {
-            "id": "view_check_progress",
-            "label": "📊 View Check Progress",
-            "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
+            "id": "view_status",
+            "label": "📊 View Status",
+            "description": "Show the running operation's progress and estimated time, or a summary of the last finished run when nothing is running. Scheduled runs appear here and not in Dispatcharr's Tasks list.",
             "button_variant": "outline",
             "button_color": "blue",
-            "button_label": "📊 View Progress",
-        },
-        {
-            "id": "view_last_results",
-            "label": "📋 View Last Results",
-            "description": "View a summary of the last completed operation.",
-            "button_variant": "outline",
-            "button_color": "blue",
-            "button_label": "📋 View Last Results",
+            "button_label": "📊 View Status",
         },
         {
             "id": "email_report_now",
@@ -6917,7 +6909,7 @@ class Plugin:
             # count is not known yet here (the action builds its ProgressTracker
             # later), so don't claim one — that count belongs to the % toasts.
             self._last_progress_toast = now
-            self._emit_plugin_toast(f"🔄 {label}: started — use 📊 View Check Progress to monitor")
+            self._emit_plugin_toast(f"🔄 {label}: started. Use 📊 View Status to monitor")
         elif norm == 'running' and progress > 0:
             interval = _progress_toast_interval_for(getattr(self, '_op_total_items', None))
             if now - getattr(self, '_last_progress_toast', 0.0) >= interval:
@@ -6965,8 +6957,36 @@ class Plugin:
         except Exception:
             return str(completed_at)
 
+    def view_status_action(self, settings, logger):
+        """📊 View Status: the running operation's progress, or the last result.
+
+        Replaces the View Check Progress and View Last Results buttons
+        (2026-11-22). On Dispatcharr 0.34 the task banner and Tasks list show a
+        run started from a button, but the scheduled run starts in the plugin's
+        own timer thread and appears only here, as does every run on 0.33.
+        A run whose progress has not moved for PROGRESS_STALE_SECONDS also
+        shows the last finished result, because it may have ended without
+        writing a final state.
+        """
+        st = self._load_progress_state()
+        last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
+        if st.get('status') == 'running':
+            msg = self.view_check_progress_action(settings, logger)["message"]
+            stale = (time.time() - st.get('updated_at', 0)) > PluginConfig.PROGRESS_STALE_SECONDS
+            if stale and last:
+                msg += "\n\n" + self._format_last_results(last)
+            return {"status": "success", "message": msg}
+        if not last:
+            return {"status": "success", "message":
+                    "No operation is running and none has finished yet.\n\nRun Preview, Match & Assign, "
+                    "Sort or Probe Throughput, then check back here."}
+        return {"status": "success", "message":
+                "No operation is currently running.\n\n" + self._format_last_results(last)}
+
     def view_check_progress_action(self, settings, logger):
-        """📊 Show live progress + ETA of the currently running operation."""
+        """📊 Show live progress + ETA of the currently running operation.
+        No longer a button (View Status shows this); kept so a caller that
+        still sends the old action id gets an answer."""
         st = self._load_progress_state()
         if st.get('status') == 'running':
             label = (st.get('action') or 'operation').replace('_', ' ').title()
@@ -6980,8 +7000,8 @@ class Plugin:
                 eta_str = "calculating..."
             msg = f"🔄 {label}: {progress}% · ETA {eta_str}"
             if (now - updated) > PluginConfig.PROGRESS_STALE_SECONDS:
-                msg += ("\n\n⚠️ No progress update in 3+ minutes — the run may have "
-                        "stalled or already finished. Check 📋 View Last Results.")
+                msg += ("\n\n⚠️ No progress update in 3+ minutes. The run may have "
+                        "stalled or already finished.")
             return {"status": "success", "message": msg}
 
         last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
@@ -7003,7 +7023,7 @@ class Plugin:
         # wedge this view forever (QA M3).
         if st.get('status') == 'running' and (time.time() - st.get('updated_at', 0)) <= PluginConfig.PROGRESS_STALE_SECONDS:
             return {"status": "success", "message":
-                    "An operation is currently running.\n\nUse 📊 View Check Progress to see live status."}
+                    "An operation is currently running.\n\nUse 📊 View Status to see live status."}
         last = self._read_json_file(PluginConfig.LAST_RESULTS_FILE)
         if not last:
             return {"status": "success", "message":
@@ -7675,6 +7695,8 @@ class Plugin:
                 "clear_csv_exports": self.clear_csv_exports_action,
                 "report_a_bug": self.report_a_bug_action,
                 "clear_operation_lock": self.clear_operation_lock_action,
+                "view_status": self.view_status_action,
+                # The two buttons View Status replaced; kept for old callers.
                 "view_check_progress": self.view_check_progress_action,
                 "view_last_results": self.view_last_results_action,
                 "test_regex_rules": self.test_regex_rules_action,
@@ -7789,7 +7811,7 @@ class Plugin:
                 return {
                     'status': 'success',
                     'message': (f'{action_label} started in background.{eta_msg} '
-                                'Use View Check Progress and View Last Results to follow it.'),
+                                'Use View Status to follow it.'),
                     'background': True,
                 }
             

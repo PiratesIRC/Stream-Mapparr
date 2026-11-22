@@ -55,8 +55,11 @@ def test_every_dispatchable_action_is_declared(plugin_module):
     assert dispatched, "could not locate the action dispatch map"
 
     internal = {"load_process_channels"}
+    # The two buttons View Status replaced on 2026-11-22. Still routed so a
+    # page loaded before the change, or another caller, gets an answer.
+    retired = {"view_check_progress", "view_last_results"}
     declared = set(_action_ids(plugin_module))
-    orphans = dispatched - declared - internal
+    orphans = dispatched - declared - internal - retired
     assert not orphans, f"dispatchable but no button: {sorted(orphans)}"
     assert "load_process_channels" not in declared
 
@@ -107,7 +110,7 @@ def test_quick_start_only_names_actions_that_exist(plugin_module):
         return "".join(c for c in label if c.isascii()).strip()
 
     for aid in ("validate_settings", "preview_changes", "add_streams_to_channels",
-                "sort_streams", "view_check_progress", "view_last_results"):
+                "sort_streams", "view_status"):
         name = bare(labels[aid]).replace(" (Dry Run)", "")
         assert name and name in text, f"Quick Start does not name {aid} ({name!r})"
 

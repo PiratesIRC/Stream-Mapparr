@@ -146,20 +146,12 @@
       }
     },
     {
-      "id": "view_check_progress",
-      "label": "📊 View Check Progress",
-      "description": "View the current progress and ETA of the running operation (match, sort, probe, etc.).",
+      "id": "view_status",
+      "label": "📊 View Status",
+      "description": "Show the running operation's progress and estimated time, or a summary of the last finished run when nothing is running. Scheduled runs appear here and not in Dispatcharr's Tasks list.",
       "button_variant": "outline",
       "button_color": "blue",
-      "button_label": "📊 View Progress"
-    },
-    {
-      "id": "view_last_results",
-      "label": "📋 View Last Results",
-      "description": "View a summary of the last completed operation.",
-      "button_variant": "outline",
-      "button_color": "blue",
-      "button_label": "📋 View Last Results"
+      "button_label": "📊 View Status"
     },
     {
       "id": "test_regex_rules",

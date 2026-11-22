@@ -37,8 +37,7 @@ EXPECTED = [
     "match_us_ota_only",
     "manage_channel_visibility",
     # Watch and review
-    "view_check_progress",
-    "view_last_results",
+    "view_status",
     "email_report_now",
     # Scheduling
     "update_schedule",

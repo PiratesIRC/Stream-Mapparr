@@ -112,7 +112,7 @@ def test_view_last_results_points_to_progress_when_running(plugin_module, tmp_st
     p._save_progress_state({"action": "sort_streams", "status": "running", "progress": 10,
                             "start_time": time.time(), "updated_at": time.time()})
     out = p.view_last_results_action({}, LOG)
-    assert "View Check Progress" in out["message"]
+    assert "View Status" in out["message"]
 
 
 # --------------------------------------------------------------------------- #
@@ -196,3 +196,56 @@ def test_started_toast_has_no_item_count(plugin_module, tmp_state, monkeypatch):
     monkeypatch.setattr(p, "_emit_plugin_toast", lambda m: toasts.append(m))
     p._persist_progress("manage_channel_visibility", "running", 0, "start")
     assert toasts and "5000" not in toasts[0] and "started" in toasts[0].lower()
+
+
+# --------------------------------------------------------------------------- #
+# View Status: one button for the live run and the last result (2026-11-22)
+# --------------------------------------------------------------------------- #
+
+def _running(p, updated_ago=0):
+    now = time.time()
+    p._save_progress_state({"action": "sort_streams", "status": "running", "progress": 40,
+                            "start_time": now - 60, "updated_at": now - updated_ago})
+
+
+def test_view_status_shows_the_running_operation(plugin_module, tmp_state):
+    p = _bare(plugin_module)
+    _running(p)
+    out = p.view_status_action({}, LOG)
+    assert "Sort Streams" in out["message"] and "40%" in out["message"]
+
+
+def test_view_status_shows_the_last_result_when_idle(plugin_module, tmp_state):
+    p = _bare(plugin_module)
+    p._save_progress_state({"action": "sort_streams", "status": "complete", "progress": 100})
+    p._save_last_results("sort_streams", "success", "Sorted 12 channels", {}, 3.0)
+    out = p.view_status_action({}, LOG)
+    assert "No operation is currently running" in out["message"]
+    assert "Sorted 12 channels" in out["message"]
+
+
+def test_view_status_with_nothing_run_yet(plugin_module, tmp_state):
+    out = _bare(plugin_module).view_status_action({}, LOG)
+    assert "none has finished yet" in out["message"]
+
+
+def test_view_status_adds_the_last_result_to_a_stale_run(plugin_module, tmp_state):
+    p = _bare(plugin_module)
+    p._save_last_results("sort_streams", "success", "Sorted 12 channels", {}, 3.0)
+    _running(p, updated_ago=plugin_module.PluginConfig.PROGRESS_STALE_SECONDS + 60)
+    msg = p.view_status_action({}, LOG)["message"]
+    assert "No progress update in 3+ minutes" in msg
+    assert "Sorted 12 channels" in msg
+
+
+def test_view_status_does_not_add_the_last_result_to_a_fresh_run(plugin_module, tmp_state):
+    p = _bare(plugin_module)
+    p._save_last_results("sort_streams", "success", "Sorted 12 channels", {}, 3.0)
+    _running(p)
+    assert "Sorted 12 channels" not in p.view_status_action({}, LOG)["message"]
+
+
+def test_the_old_action_ids_still_answer(plugin_module, tmp_state):
+    p = _bare(plugin_module)
+    assert "message" in p.view_check_progress_action({}, LOG)
+    assert "message" in p.view_last_results_action({}, LOG)
