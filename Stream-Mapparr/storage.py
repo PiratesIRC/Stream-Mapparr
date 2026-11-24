@@ -228,7 +228,7 @@ def _lock(path):
     if fcntl is None:
         yield
         return
-    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o660)
     try:
         while True:
             try:
