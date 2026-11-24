@@ -1,5 +1,15 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3281300 (2026-11-24)
+
+### Fixed
+
+- **The two lock files are now created readable and writable by their owner
+  only (mode 600).** Mode 660 in 1.26.3281249 was still refused by the Plugin
+  Hub's code scan because it lets the group write the file, so neither
+  1.26.3281235 nor 1.26.3281249 was published to the Hub. Every Dispatcharr
+  worker runs as the same user, so nothing else changes.
+
 ## 1.26.3281249 (2026-11-24)
 
 ### Fixed
