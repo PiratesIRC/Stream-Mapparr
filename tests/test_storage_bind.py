@@ -263,11 +263,11 @@ def test_upgrade_settings_loaded_from_data_dir(storage, roots, monkeypatch):
     write(os.path.join(roots.old, "stream_mapparr_settings.json"),
           json.dumps({"scheduled_times": "0505"}))
     mod = load_bound_plugin(monkeypatch, storage, roots, layout)
-    calls = patch_plugin(monkeypatch, mod, db_settings={"scheduled_times": "0505"})
+    calls = patch_plugin(monkeypatch, mod, db_settings=None)  # cannot ask the DB
     plugin = mod.Plugin()
     assert plugin.settings_file == os.path.join(layout.data_dir, "settings.json")
-    assert plugin.saved_settings["scheduled_times"] == "0505"
-    assert calls and calls[-1]["scheduled_times"] == "0505"
+    assert plugin.saved_settings == {"scheduled_times": "0505"}
+    assert calls and calls[-1] == {"scheduled_times": "0505"}
     assert read(os.path.join(layout.data_dir, "settings.json")) == read(
         os.path.join(roots.old, "stream_mapparr_settings.json"))
 
@@ -358,6 +358,7 @@ def test_install_id_blocked_never_mints(storage, roots, monkeypatch):
     layout = layout_of(storage, roots)
     usage_old = os.path.join(roots.old, "plugin_stats", "stream-mapparr")
     write(os.path.join(usage_old, "install_id"), "abc")
+
     def fail_install_id_copy(fresh_storage):
         real_copy = fresh_storage._copy_one
 
@@ -370,29 +371,109 @@ def test_install_id_blocked_never_mints(storage, roots, monkeypatch):
 
     mod = load_bound_plugin(monkeypatch, storage, roots, layout, before_exec=fail_install_id_copy)
     usage_client = importlib.import_module(mod.__package__ + ".usage_client")
+    real_load = usage_client.load_install_id
     minted = []
-    monkeypatch.setattr(usage_client, "load_install_id", lambda *a, **k: minted.append(a) or "x")
+    monkeypatch.setattr(usage_client, "load_install_id",
+                        lambda directory: minted.append(directory) or real_load(directory))
+    # Opted in (settings {}), no real lock needed on Windows, the background start runs inline,
+    # and the network call is recorded instead of sent.
+    usage = mod.USAGE
+    monkeypatch.setattr(usage, "settings_fn", lambda: {})
+    monkeypatch.setattr(usage, "_lock", lambda fd: True)
+    started = []
+    monkeypatch.setattr(usage, "_start", lambda fn: started.append(fn))
+    sent = []
+    monkeypatch.setattr(usage, "_http", lambda method, url, body: sent.append(url) or 202)
     patch_plugin(monkeypatch, mod, db_settings=None)
     assert mod.PluginConfig.STORAGE_MIGRATION.install_id_blocked is True
-    assert "report" in vars(mod.USAGE)
-    mod.USAGE.report(force=True)
+    usage.report({}, Log(), force=True)
+    for fn in started:
+        fn()
     mod.Plugin()
     install = os.path.join(layout.data_dir, "usage", "stream-mapparr", "install_id")
     assert not os.path.exists(install)
     assert minted == []
+    assert sent == []
 
 
-def test_fresh_bind_reports_dir_and_shared_copy(storage, roots, monkeypatch):
+def test_refuse_real_blocks_plugin_writes(storage, monkeypatch):
+    monkeypatch.setattr(storage, "REFUSE_REAL_DATA", True)
+    with pytest.raises(RuntimeError):
+        storage.atomic_write_json("/data/x.json", {})
+    with pytest.raises(RuntimeError):
+        storage.atomic_write_bytes("/data/x.json", b"{}")
+    with pytest.raises(RuntimeError):
+        storage._append_bytes("/data/match_counts.jsonl", b"x\n")
+
+
+@pytest.mark.parametrize("breaks", ["items_for", "resolve"])
+def test_any_bind_exception_degrades_to_legacy(storage, roots, monkeypatch, breaks):
+    def boom(*args, **kwargs):
+        raise ValueError("broken")
+
+    use_layout(monkeypatch, storage, layout_of(storage, roots))  # non-legacy, so items_for runs
+    monkeypatch.setattr(storage, breaks, boom)
+    cfg = make_cfg(roots.old)
+    before = {n: getattr(cfg, n) for n in OLD_LEAVES}
+    log = Log()
+    layout = storage.bind(cfg, plugin_file(), log)
+    assert layout.legacy is True
+    assert cfg.STORAGE_LAYOUT.legacy is True
+    assert cfg.STORAGE_MIGRATION is None
+    assert {n: getattr(cfg, n) for n in OLD_LEAVES} == before
+    assert len(log.errors) == 1
+
+
+class _NotifyClient:
+    @staticmethod
+    def notify(source, title, **kw):
+        return True
+
+
+def test_reports_copied_and_new_dir_used(storage, roots, monkeypatch):
     layout = layout_of(storage, roots)
     report_old = os.path.join(roots.old, "stream_mapparr_reports")
-    write(os.path.join(report_old, "r1.html"), "<p>one</p>")
+    names = [f"stream_mapparr_report_20260101_0000{i:02d}.html" for i in range(12)]
+    for i, name in enumerate(names):
+        path = os.path.join(report_old, name)
+        write(path, f"<p>{i}</p>")
+        os.utime(path, (1_000_000 + i, 1_000_000 + i))
+    old_files = sorted(os.listdir(report_old))
     mod = load_bound_plugin(monkeypatch, storage, roots, layout)
     shared = layout.shared_reports_dir()
     assert mod.PluginConfig.REPORT_DIR == shared
-    assert read(os.path.join(shared, "r1.html")) == "<p>one</p>"
-    assert read(os.path.join(report_old, "r1.html")) == "<p>one</p>"
+    assert read(os.path.join(shared, names[0])) == "<p>0</p>"
     if os.name == "posix":
         assert (os.stat(shared).st_mode & 0o777) == 0o755
+    # Age the copies too, so a prune in the shared dir really deletes something.
+    for name in os.listdir(shared):
+        os.utime(os.path.join(shared, name), (1_000_000, 1_000_000))
+
+    inst = mod.Plugin.__new__(mod.Plugin)
+    reports_mod = inst._reports()
+    seen = []
+    real_write = reports_mod.write_report
+
+    def recording_write(model, report_dir, now):
+        seen.append(report_dir)
+        return real_write(model, report_dir, now)
+
+    monkeypatch.setattr(reports_mod, "write_report", recording_write)
+    monkeypatch.setattr(inst, "_notify_client", lambda: _NotifyClient)
+    inst._build_and_emit_reports(
+        {"notify_enabled": True, "notify_report_on": "every_run"},
+        types.SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None,
+                              warning=lambda *a, **k: None, error=lambda *a, **k: None),
+        [{"channel_name": "Sky News", "stream_names": ["SKY NEWS HD"]}],
+        ["provider.tv"],
+        is_scheduled=False)
+    assert seen == [mod.PluginConfig.REPORT_DIR]
+    # The prune ran on the shared dir (8 html kept of 13) ...
+    assert len([n for n in os.listdir(shared) if n.endswith(".html")]) <= 9
+    # ... and the old /data reports were not touched.
+    assert sorted(os.listdir(report_old)) == old_files
+    for i, name in enumerate(names):
+        assert read(os.path.join(report_old, name)) == f"<p>{i}</p>"
 
 
 # ---------------------------------------------------------------------------

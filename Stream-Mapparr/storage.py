@@ -241,6 +241,7 @@ def _read_bytes(path):
 
 
 def _append_bytes(path, data):
+    _refuse_real(path)
     with open(path, "ab") as fh:
         fh.write(data)
         fh.flush()
@@ -254,6 +255,7 @@ def _temp_path(path):
 
 def atomic_write_bytes(path, data):
     """Write data to path through a dot-prefixed temp file, fsync and os.replace."""
+    _refuse_real(path)
     head = os.path.dirname(path)
     if head:
         os.makedirs(head, exist_ok=True)
@@ -409,6 +411,9 @@ def migrate(layout, items, logger, version=None):
                     _copy_tally(item, layout.data_dir, _sources(item, prev, pass_b, True), copied)
                 elif item.kind in ("dir", "usage_dir"):
                     sub = ("stream-mapparr",) if item.kind == "usage_dir" else ()
+                    if item.rel is None:
+                        # The shared reports dir is read by Newsflasharr, which needs it world-readable.
+                        os.makedirs(item.new, mode=0o755, exist_ok=True)
                     roots = []
                     if prev and item.rel:
                         roots.append(os.path.join(prev, item.rel, *sub))
@@ -549,26 +554,32 @@ def items_for(cfg, layout):
 def bind(cfg, plugin_file, logger):
     """Resolve the data dir, rebind cfg's state constants to it and carry the old state over.
 
-    Runs once per module import. Any failure in migrate puts every constant back to its
-    legacy literal and returns a legacy Layout, so the process runs exactly as before.
+    Runs once per module import. Any exception, from resolve, items_for or migrate, puts every
+    constant back to its legacy literal and returns a legacy Layout, so the process runs exactly
+    as before and the plugin still imports.
     """
-    legacy_paths = {name: getattr(cfg, name) for name, _kind, _rel in _BIND_TABLE}
-    cfg.LEGACY_PATHS = dict(legacy_paths)
-    cfg.STORAGE_MIGRATION = None
-    layout = resolve(os.path.dirname(os.path.abspath(plugin_file)), cfg.PLUGIN_DB_KEY, logger)
-    cfg.STORAGE_LAYOUT = layout
-    if layout.legacy:
-        return layout
-    items = items_for(cfg, layout)
+    legacy_paths = None
+    stage = "bind"
     try:
+        legacy_paths = {name: getattr(cfg, name) for name, _kind, _rel in _BIND_TABLE}
+        cfg.LEGACY_PATHS = dict(legacy_paths)
+        cfg.STORAGE_MIGRATION = None
+        layout = resolve(os.path.dirname(os.path.abspath(plugin_file)), cfg.PLUGIN_DB_KEY, logger)
+        cfg.STORAGE_LAYOUT = layout
+        if layout.legacy:
+            return layout
+        items = items_for(cfg, layout)
         for item in items:
             setattr(cfg, item.name, item.new)
+        stage = "migrate"
         cfg.STORAGE_MIGRATION = migrate(layout, items, logger, version=cfg.PLUGIN_VERSION)
     except Exception as exc:
-        for name, value in legacy_paths.items():
-            setattr(cfg, name, value)
+        if legacy_paths is not None:
+            for name, value in legacy_paths.items():
+                setattr(cfg, name, value)
         cfg.STORAGE_MIGRATION = None
-        cfg.STORAGE_LAYOUT = Layout(True, None, None, cfg.PLUGIN_DB_KEY, "migrate failed")
+        reason = "migrate failed" if stage == "migrate" else "bind failed"
+        cfg.STORAGE_LAYOUT = Layout(True, None, None, getattr(cfg, "PLUGIN_DB_KEY", ""), reason)
         logger.error("Stream-Mapparr: carry-over failed (%s); using legacy /data paths"
                      % type(exc).__name__)
     return cfg.STORAGE_LAYOUT
