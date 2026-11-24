@@ -45,21 +45,17 @@ def resolve(plugin_dir: str, key: str, logger) -> Layout:
     (PluginConfig.PLUGIN_DB_KEY). Resolution runs on every call and is not cached.
     """
     plugins_dir = os.path.dirname(os.path.abspath(plugin_dir))
-    try:
-        sandbox = importlib.import_module("apps.plugins.sandbox")
-    except ImportError:
-        logger.info("Stream-Mapparr: apps.plugins.sandbox not available; using legacy /data paths")
-        return _legacy(key, "sandbox module not importable")
-    except Exception as exc:
-        logger.error("Stream-Mapparr: importing apps.plugins.sandbox failed (%s); using legacy /data paths",
-                     type(exc).__name__)
-        return _legacy(key, "sandbox import failed")
-
     failures = []
-    data_dir, reason = _from_module_context(sandbox, plugin_dir, failures)
+    data_dir, reason = _from_module_context(plugin_dir, failures)
     if data_dir is None:
         data_dir, reason = _from_registry(key, failures)
     if data_dir is None:
+        problem = _sandbox_problem()
+        if isinstance(problem, ImportError):
+            logger.info("Stream-Mapparr: apps.plugins.sandbox not available; using legacy /data paths")
+            return _legacy(key, "sandbox module not importable")
+        if problem is not None:
+            failures.append("sandbox import raised %s" % type(problem).__name__)
         logger.error("Stream-Mapparr: data directory not resolved (%s); using legacy /data paths",
                      "; ".join(failures) or "no lookup returned a path")
         return _legacy(key, "no lookup returned a path")
@@ -68,7 +64,7 @@ def resolve(plugin_dir: str, key: str, logger) -> Layout:
     if problem is None:
         try:
             os.makedirs(data_dir, exist_ok=True)
-        except OSError as exc:
+        except Exception as exc:
             problem = "makedirs failed (%s)" % type(exc).__name__
     if problem is not None:
         logger.error("Stream-Mapparr: resolved data directory rejected (%s); using legacy /data paths",
@@ -81,11 +77,24 @@ def _legacy(key: str, reason: str) -> Layout:
     return Layout(True, None, None, key, reason)
 
 
-def _from_module_context(sandbox, plugin_dir, failures):
+def _sandbox_problem():
+    """None when apps.plugins.sandbox imports, else the exception the import raised."""
+    try:
+        importlib.import_module("apps.plugins.sandbox")
+    except Exception as exc:
+        return exc
+    return None
+
+
+def _from_module_context(plugin_dir, failures):
     """Step 1: the loader's module context for this file, through the sandbox helper."""
     try:
         from apps.plugins.loader import _plugin_module_context
+        from apps.plugins.sandbox import stable_plugin_data_path
     except ImportError:
+        return None, None
+    except Exception as exc:
+        failures.append("step 1 import raised %s" % type(exc).__name__)
         return None, None
     try:
         ctx = _plugin_module_context(os.path.join(plugin_dir, "plugin.py"))
@@ -96,7 +105,7 @@ def _from_module_context(sandbox, plugin_dir, failures):
         failures.append("module context returned no usable tuple")
         return None, None
     try:
-        data = sandbox.stable_plugin_data_path(ctx[0], ctx[1], ctx[2])
+        data = stable_plugin_data_path(ctx[0], ctx[1], ctx[2])
     except Exception as exc:
         failures.append("stable_plugin_data_path raised %s" % type(exc).__name__)
         return None, None
@@ -107,7 +116,7 @@ def _from_module_context(sandbox, plugin_dir, failures):
 
 
 def _from_registry(key, failures):
-    """Step 2: the data_dir the loader recorded for this key."""
+    """Step 2: the data_dir the loader recorded for this key (needs no sandbox module)."""
     try:
         from apps.plugins.loader import PluginManager
     except ImportError:

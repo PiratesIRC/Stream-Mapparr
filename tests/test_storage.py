@@ -157,6 +157,36 @@ def test_makedirs_failure_is_legacy(storage, monkeypatch, tmp_path):
     assert logger.error.call_count == 1
 
 
+def test_makedirs_non_oserror_is_legacy(storage, monkeypatch, tmp_path):
+    _, plugin_dir = _dirs(tmp_path)
+    _install(monkeypatch, ctx=("stream-mapparr", plugin_dir, "", (), 1))
+
+    def refuse(*args, **kwargs):
+        raise ValueError("not a path")
+
+    monkeypatch.setattr(storage.os, "makedirs", refuse)
+    logger = MagicMock()
+
+    layout = storage.resolve(plugin_dir, "stream-mapparr", logger)
+
+    assert layout.legacy is True
+    assert logger.error.call_count == 1
+
+
+def test_registry_used_when_sandbox_not_importable(storage, monkeypatch, tmp_path):
+    plugins, plugin_dir = _dirs(tmp_path)
+    expected = os.path.join(plugins, "_data", "stream-mapparr")
+    _install(monkeypatch, sandbox=False, ctx=None,
+             registry={"stream-mapparr": SimpleNamespace(data_dir=expected)})
+    logger = MagicMock()
+
+    layout = storage.resolve(plugin_dir, "stream-mapparr", logger)
+
+    assert layout.legacy is False
+    assert layout.data_dir == expected
+    logger.error.assert_not_called()
+
+
 def test_magicmock_values_are_rejected(storage, monkeypatch, tmp_path):
     _, plugin_dir = _dirs(tmp_path)
     _install(monkeypatch, ctx=MagicMock(),
