@@ -286,19 +286,21 @@ def _load_offsets(path):
     return {str(k): int(v) for k, v in obj.items()}
 
 
-def _previous_dir(layout, failed, logger):
-    """Source (a): the data dir of the last finished pass, or None."""
+def _previous_dir(layout, logger):
+    """Source (a): the data dir of the last finished pass, or None.
+
+    A corrupt pointer is logged once and treated as absent, so the folder-key rule applies
+    and the pass can still complete and rewrite a valid pointer.
+    """
     active = layout.beside(".active")
+    prev = os.path.join(layout.plugins_dir, "_data", layout.key)
     if os.path.exists(active):
         try:
             prev = json.loads(_read_bytes(active).decode("utf-8")).get("data_dir")
         except Exception as exc:
-            logger.error("Stream-Mapparr: %s unreadable (%s); its data dir is not carried over"
+            logger.error("Stream-Mapparr: %s unreadable (%s); using the folder-key directory"
                          % (os.path.basename(active), type(exc).__name__))
-            failed.append(os.path.basename(active))
-            return None
-    else:
-        prev = os.path.join(layout.plugins_dir, "_data", layout.key)
+            prev = os.path.join(layout.plugins_dir, "_data", layout.key)
     if not isinstance(prev, str) or not prev:
         return None
     if _norm(prev) == _norm(layout.data_dir) or not os.path.isdir(prev):
@@ -335,10 +337,13 @@ def _copy_tally(item, data_dir, sources, copied):
             data = _read_bytes(src)
             cut = data[: data.rfind(b"\n") + 1]
             offsets_path = os.path.join(data_dir, _OFFSETS)
-            offsets = _load_offsets(offsets_path)
-            offsets[src] = len(cut)
-            atomic_write_json(offsets_path, offsets)
-            atomic_write_bytes(item.new, cut)
+            # The tail takes the same lock, so it never sees the offset without the tally,
+            # or the tally without its offset.
+            with _lock(os.path.join(data_dir, _TAIL_LOCK)):
+                offsets = _load_offsets(offsets_path)
+                offsets[src] = len(cut)
+                atomic_write_json(offsets_path, offsets)
+                atomic_write_bytes(item.new, cut)
             copied.append((item.new, src))
             return
 
@@ -389,7 +394,7 @@ def migrate(layout, items, logger, version=None):
         failed = []
         copied = []
         blocked = False
-        prev = _previous_dir(layout, failed, logger)
+        prev = _previous_dir(layout, logger)
         _refuse_real(prev)
         pass_b = not os.path.exists(layout.beside(".migrated"))
         for item in items:
@@ -451,7 +456,7 @@ def sync_tally_tail(layout, tally_path, logger):
     _refuse_real(tally_path)
     _refuse_real(layout.data_dir)
     offsets_path = os.path.join(layout.data_dir, _OFFSETS)
-    if not os.path.exists(offsets_path):
+    if not os.path.exists(offsets_path) or not os.path.exists(tally_path):
         return 0
     appended = 0
     with _lock(os.path.join(layout.data_dir, _TAIL_LOCK)):

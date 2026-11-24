@@ -454,3 +454,50 @@ def test_concurrent_migrate_calls(storage, env):
     assert sum(len(r.copied) for r in results) == 1
     assert read(P(env.new, "settings.json")) == b"OLD"
     assert glob.glob(P(env.new, ".*tmp*")) == []
+
+
+def test_corrupt_active_pointer_self_heals(storage, env):
+    write(P(env.old, "stream_mapparr_settings.json"), "OLD")
+    write(P(env.plugins, "_data", "stream-mapparr.active"), "not json {")
+    lay = layout_for(storage, env)
+    log = Log()
+    res = storage.migrate(lay, [settings_item(storage, env)], log)
+    assert res.failed == []
+    assert read(P(env.new, "settings.json")) == b"OLD"
+    assert os.path.exists(P(env.plugins, "_data", "stream-mapparr.migrated"))
+    import json
+    with open(P(env.plugins, "_data", "stream-mapparr.active")) as fh:
+        assert json.load(fh) == {"data_dir": env.new}
+    assert len(log.errors) == 1
+
+
+def test_tail_during_copy_is_never_lost(storage, env, monkeypatch):
+    old_tally = P(env.old, "stream_mapparr_match_counts.jsonl")
+    write(old_tally, "t1\n")
+    lay = layout_for(storage, env)
+    tally = P(env.new, "match_counts.jsonl")
+    real_write = storage.atomic_write_bytes
+    tails = []
+    threads = []
+
+    def racing_write(path, data):
+        if path == tally:
+            # A concurrent tail starts now. On fcntl platforms it waits on match_counts.lock,
+            # which the copy holds; on Windows it runs at once and finds no tally.
+            with open(old_tally, "ab") as fh:
+                fh.write(b"t2\n")
+            t = threading.Thread(target=lambda: tails.append(
+                storage.sync_tally_tail(lay, tally, Log())))
+            threads.append(t)
+            t.start()
+            t.join(0.5)
+        return real_write(path, data)
+
+    monkeypatch.setattr(storage, "atomic_write_bytes", racing_write)
+    storage.migrate(lay, [tally_item(storage, env)], Log())
+    for t in threads:
+        t.join(5)
+    monkeypatch.setattr(storage, "atomic_write_bytes", real_write)
+    storage.sync_tally_tail(lay, tally, Log())
+    assert read(tally) == b"t1\nt2\n"
+    assert read(tally).count(b"t2\n") == 1
