@@ -369,8 +369,12 @@ Four other places hold files:
   Newsflasharr attaches to its notifications. The folder is shared with Newsflasharr.
 - `/data/exports/` holds the CSV exports, as before.
 - `/data/stream_mapparr_*` holds the files from earlier versions. The first run on this
-  version copies them across and leaves them where they are. Delete them by hand only after
-  the log line reports 0 failed and `/data/plugins/_data/stream-mapparr.migrated` exists.
+  version copies them across and leaves them where they are, and records what it copied in
+  `migrated.json` inside the data directory. Delete them by hand only when both of these are
+  true: the `failed` list in `migrated.json` is empty, and none of the old files has changed
+  since the time `migrated.json` records. A Dispatcharr process that still runs the earlier
+  version, such as a Celery worker that has not run a plugin action since the upgrade, keeps
+  writing the old files until it reloads the plugin, and a restart of Dispatcharr ends that.
 - `/data/plugins/_data/` holds seven small files beside the data directory:
   `<plugin id>.scheduler.lock`, `<plugin id>.scheduler_last_run.json`, `<plugin id>.active`,
   `<plugin id>.migrated`, `<plugin id>.operation.lock`, `<plugin id>.m3u_refresh.lock` and
