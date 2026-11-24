@@ -1,5 +1,22 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3281235 (2026-11-24)
+
+### Changed
+
+- **Stream-Mapparr keeps its private files in Dispatcharr's per-plugin data
+  directory.** On Dispatcharr 0.34 the state moves from `/data/stream_mapparr_*`
+  to `/data/plugins/_data/<plugin id>/`, and the reports Newsflasharr attaches
+  move to `/data/plugins/_shared/newsflasharr/stream-mapparr/`. The first run
+  on this version copies the old files across, leaves them in place and lists
+  what it copied in `migrated.json`. Delete the old files by hand only once
+  `migrated.json` lists no failures and no old file has changed since then: a
+  process still running the earlier version writes them until it reloads the
+  plugin. Dispatcharr 0.33 is unchanged. Uninstalling with "delete data" now
+  removes the data directory, including the match tally behind the Streams
+  Matched badge and the anonymous usage id. See "Where Stream-Mapparr keeps its files" in the README.
+  (Dispatcharr/Plugins#622)
+
 ## 1.26.3262042 (2026-11-22)
 
 ### Changed
