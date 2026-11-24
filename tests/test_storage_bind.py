@@ -268,6 +268,7 @@ def test_upgrade_settings_loaded_from_data_dir(storage, roots, monkeypatch):
     assert plugin.settings_file == os.path.join(layout.data_dir, "settings.json")
     assert plugin.saved_settings == {"scheduled_times": "0505"}
     assert calls and calls[-1] == {"scheduled_times": "0505"}
+    assert calls[-1]["scheduled_times"] == "0505"  # the armed schedule, not just the settings dict
     assert read(os.path.join(layout.data_dir, "settings.json")) == read(
         os.path.join(roots.old, "stream_mapparr_settings.json"))
 
@@ -387,6 +388,8 @@ def test_install_id_blocked_never_mints(storage, roots, monkeypatch):
     patch_plugin(monkeypatch, mod, db_settings=None)
     assert mod.PluginConfig.STORAGE_MIGRATION.install_id_blocked is True
     usage.report({}, Log(), force=True)
+    # With the override in place, the production report() queues nothing at all.
+    assert started == []
     for fn in started:
         fn()
     mod.Plugin()
@@ -394,6 +397,20 @@ def test_install_id_blocked_never_mints(storage, roots, monkeypatch):
     assert not os.path.exists(install)
     assert minted == []
     assert sent == []
+
+
+def test_opted_in_send_is_reachable_without_the_override(storage, roots, monkeypatch):
+    """Guards the guard: the same opt-in stubs reach the background send when the override
+    is bypassed, so the no-op assertion in test_install_id_blocked_never_mints is not vacuous."""
+    layout = layout_of(storage, roots)
+    mod = load_bound_plugin(monkeypatch, storage, roots, layout)
+    usage = mod.USAGE
+    monkeypatch.setattr(usage, "settings_fn", lambda: {})
+    monkeypatch.setattr(usage, "_lock", lambda fd: True)
+    started = []
+    monkeypatch.setattr(usage, "_start", lambda fn: started.append(fn))
+    type(usage).report(usage, {}, Log(), force=True)
+    assert started, "the opted-in report did not queue a send"
 
 
 def test_refuse_real_blocks_plugin_writes(storage, monkeypatch):
