@@ -7821,6 +7821,11 @@ class Plugin:
     def run(self, action, settings, context=None):
         """Execute plugin action."""
         try:
+            # First, so every action, event and cross-plugin call is checked. Never raises.
+            try:
+                storage.check_context(PluginConfig.STORAGE_LAYOUT, context, LOGGER)
+            except Exception:
+                pass
             logger = LOGGER
 
             if action == "on_m3u_refresh":

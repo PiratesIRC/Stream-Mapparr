@@ -589,3 +589,36 @@ def bind(cfg, plugin_file, logger):
         logger.error("Stream-Mapparr: carry-over failed (%s); using legacy /data paths"
                      % type(exc).__name__)
     return cfg.STORAGE_LAYOUT
+
+
+def check_context(layout, context, logger):
+    """Compare Dispatcharr's context data_dir with the resolved one; warn once per pair.
+
+    Returns True always. Equal paths, a context with no usable data_dir and a legacy layout are
+    silent. A differing pair logs one WARNING per process: right after a Hub install changes the
+    plugin's slug, the resolved directory and Dispatcharr's differ until the worker reloads. The
+    process keeps the paths it resolved, so nothing here changes where state is read or written.
+    """
+    if getattr(layout, "legacy", True) or not isinstance(getattr(layout, "data_dir", None), str):
+        return True
+    if not isinstance(context, dict):
+        return True
+    given = context.get("data_dir")
+    if not isinstance(given, str) or not given:
+        return True
+    resolved_norm = os.path.normcase(os.path.abspath(layout.data_dir))
+    given_norm = os.path.normcase(os.path.abspath(given))
+    if resolved_norm == given_norm:
+        return True
+    state = _state()
+    if not hasattr(state, "warned_contexts"):
+        state.warned_contexts = set()
+    pair = (resolved_norm, given_norm)
+    if pair not in state.warned_contexts:
+        state.warned_contexts.add(pair)
+        logger.warning(
+            "Stream-Mapparr: Dispatcharr passed data_dir %s but this worker resolved %s. "
+            "This is expected right after a Hub install that changes the plugin's slug; "
+            "the worker moves to the new directory on its next reload (Plugins page "
+            "refresh or container restart)." % (given, layout.data_dir))
+    return True

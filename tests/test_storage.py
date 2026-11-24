@@ -236,3 +236,106 @@ def test_beside_and_shared_reports_dir_hang_off_plugins_dir(storage, monkeypatch
     assert layout.beside(".active") == os.path.join(plugins, "_data", "stream-mapparr.active")
     assert layout.shared_reports_dir() == os.path.join(
         plugins, "_shared", "newsflasharr", "stream-mapparr")
+
+
+# --------------------------------------------------------------------------- #
+# Context cross-check: check_context compares Dispatcharr's data_dir with ours.
+# --------------------------------------------------------------------------- #
+
+def _bound_layout(storage, tmp_path):
+    data_dir = str(tmp_path / "plugins" / "_data" / "stream-mapparr")
+    return storage.Layout(False, data_dir, str(tmp_path / "plugins"), "stream-mapparr", "")
+
+
+def test_context_equal_is_silent(storage, tmp_path):
+    layout = _bound_layout(storage, tmp_path)
+    logger = MagicMock()
+
+    assert storage.check_context(layout, {"data_dir": layout.data_dir}, logger) is True
+    logger.warning.assert_not_called()
+
+
+def test_context_equal_after_normalising_is_silent(storage, tmp_path):
+    layout = _bound_layout(storage, tmp_path)
+    spelled = os.path.join(layout.data_dir, "..", "stream-mapparr")
+    logger = MagicMock()
+
+    assert storage.check_context(layout, {"data_dir": spelled}, logger) is True
+    logger.warning.assert_not_called()
+
+
+def test_context_missing_or_not_dict_is_silent(storage, tmp_path):
+    layout = _bound_layout(storage, tmp_path)
+    logger = MagicMock()
+
+    for context in (None, "text", ["x"], {}, {"data_dir": None}, {"data_dir": 7}):
+        assert storage.check_context(layout, context, logger) is True
+    logger.warning.assert_not_called()
+
+
+def test_context_mismatch_warns_once(storage, tmp_path):
+    layout = _bound_layout(storage, tmp_path)
+    given = str(tmp_path / "plugins" / "_data" / "stream-mapparr-hub")
+    logger = MagicMock()
+
+    assert storage.check_context(layout, {"data_dir": given}, logger) is True
+    assert storage.check_context(layout, {"data_dir": given}, logger) is True
+
+    assert logger.warning.call_count == 1
+    message = logger.warning.call_args[0][0]
+    assert layout.data_dir in message
+    assert os.path.abspath(given) in message
+    assert "Hub install" in message
+    assert "Plugins page refresh" in message
+
+
+def test_context_mismatch_warns_again_for_a_new_pair(storage, tmp_path):
+    layout = _bound_layout(storage, tmp_path)
+    logger = MagicMock()
+
+    storage.check_context(layout, {"data_dir": str(tmp_path / "one")}, logger)
+    storage.check_context(layout, {"data_dir": str(tmp_path / "two")}, logger)
+
+    assert logger.warning.call_count == 2
+
+
+def test_legacy_layout_never_warns(storage, tmp_path):
+    layout = storage.Layout(True, None, None, "stream-mapparr", "no plugin dir")
+    logger = MagicMock()
+
+    assert storage.check_context(layout, {"data_dir": str(tmp_path / "x")}, logger) is True
+    logger.warning.assert_not_called()
+
+
+def test_run_calls_check_before_event_branches(plugin_module, monkeypatch):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.version = "test"
+    order = []
+    ctx = {"data_dir": "/x"}
+
+    def fake_check(layout, context, logger):
+        order.append(("check", context))
+        return True
+
+    def fake_handler(settings, logger, context):
+        order.append(("handler", context))
+        return {}
+
+    monkeypatch.setattr(plugin_module.storage, "check_context", fake_check)
+    monkeypatch.setattr(p, "on_iptv_checker_scan_action", fake_handler)
+
+    assert p.run("on_iptv_checker_scan", {}, ctx) == {}
+    assert order == [("check", ctx), ("handler", ctx)]
+
+
+def test_run_survives_a_check_that_raises(plugin_module, monkeypatch):
+    p = plugin_module.Plugin.__new__(plugin_module.Plugin)
+    p.version = "test"
+
+    def boom(layout, context, logger):
+        raise RuntimeError("check exploded")
+
+    monkeypatch.setattr(plugin_module.storage, "check_context", boom)
+    monkeypatch.setattr(p, "on_iptv_checker_scan_action", lambda s, l, c: {"ran": True})
+
+    assert p.run("on_iptv_checker_scan", {}, {"data_dir": "/x"}) == {"ran": True}
