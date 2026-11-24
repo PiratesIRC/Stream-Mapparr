@@ -945,6 +945,26 @@ if PluginConfig.STORAGE_MIGRATION is not None and PluginConfig.STORAGE_MIGRATION
     # the settings argument, so an opt-out would still reach the delete path.
     USAGE.report = lambda *args, **kwargs: None
 
+class _M3URefreshHold:
+    """The two M3U refresh lock files, both flock-held, handed out as one (dual-path rollout only).
+
+    fileno() is the new path's descriptor, the one callers pass back. close() closes both.
+    """
+
+    def __init__(self, new_fd, old_fd):
+        self.files = (old_fd, new_fd)
+
+    def fileno(self):
+        return self.files[1].fileno()
+
+    def close(self):
+        for handle in self.files:
+            try:
+                handle.close()
+            except OSError:
+                pass
+
+
 class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
 
@@ -2225,6 +2245,12 @@ class Plugin:
                 "channels": channels,
                 "streams": streams,
             }, sort_keys=True)
+            if not self._storage_is_legacy():
+                # An old worker may have appended to the old tally since the copy: bring it in first.
+                try:
+                    storage.sync_tally_tail(PluginConfig.STORAGE_LAYOUT, PluginConfig.MATCH_TALLY_FILE, LOGGER)
+                except Exception as e:
+                    LOGGER.debug(f"[Stream-Mapparr] Could not append the old tally tail: {e}")
             with open(PluginConfig.MATCH_TALLY_FILE, "a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
             self._report_usage(None, LOGGER, force=True)
@@ -2392,6 +2418,32 @@ class Plugin:
                     times.append(datetime.strptime(time_str, '%H%M').time())
         return times
 
+    def _storage_is_legacy(self):
+        """True while this process keeps using the old /data paths (storage.bind did not rebind)."""
+        layout = getattr(PluginConfig, "STORAGE_LAYOUT", None)
+        return layout is None or bool(layout.legacy)
+
+    def _rollout_old_path(self, name):
+        """The old /data path of a state constant, while this release still honours it.
+
+        Only when storage.ROLLOUT_DUAL_PATHS is on, the process is not in legacy mode and the old
+        path differs from the current one. Otherwise None, and the caller uses the one path.
+        """
+        if not storage.ROLLOUT_DUAL_PATHS or self._storage_is_legacy():
+            return None
+        old = (getattr(PluginConfig, "LEGACY_PATHS", None) or {}).get(name)
+        if not old or old == getattr(PluginConfig, name, None):
+            return None
+        return old
+
+    def _state_paths(self, name):
+        """The current path of a state constant, then its old /data path while the rollout keeps it."""
+        paths = [getattr(PluginConfig, name)]
+        old = self._rollout_old_path(name)
+        if old is not None:
+            paths.append(old)
+        return paths
+
     def _read_scheduler_last_run(self):
         """Shared across all worker processes: {time_key: date_str} of which slot
         last ran on which date (the durable cross-worker claim record, bug-069)."""
@@ -2413,6 +2465,8 @@ class Plugin:
         up-to-3.5h IPTV-checker wait + run), so a winner that crashes mid-run
         forfeits today's slot rather than risking a partial double-run — re-running
         on the next scheduled day is the safer default for a match/sort job."""
+        if not self._storage_is_legacy():
+            return self._claim_scheduled_slot_rollout(time_key, date_str, logger)
         lock_fd = None
         try:
             try:
@@ -2444,6 +2498,62 @@ class Plugin:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _open_scheduler_lock(path):
+        """Open a scheduler lock file and take its flock (blocking, held only for the claim)."""
+        handle = open(path, 'a')
+        try:
+            if fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        except BaseException:
+            handle.close()
+            raise
+        return handle
+
+    def _claim_scheduled_slot_rollout(self, time_key, date_str, logger):
+        """Slot claim for a non-legacy process: the slug-independent lock and record.
+
+        While the rollout keeps the old /data pair (see _rollout_old_path), the old lock is taken
+        first, the order old code uses, so the two cannot deadlock. The old record is written
+        first as well, so a reader of either file sees the claimed slot. Any open, flock or write
+        failure logs one ERROR and skips the slot.
+        """
+        old_lock = self._rollout_old_path("SCHEDULER_LOCK_FILE")
+        old_record = self._rollout_old_path("SCHEDULER_LAST_RUN_FILE")
+        new_lock = PluginConfig.SCHEDULER_LOCK_FILE
+        new_record = PluginConfig.SCHEDULER_LAST_RUN_FILE
+        records_paths = [new_record] if old_record is None else [old_record, new_record]
+        held = []
+        try:
+            if old_lock is not None:
+                held.append(self._open_scheduler_lock(old_lock))
+            os.makedirs(os.path.dirname(new_lock), exist_ok=True)
+            held.append(self._open_scheduler_lock(new_lock))
+            records = {}
+            for path in records_paths:
+                data = self._read_json_file(path)
+                records[path] = data if isinstance(data, dict) else {}
+            if any(record.get(time_key) == date_str for record in records.values()):
+                return False  # another worker already claimed/ran this slot today
+            for path in records_paths:
+                records[path][time_key] = date_str
+                storage.atomic_write_json(path, records[path])
+            return True
+        except Exception as e:
+            logger.error(f"[Stream-Mapparr] scheduled slot {time_key} skipped: claim failed ({e})")
+            return False
+        finally:
+            for handle in reversed(held):
+                try:
+                    if fcntl is not None:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
+                try:
+                    handle.close()
+                except OSError:
+                    pass
+
     def _acquire_m3u_refresh_flock(self, logger):
         """Non-blocking cross-worker flock held for the whole event-driven auto-match.
 
@@ -2454,8 +2564,25 @@ class Plugin:
         fcntl (Windows/pytest) it degrades to returning the open fd — a
         single-process dev/test run has no cross-process race. Mirrors the sibling
         Event-Channel-Managarr `_acquire_scan_lock` pattern.
+
+        While the rollout keeps the old /data lock (see _rollout_old_path), both are taken, old
+        first, and a holder object comes back in place of the file object.
         """
-        path = PluginConfig.M3U_REFRESH_LOCK_FILE
+        new_path = PluginConfig.M3U_REFRESH_LOCK_FILE
+        old_path = self._rollout_old_path("M3U_REFRESH_LOCK_FILE")
+        if old_path is None:
+            return self._acquire_m3u_flock_file(new_path, logger)
+        old_fd = self._acquire_m3u_flock_file(old_path, logger)
+        if old_fd is None:
+            return None
+        new_fd = self._acquire_m3u_flock_file(new_path, logger)
+        if new_fd is None:
+            self._release_m3u_refresh_flock(old_fd, logger)
+            return None
+        return _M3URefreshHold(new_fd, old_fd)
+
+    def _acquire_m3u_flock_file(self, path, logger):
+        """Non-blocking flock on one M3U refresh lock file; the stale-break applies to this path."""
         for attempt in (1, 2):
             try:
                 fd = open(path, "a")
@@ -2493,13 +2620,15 @@ class Plugin:
     def _release_m3u_refresh_flock(self, fd, logger):
         if fd is None:
             return
+        handles = fd.files if isinstance(fd, _M3URefreshHold) else (fd,)
+        for handle in handles:
+            try:
+                if fcntl is not None:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
         try:
-            if fcntl is not None:
-                fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        try:
-            fd.close()
+            fd.close()   # a holder closes both files
         except OSError:
             pass
 
@@ -3300,21 +3429,23 @@ class Plugin:
 
     def _set_m3u_refresh_pending(self, logger):
         """Mark that another account finished while an auto-match was in flight."""
-        try:
-            open(PluginConfig.M3U_REFRESH_PENDING_FILE, "a").close()
-        except OSError as e:
-            logger.warning(f"[Stream-Mapparr] could not set m3u-refresh pending marker: {e}")
+        for path in self._state_paths("M3U_REFRESH_PENDING_FILE"):
+            try:
+                open(path, "a").close()
+            except OSError as e:
+                logger.warning(f"[Stream-Mapparr] could not set m3u-refresh pending marker: {e}")
 
     def _clear_m3u_refresh_pending(self, logger):
-        try:
-            os.remove(PluginConfig.M3U_REFRESH_PENDING_FILE)
-        except FileNotFoundError:
-            pass
-        except OSError as e:
-            logger.warning(f"[Stream-Mapparr] could not clear m3u-refresh pending marker: {e}")
+        for path in self._state_paths("M3U_REFRESH_PENDING_FILE"):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                logger.warning(f"[Stream-Mapparr] could not clear m3u-refresh pending marker: {e}")
 
     def _m3u_refresh_pending_set(self, logger=None):
-        return os.path.exists(PluginConfig.M3U_REFRESH_PENDING_FILE)
+        return any(os.path.exists(path) for path in self._state_paths("M3U_REFRESH_PENDING_FILE"))
 
     def _resolve_match_threshold(self, settings):
         """Resolve match threshold from new match_sensitivity select or legacy fuzzy_match_threshold."""
@@ -7138,9 +7269,16 @@ class Plugin:
         Returns (is_locked, lock_info) where lock_info contains action name and start time.
         Auto-expires locks older than configured timeout.
         Verifies process is actually running to handle container restarts.
+        Held when either the data-dir file or (during the rollout) the old /data file says so.
         """
-        lock_file = PluginConfig.OPERATION_LOCK_FILE
+        for lock_file in self._state_paths("OPERATION_LOCK_FILE"):
+            is_locked, lock_info = self._check_operation_lock_file(lock_file, logger)
+            if is_locked:
+                return True, lock_info
+        return False, None
 
+    def _check_operation_lock_file(self, lock_file, logger):
+        """_check_operation_lock for one lock file: stale and orphaned files are removed."""
         if not os.path.exists(lock_file):
             return False, None
 
@@ -7206,8 +7344,20 @@ class Plugin:
                 'start_time': datetime.now().isoformat(),
                 'pid': os.getpid()
             }
-            with open(PluginConfig.OPERATION_LOCK_FILE, 'w') as f:
-                json.dump(lock_data, f, indent=2)
+            written = []
+            try:
+                for path in self._state_paths("OPERATION_LOCK_FILE"):
+                    with open(path, 'w') as f:
+                        json.dump(lock_data, f, indent=2)
+                    written.append(path)
+            except Exception:
+                # A lock held in one file only would block every run until it expires.
+                for path in written:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                raise
 
             logger.info(f"[Stream-Mapparr] Lock acquired for {action_name}")
             return True
@@ -7217,12 +7367,13 @@ class Plugin:
 
     def _release_operation_lock(self, logger):
         """Release operation lock."""
-        try:
-            if os.path.exists(PluginConfig.OPERATION_LOCK_FILE):
-                os.remove(PluginConfig.OPERATION_LOCK_FILE)
-                logger.debug("[Stream-Mapparr] Lock released")
-        except Exception as e:
-            logger.warning(f"[Stream-Mapparr] Failed to release lock: {e}")
+        for path in self._state_paths("OPERATION_LOCK_FILE"):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    logger.debug("[Stream-Mapparr] Lock released")
+            except Exception as e:
+                logger.warning(f"[Stream-Mapparr] Failed to release lock: {e}")
 
     def _get_channel_info_from_json(self, channel_name, channels_data, logger):
         """Find channel info from channels.json by matching channel name."""
@@ -11155,14 +11306,13 @@ class Plugin:
     def clear_operation_lock_action(self, settings, logger):
         """Manually clear the operation lock file"""
         try:
-            lock_file = PluginConfig.OPERATION_LOCK_FILE
-            
-            if not os.path.exists(lock_file):
+            present = [path for path in self._state_paths("OPERATION_LOCK_FILE") if os.path.exists(path)]
+            if not present:
                 return {"status": "success", "message": "No operation lock found."}
-            
+
             # Read lock info before deleting
             try:
-                with open(lock_file, 'r') as f:
+                with open(present[0], 'r') as f:
                     lock_data = json.load(f)
                 action_name = lock_data.get('action', 'unknown')
                 lock_time_str = lock_data.get('start_time')
@@ -11175,8 +11325,9 @@ class Plugin:
             except:
                 lock_info = "unknown operation"
             
-            # Delete the lock file
-            os.remove(lock_file)
+            # Delete the lock file (both, while the rollout keeps the old /data one)
+            for path in present:
+                os.remove(path)
             logger.info(f"[Stream-Mapparr] Operation lock cleared manually: {lock_info}")
             
             return {

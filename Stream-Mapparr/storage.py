@@ -26,6 +26,12 @@ except ImportError:  # Windows: no flock, so the copy runs unlocked
 
 REFUSE_REAL_DATA = False
 
+# Rollout switch for this release only: remove in the release after next, with the dual-path
+# branches it guards and tests/test_storage_rollout.py. While it is on, a worker on this code
+# also honours the old /data state files that workers on the previous release still write
+# (the slot claim, the M3U lock and pending flag, the operation lock, the tally tail).
+ROLLOUT_DUAL_PATHS = True
+
 
 @dataclass(frozen=True)
 class Layout:
