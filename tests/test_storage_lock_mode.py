@@ -1,8 +1,9 @@
-"""storage._lock creates its lock file without any permission bit for other users.
+"""storage._lock creates its lock file readable and writable by its owner only.
 
 The Dispatcharr Plugin Hub runs CodeQL on the released archive and refuses a pull
 request on a high finding. Mode 0o644 on the lock file's os.open raised
-py/overly-permissive-file on Dispatcharr/Plugins#628, so the mode is 0o660.
+py/overly-permissive-file on Dispatcharr/Plugins#628, and so did 0o660
+(group writable). Every Dispatcharr worker runs as one user, so the mode is 0o600.
 """
 import os
 import re
@@ -29,7 +30,7 @@ def test_no_world_bits_in_any_os_open_mode():
     modes = re.findall(r"os\.open\([^)]*?(0o[0-7]{3})\)", source)
     assert modes, "no os.open mode found; the check would pass vacuously"
     for mode in modes:
-        assert int(mode, 8) & 0o007 == 0, f"os.open mode {mode} grants other users access"
+        assert int(mode, 8) & 0o077 == 0, f"os.open mode {mode} grants access beyond the owner"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
@@ -41,4 +42,4 @@ def test_created_lock_file_has_no_world_bits(storage, tmp_path):
             pass
     finally:
         os.umask(old_umask)
-    assert stat.S_IMODE(os.stat(lock_path).st_mode) & 0o007 == 0
+    assert stat.S_IMODE(os.stat(lock_path).st_mode) & 0o077 == 0
