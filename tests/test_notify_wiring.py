@@ -103,8 +103,7 @@ def test_build_and_emit_writes_both_files_and_sends_one_email(plugin_module, tmp
     """End to end through the helper: real rendering, real files on disk, two
     notifications, and no M3U account name anywhere in either file."""
     inst = plugin_module.Plugin.__new__(plugin_module.Plugin)
-    reports = inst._reports()
-    monkeypatch.setattr(reports, "REPORT_DIR", str(tmp_path))
+    monkeypatch.setattr(plugin_module.PluginConfig, "REPORT_DIR", str(tmp_path))
 
     calls = []
 
@@ -152,7 +151,7 @@ def test_build_and_emit_writes_both_files_and_sends_one_email(plugin_module, tmp
 def test_build_and_emit_writes_nothing_when_the_toggle_is_off(plugin_module, tmp_path, monkeypatch):
     """Do not pay for building a report nobody will receive."""
     inst = plugin_module.Plugin.__new__(plugin_module.Plugin)
-    monkeypatch.setattr(inst._reports(), "REPORT_DIR", str(tmp_path))
+    monkeypatch.setattr(plugin_module.PluginConfig, "REPORT_DIR", str(tmp_path))
 
     class _Logger:
         def _record(self, msg, *a, **k):

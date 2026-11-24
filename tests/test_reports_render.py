@@ -218,11 +218,12 @@ def test_write_report_reports_its_own_failure_rather_than_raising():
     assert written["error"]
 
 
-def test_the_report_directory_is_not_under_the_lan_exposed_logos_tree():
+def test_the_report_directory_is_not_under_the_lan_exposed_logos_tree(plugin_module):
     """Dispatcharr's nginx serves /data/logos unauthenticated to the whole
     network. Reports must not be written there."""
     from reports import REPORT_DIR
     assert "/logos" not in REPORT_DIR
+    assert "/logos" not in plugin_module.PluginConfig.REPORT_DIR
 
 
 def test_the_table_headers_match_their_columns():

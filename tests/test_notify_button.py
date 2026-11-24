@@ -209,9 +209,8 @@ def test_the_export_cleaner_cannot_reach_an_emailed_report(plugin_module):
     directory, or pointing the cleaner at the reports directory, must fail here
     rather than silently reintroduce the problem.
     """
-    reports = plugin_module.Plugin._reports()
     exports_dir = plugin_module.PluginConfig.EXPORTS_DIR.rstrip("/")
-    report_dir = reports.REPORT_DIR.rstrip("/")
+    report_dir = plugin_module.PluginConfig.REPORT_DIR.rstrip("/")
     assert report_dir != exports_dir
     assert not report_dir.startswith(exports_dir + "/")
     assert not exports_dir.startswith(report_dir + "/")

@@ -114,7 +114,14 @@ def load_plugin():
     if f"{_PKG}.fuzzy_matcher" not in sys.modules:
         _load_from_path(f"{_PKG}.fuzzy_matcher", "fuzzy_matcher.py")
     if f"{_PKG}.plugin" not in sys.modules:
-        _load_from_path(f"{_PKG}.plugin", "plugin.py")
+        # Hide any apps.plugins stub a test has installed: the session plugin must bind
+        # in legacy mode, and storage.resolve would otherwise see the stub's data dir.
+        hidden = {k: sys.modules.pop(k) for k in list(sys.modules)
+                  if k == "apps.plugins" or k.startswith("apps.plugins.")}
+        try:
+            _load_from_path(f"{_PKG}.plugin", "plugin.py")
+        finally:
+            sys.modules.update(hidden)
     return sys.modules[f"{_PKG}.plugin"]
 
 
@@ -125,7 +132,10 @@ def fuzzy_module():
 
 @pytest.fixture(scope="session")
 def plugin_module():
-    return load_plugin()
+    module = load_plugin()
+    # The session copy keeps the legacy /data paths; only test-built copies bind.
+    assert module.PluginConfig.STORAGE_LAYOUT.legacy is True
+    return module
 
 
 @pytest.fixture(autouse=True)
@@ -149,6 +159,16 @@ def _sandbox_plugin_data_paths(plugin_module, tmp_path, monkeypatch):
             monkeypatch.setattr(
                 cfg, name, str(sandbox / value[len("/data/"):].lstrip("/")), raising=False
             )
+    # storage.bind keeps the legacy literals in LEGACY_PATHS; redirect those the same way.
+    legacy = getattr(cfg, "LEGACY_PATHS", None)
+    if isinstance(legacy, dict):
+        redirected = {
+            name: str(sandbox / value[len("/data/"):].lstrip("/")) if value.startswith("/data") else value
+            for name, value in legacy.items()
+        }
+        monkeypatch.setattr(cfg, "LEGACY_PATHS", redirected, raising=False)
+    # Real Dispatcharr data is refused at the storage layer too, on the module plugin.py imported.
+    monkeypatch.setattr(plugin_module.storage, "REFUSE_REAL_DATA", True)
     yield
 
 

@@ -29,6 +29,10 @@ from .usage_client import UsageReporter, jsonl_sum, load_plugin_settings, with_u
 from .aliases import CHANNEL_ALIASES, COUNTRY_ALIASES as ALIAS_COUNTRY_OVERRIDES
 from . import country as country_detect
 from . import sm_fields
+try:
+    from . import storage  # data-dir layout and the carry-over from /data (bound below)
+except ImportError:  # loaded as a bare module, as _notify_bridge allows
+    import storage
 
 # Whether this Dispatcharr draws the 0.34 settings form (Plugin._host_draws_034_form).
 # Cached for the life of the module; a reload asks again, which is cheap.
@@ -419,11 +423,14 @@ class PluginConfig:
     # === CACHE SETTINGS ===
 
     # === FILE PATHS ===
-    DATA_DIR = "/data"
     # Fill Mirror Backups writes each changed channel's previous stream order
     # here before it writes anything. Outside /data/plugins on purpose: a
     # directory there is loaded as a plugin.
     CHANNEL_SNAPSHOT_DIR = "/data/stream_mapparr_snapshots"
+    # Usage counts keep their own dir; storage.bind moves it with the rest.
+    USAGE_DATA_DIR = "/data/plugin_stats"
+    # Shared reports folder: the Newsflasharr side reads it, so it is not per-plugin.
+    REPORT_DIR = "/data/stream_mapparr_reports"
     EXPORTS_DIR = "/data/exports"
     # /data/exports is SHARED. Measured 2026-09-05 it held 130 files from at
     # least seven plugins, so anything that DELETES in there must select on
@@ -494,6 +501,7 @@ class PluginConfig:
     # Retained: the throughput probe paces itself per stream, not per group.
     ESTIMATED_SECONDS_PER_ITEM = 0.8
     RUN_TIMING_FILE = "/data/stream_mapparr_run_timing.json"
+    SCHEDULED_RUN_FILE = "/data/stream_mapparr_scheduled_run.json"  # Newsflasharr's schedule-alive stamp
 
     # === SYNC vs BACKGROUND DISPATCH (bug-117) ===
     # Dispatcharr's uWSGI runs `gevent = 400` with `gevent-early-monkey-patch = true`,
@@ -613,6 +621,11 @@ class PluginConfig:
 # ============================================================================
 # END CONFIGURATION
 # ============================================================================
+
+# Bind the state paths to the plugin data directory, once per import. The literals above are
+# the legacy /data paths: storage.bind records them in LEGACY_PATHS, then rebinds each constant
+# (legacy mode, or a failed carry-over, leaves every one of them as it is).
+storage.bind(PluginConfig, __file__, LOGGER)
 
 def format_eta(seconds):
     """Human-readable duration: '45s', '1m 30s', '1h 1m'. Clamps None/negative to 0s."""
@@ -924,7 +937,13 @@ USAGE = UsageReporter(
     label="Streams Matched",
     total_fn=lambda: jsonl_sum(PluginConfig.MATCH_TALLY_FILE + "*", key="streams"),
     settings_fn=lambda: load_plugin_settings(PluginConfig.PLUGIN_DB_KEY),
+    data_dir=PluginConfig.USAGE_DATA_DIR,
 )
+if PluginConfig.STORAGE_MIGRATION is not None and PluginConfig.STORAGE_MIGRATION.install_id_blocked:
+    # The old install id could not be carried over. A fresh one minted here would be a second
+    # install, so this process reports nothing. A settings_fn cannot do this: report() prefers
+    # the settings argument, so an opt-out would still reach the delete path.
+    USAGE.report = lambda *args, **kwargs: None
 
 class Plugin:
     """Dispatcharr Stream-Mapparr Plugin"""
@@ -2231,8 +2250,7 @@ class Plugin:
     def _save_settings(self, settings):
         """Save settings to disk"""
         try:
-            with open(self.settings_file, 'w') as f:
-                json.dump(settings, f, indent=2)
+            storage.atomic_write_json(self.settings_file, settings)
             self.saved_settings = settings
             LOGGER.info("[Stream-Mapparr] Settings saved successfully")
         except Exception as e:
@@ -3798,7 +3816,7 @@ class Plugin:
                 reports.build_model(report_channels, account_names, settings, now,
                                     version=PluginConfig.PLUGIN_VERSION,
                                     plugin_dir=os.path.dirname(__file__)),
-                reports.REPORT_DIR, now)
+                PluginConfig.REPORT_DIR, now)
             if written.get("error"):
                 logger.warning(f"[Stream-Mapparr] Report not written: {written['error']}")
                 return {"sent": 0, "skipped_reason": written["error"]}
@@ -7935,7 +7953,7 @@ class Plugin:
                 # detector cannot answer it: that timestamp is stamped by ANY
                 # attachment send, including a press of Email Report Now, so a
                 # button press would mask a dead schedule indefinitely.
-                last_run = bridge.read_scheduled_run_ts(bridge.SCHEDULED_RUN_FILE)
+                last_run = bridge.read_scheduled_run_ts(PluginConfig.SCHEDULED_RUN_FILE)
                 if last_run is None:
                     validation_results.append("⚠️ Scheduled run: never recorded")
                 else:
@@ -9226,7 +9244,7 @@ class Plugin:
             # of the signal.
             try:
                 bridge = self._notify_bridge()
-                bridge.write_scheduled_run_ts(bridge.SCHEDULED_RUN_FILE, time.time())
+                bridge.write_scheduled_run_ts(PluginConfig.SCHEDULED_RUN_FILE, time.time())
             except Exception as stamp_err:
                 logger.debug(f"[Stream-Mapparr] Could not record the scheduled run timestamp: {stamp_err}")
 

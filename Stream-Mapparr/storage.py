@@ -497,3 +497,78 @@ def sync_tally_tail(layout, tally_path, logger):
                 continue
             appended += len(cut)
     return appended
+
+
+# ---------------------------------------------------------------------------
+# Binding the state paths at import (storage.bind, storage.items_for)
+# ---------------------------------------------------------------------------
+
+# (constant name, kind, rel under the data dir). rel is None for the rows that live
+# beside the data dirs or in the shared reports dir; those are named in _BESIDE.
+_BIND_TABLE = (
+    ("SETTINGS_FILE", "file", "settings.json"),
+    ("PROCESSED_DATA_FILE", "file", "processed.json"),
+    ("PROGRESS_STATE_FILE", "file", "progress.json"),
+    ("LAST_RESULTS_FILE", "file", "last_results.json"),
+    ("PICK_LIST_NAMES_FILE", "file", "pick_list_names.json"),
+    ("RUN_TIMING_FILE", "file", "run_timing.json"),
+    ("THROUGHPUT_CACHE_FILE", "file", "throughput_cache.json"),
+    ("SCHEDULED_RUN_FILE", "file", "scheduled_run.json"),
+    ("MATCH_TALLY_FILE", "tally", "match_counts.jsonl"),
+    ("OPERATION_LOCK_FILE", "nocopy", "operation.lock"),
+    ("M3U_REFRESH_LOCK_FILE", "nocopy", "m3u_refresh.lock"),
+    ("M3U_REFRESH_PENDING_FILE", "nocopy", "m3u_refresh_pending"),
+    ("READOUT_FALLBACK_DIR", "dir", "readouts"),
+    ("CHANNEL_SNAPSHOT_DIR", "dir", "snapshots"),
+    ("USAGE_DATA_DIR", "usage_dir", "usage"),
+    ("SCHEDULER_LAST_RUN_FILE", "beside", None),
+    ("SCHEDULER_LOCK_FILE", "nocopy", None),
+    ("REPORT_DIR", "dir", None),
+)
+
+_BESIDE = {
+    "SCHEDULER_LAST_RUN_FILE": ".scheduler_last_run.json",
+    "SCHEDULER_LOCK_FILE": ".scheduler.lock",
+}
+
+
+def items_for(cfg, layout):
+    """The moves bind hands to migrate. Each old path is cfg.LEGACY_PATHS[name]."""
+    out = []
+    for name, kind, rel in _BIND_TABLE:
+        if name == "REPORT_DIR":
+            new = layout.shared_reports_dir()
+        elif name in _BESIDE:
+            new = layout.beside(_BESIDE[name])
+        else:
+            new = os.path.join(layout.data_dir, rel)
+        out.append(Item(name, cfg.LEGACY_PATHS[name], new, kind, rel))
+    return out
+
+
+def bind(cfg, plugin_file, logger):
+    """Resolve the data dir, rebind cfg's state constants to it and carry the old state over.
+
+    Runs once per module import. Any failure in migrate puts every constant back to its
+    legacy literal and returns a legacy Layout, so the process runs exactly as before.
+    """
+    legacy_paths = {name: getattr(cfg, name) for name, _kind, _rel in _BIND_TABLE}
+    cfg.LEGACY_PATHS = dict(legacy_paths)
+    cfg.STORAGE_MIGRATION = None
+    layout = resolve(os.path.dirname(os.path.abspath(plugin_file)), cfg.PLUGIN_DB_KEY, logger)
+    cfg.STORAGE_LAYOUT = layout
+    if layout.legacy:
+        return layout
+    items = items_for(cfg, layout)
+    try:
+        for item in items:
+            setattr(cfg, item.name, item.new)
+        cfg.STORAGE_MIGRATION = migrate(layout, items, logger, version=cfg.PLUGIN_VERSION)
+    except Exception as exc:
+        for name, value in legacy_paths.items():
+            setattr(cfg, name, value)
+        cfg.STORAGE_MIGRATION = None
+        cfg.STORAGE_LAYOUT = Layout(True, None, None, cfg.PLUGIN_DB_KEY, "migrate failed")
+        logger.error("Stream-Mapparr: carry-over failed (%s); using legacy /data paths"
+                     % type(exc).__name__)
+    return cfg.STORAGE_LAYOUT

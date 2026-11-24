@@ -174,10 +174,11 @@ def test_only_the_timer_path_writes_the_scheduled_run_timestamp(plugin_module, m
     """The timestamp means 'the timer fired'; a scan-triggered run must not fake it."""
     p = _plugin(plugin_module)
     _, stamps = _wire_sequence(monkeypatch, p)
+    stamp = plugin_module.PluginConfig.SCHEDULED_RUN_FILE
     p._run_scheduled_sequence({"scheduled_sort_streams": True}, log)
-    assert stamps == ["/x"]
+    assert stamps == [stamp]
     p._run_scheduled_sequence({"scheduled_sort_streams": True}, log, trigger=TRIGGER)
-    assert stamps == ["/x"]
+    assert stamps == [stamp]
 
 
 def test_the_sequence_stops_when_channels_fail_to_load(plugin_module, monkeypatch):
