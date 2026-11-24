@@ -1,5 +1,15 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3281249 (2026-11-24)
+
+### Fixed
+
+- **The lock files that guard the data-directory copy and the match tally
+  are no longer readable by other users.** They were created with mode 644
+  and are now created with mode 660. The files are empty. The Plugin Hub's
+  code scan refused 1.26.3281235 for this, so that version was not published
+  to the Hub. A lock file that already exists keeps its mode.
+
 ## 1.26.3281235 (2026-11-24)
 
 ### Changed
