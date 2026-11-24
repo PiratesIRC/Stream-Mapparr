@@ -6,6 +6,7 @@ account name appended to every stream name.
 """
 import os
 import tempfile
+from pathlib import Path
 
 ACCOUNTS = ["provider.tv", "provider.tv-alt1"]
 
@@ -220,10 +221,22 @@ def test_write_report_reports_its_own_failure_rather_than_raising():
 
 def test_the_report_directory_is_not_under_the_lan_exposed_logos_tree(plugin_module):
     """Dispatcharr's nginx serves /data/logos unauthenticated to the whole
-    network. Reports must not be written there."""
-    from reports import REPORT_DIR
-    assert "/logos" not in REPORT_DIR
-    assert "/logos" not in plugin_module.PluginConfig.REPORT_DIR
+    network. Reports must not be written there.
+
+    Checks the production values (the sandbox rewrites PluginConfig.REPORT_DIR
+    into tmp, so reading it would pass even after a shipped regression), the
+    legacy literal in the class body, and a positive control that the same
+    helper flags a /logos path.
+    """
+    import re
+    from conftest import production_report_dirs, report_dir_problems
+    shared, row = production_report_dirs(plugin_module.storage)
+    assert report_dir_problems(shared) == []
+    assert report_dir_problems(row) == []
+    assert report_dir_problems("/data/logos/x") != []   # positive control
+    source = Path(plugin_module.__file__).read_text(encoding="utf-8")
+    literal = re.search(r'^    REPORT_DIR = "([^"]+)"', source, re.M).group(1)
+    assert "/logos" not in literal
 
 
 def test_the_table_headers_match_their_columns():

@@ -64,9 +64,9 @@ def rollout(plugin_module, tmp_path, monkeypatch):
         monkeypatch.setattr(cfg, "STORAGE_LAYOUT", layout)
         monkeypatch.setattr(cfg, "SCHEDULER_LOCK_FILE", layout.beside(".scheduler.lock"))
         monkeypatch.setattr(cfg, "SCHEDULER_LAST_RUN_FILE", layout.beside(".scheduler_last_run.json"))
-        monkeypatch.setattr(cfg, "M3U_REFRESH_LOCK_FILE", str(data / "m3u_refresh.lock"))
-        monkeypatch.setattr(cfg, "M3U_REFRESH_PENDING_FILE", str(data / "m3u_refresh_pending"))
-        monkeypatch.setattr(cfg, "OPERATION_LOCK_FILE", str(data / "operation.lock"))
+        monkeypatch.setattr(cfg, "M3U_REFRESH_LOCK_FILE", layout.beside(".m3u_refresh.lock"))
+        monkeypatch.setattr(cfg, "M3U_REFRESH_PENDING_FILE", layout.beside(".m3u_refresh_pending"))
+        monkeypatch.setattr(cfg, "OPERATION_LOCK_FILE", layout.beside(".operation.lock"))
         monkeypatch.setattr(cfg, "MATCH_TALLY_FILE", str(data / "match_counts.jsonl"))
         return layout
 
@@ -295,3 +295,49 @@ def test_legacy_mode_takes_exactly_one_flock(plugin_module, tmp_path, monkeypatc
     assert len(calls) == 1
     p._release_m3u_refresh_flock(fd, log)
     assert len(calls) == 2
+
+
+def test_operation_lock_and_pending_flag_shared_across_slugs(rollout, monkeypatch):
+    """Workers on an old slug and a new slug see one operation lock and one pending flag."""
+    monkeypatch.setattr(os, "kill", lambda pid, sig: None)   # no pid is probed in this test
+    p, log = _plugin(rollout), Log()
+    foo = rollout.cfg.OPERATION_LOCK_FILE
+    foo_pending = rollout.cfg.M3U_REFRESH_PENDING_FILE
+    foo_m3u = rollout.cfg.M3U_REFRESH_LOCK_FILE
+    assert p._acquire_operation_lock("sort_streams", log) is True   # worker on slug foo
+    p._set_m3u_refresh_pending(log)
+    rollout.bind_to("bar")   # worker on slug bar, same key
+    assert rollout.cfg.OPERATION_LOCK_FILE == foo
+    assert rollout.cfg.M3U_REFRESH_PENDING_FILE == foo_pending
+    assert rollout.cfg.M3U_REFRESH_LOCK_FILE == foo_m3u
+    assert p._check_operation_lock(log)[0] is True
+    assert p._m3u_refresh_pending_set(log) is True
+
+
+def test_the_state_locks_are_beside_the_data_dirs(rollout):
+    layout = rollout.cfg.STORAGE_LAYOUT
+    items = {item.name: item for item in rollout.storage.items_for(rollout.cfg, layout)}
+    for name, leaf in (("OPERATION_LOCK_FILE", ".operation.lock"),
+                       ("M3U_REFRESH_LOCK_FILE", ".m3u_refresh.lock"),
+                       ("M3U_REFRESH_PENDING_FILE", ".m3u_refresh_pending")):
+        assert items[name].new == layout.beside(leaf)
+        assert items[name].kind == "nocopy"
+
+
+def test_second_pass_leaves_the_carry_over_record_alone(rollout):
+    """A process after the first pass copies nothing and must not rewrite the record."""
+    cfg = rollout.cfg
+    layout = cfg.STORAGE_LAYOUT
+    Path(cfg.LEGACY_PATHS["SETTINGS_FILE"]).write_text('{"x": 1}', encoding="utf-8")
+    items = rollout.storage.items_for(cfg, layout)
+    first = Log()
+    rollout.storage.migrate(layout, items, first, version="t")
+    record = Path(layout.data_dir, "migrated.json")
+    before = record.read_bytes()
+    assert any("carry-over copied" in str(a) for a in first.infos)
+
+    rollout.storage._state().migrated_dirs.clear()   # a new process: flag not set
+    second = Log()
+    rollout.storage.migrate(layout, items, second, version="t")
+    assert record.read_bytes() == before
+    assert not any("carry-over copied" in str(a) for a in second.infos)

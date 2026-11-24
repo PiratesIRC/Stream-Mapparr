@@ -186,6 +186,34 @@ def _no_real_usage_reporting(plugin_module, monkeypatch, tmp_path):
     assert started == [], "a test started a real usage send"
 
 
+PRODUCTION_DATA_DIR = "/data/plugins/_data/stream-mapparr"
+
+
+def production_report_dirs(storage_module):
+    """(shared reports dir, REPORT_DIR row) a shipped non-legacy process would use.
+
+    The autouse sandbox rewrites PluginConfig.REPORT_DIR into tmp, so a test that reads it
+    would pass even if the shipped value regressed. These are built from the production paths.
+    """
+    from types import SimpleNamespace
+    layout = storage_module.Layout(False, PRODUCTION_DATA_DIR, "/data/plugins", "stream-mapparr", "t")
+    fake = SimpleNamespace(LEGACY_PATHS={
+        name: "/data/legacy/" + name for name, _kind, _rel in storage_module._BIND_TABLE})
+    row = next(item for item in storage_module.items_for(fake, layout) if item.name == "REPORT_DIR")
+    return layout.shared_reports_dir(), row.new
+
+
+def report_dir_problems(path):
+    """Reasons a report directory is unsafe: it must sit under the shared tree, never /logos."""
+    path = str(path).replace("\\", "/")
+    problems = []
+    if "/logos" in path:
+        problems.append("under /logos, which nginx serves unauthenticated")
+    if not path.startswith("/data/plugins/_shared/"):
+        problems.append("not under /data/plugins/_shared/")
+    return problems
+
+
 @pytest.fixture
 def matcher(fuzzy_module, tmp_path):
     """A FuzzyMatcher with NO channel databases loaded (fast, deterministic).

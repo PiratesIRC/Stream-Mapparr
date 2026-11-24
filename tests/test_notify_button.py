@@ -6,6 +6,8 @@ plugin runs under gevent where an in-request match freezes the whole worker.
 """
 import inspect
 
+from conftest import production_report_dirs
+
 
 class _Logger:
     def __init__(self):
@@ -210,7 +212,8 @@ def test_the_export_cleaner_cannot_reach_an_emailed_report(plugin_module):
     rather than silently reintroduce the problem.
     """
     exports_dir = plugin_module.PluginConfig.EXPORTS_DIR.rstrip("/")
-    report_dir = plugin_module.PluginConfig.REPORT_DIR.rstrip("/")
+    report_dir = production_report_dirs(plugin_module.storage)[0].rstrip("/")
+    assert report_dir != "/data/exports"   # the production exports folder
     assert report_dir != exports_dir
     assert not report_dir.startswith(exports_dir + "/")
     assert not exports_dir.startswith(report_dir + "/")

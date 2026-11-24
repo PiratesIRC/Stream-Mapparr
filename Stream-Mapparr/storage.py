@@ -384,6 +384,17 @@ def _skipped():
     return MigrateResult([], [], False, True)
 
 
+def _markers_settled(layout):
+    """True when a finished pass already left the markers, naming this data dir."""
+    try:
+        if not os.path.exists(layout.beside(".migrated")):
+            return False
+        active = json.loads(_read_bytes(layout.beside(".active")).decode("utf-8"))
+        return _norm(active.get("data_dir", "")) == _norm(layout.data_dir)
+    except Exception:
+        return False
+
+
 def migrate(layout, items, logger, version=None):
     """Copy the old state into the data dir once. Design: the Carry-over section."""
     if layout.legacy:
@@ -435,6 +446,9 @@ def migrate(layout, items, logger, version=None):
                 failed.append(label)
         if not blocked:
             flags.add(_norm(layout.data_dir))
+        if not failed and not copied and _markers_settled(layout):
+            # Every later process lands here: nothing to copy and the markers already name this dir.
+            return MigrateResult([], [], blocked, False)
         now = time.time()
         try:
             atomic_write_json(os.path.join(layout.data_dir, "migrated.json"), {
@@ -526,9 +540,9 @@ _BIND_TABLE = (
     ("THROUGHPUT_CACHE_FILE", "file", "throughput_cache.json"),
     ("SCHEDULED_RUN_FILE", "file", "scheduled_run.json"),
     ("MATCH_TALLY_FILE", "tally", "match_counts.jsonl"),
-    ("OPERATION_LOCK_FILE", "nocopy", "operation.lock"),
-    ("M3U_REFRESH_LOCK_FILE", "nocopy", "m3u_refresh.lock"),
-    ("M3U_REFRESH_PENDING_FILE", "nocopy", "m3u_refresh_pending"),
+    ("OPERATION_LOCK_FILE", "nocopy", None),
+    ("M3U_REFRESH_LOCK_FILE", "nocopy", None),
+    ("M3U_REFRESH_PENDING_FILE", "nocopy", None),
     ("READOUT_FALLBACK_DIR", "dir", "readouts"),
     ("CHANNEL_SNAPSHOT_DIR", "dir", "snapshots"),
     ("USAGE_DATA_DIR", "usage_dir", "usage"),
@@ -540,6 +554,9 @@ _BIND_TABLE = (
 _BESIDE = {
     "SCHEDULER_LAST_RUN_FILE": ".scheduler_last_run.json",
     "SCHEDULER_LOCK_FILE": ".scheduler.lock",
+    "OPERATION_LOCK_FILE": ".operation.lock",
+    "M3U_REFRESH_LOCK_FILE": ".m3u_refresh.lock",
+    "M3U_REFRESH_PENDING_FILE": ".m3u_refresh_pending",
 }
 
 

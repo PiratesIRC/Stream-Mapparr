@@ -369,8 +369,8 @@ Four other places hold files:
   Newsflasharr attaches to its notifications. The folder is shared with Newsflasharr.
 - `/data/exports/` holds the CSV exports, as before.
 - `/data/stream_mapparr_*` holds the files from earlier versions. The first run on this
-  version copies them across and leaves them where they are. Delete them by hand once
-  this version has run once.
+  version copies them across and leaves them where they are. Delete them by hand only after
+  the log line reports 0 failed and `/data/plugins/_data/stream-mapparr.migrated` exists.
 - `/data/plugins/_data/` holds four small files beside the data directory:
   `<plugin id>.scheduler.lock`, `<plugin id>.scheduler_last_run.json`, `<plugin id>.active`
   and `<plugin id>.migrated`.

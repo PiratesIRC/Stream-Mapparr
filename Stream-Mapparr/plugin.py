@@ -2444,6 +2444,11 @@ class Plugin:
             paths.append(old)
         return paths
 
+    def _ensure_state_dir(self, path):
+        """Create the folder of a state file before it is opened, outside legacy mode only."""
+        if not self._storage_is_legacy():
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+
     def _read_scheduler_last_run(self):
         """Shared across all worker processes: {time_key: date_str} of which slot
         last ran on which date (the durable cross-worker claim record, bug-069)."""
@@ -2585,6 +2590,7 @@ class Plugin:
         """Non-blocking flock on one M3U refresh lock file; the stale-break applies to this path."""
         for attempt in (1, 2):
             try:
+                self._ensure_state_dir(path)
                 fd = open(path, "a")
             except OSError as e:
                 logger.warning(f"[Stream-Mapparr] could not open m3u-refresh lock {path}: {e}")
@@ -3431,6 +3437,7 @@ class Plugin:
         """Mark that another account finished while an auto-match was in flight."""
         for path in self._state_paths("M3U_REFRESH_PENDING_FILE"):
             try:
+                self._ensure_state_dir(path)
                 open(path, "a").close()
             except OSError as e:
                 logger.warning(f"[Stream-Mapparr] could not set m3u-refresh pending marker: {e}")
@@ -7347,6 +7354,7 @@ class Plugin:
             written = []
             try:
                 for path in self._state_paths("OPERATION_LOCK_FILE"):
+                    self._ensure_state_dir(path)
                     with open(path, 'w') as f:
                         json.dump(lock_data, f, indent=2)
                     written.append(path)
