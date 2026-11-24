@@ -371,13 +371,14 @@ Four other places hold files:
 - `/data/stream_mapparr_*` holds the files from earlier versions. The first run on this
   version copies them across and leaves them where they are. Delete them by hand only after
   the log line reports 0 failed and `/data/plugins/_data/stream-mapparr.migrated` exists.
-- `/data/plugins/_data/` holds four small files beside the data directory:
-  `<plugin id>.scheduler.lock`, `<plugin id>.scheduler_last_run.json`, `<plugin id>.active`
-  and `<plugin id>.migrated`.
+- `/data/plugins/_data/` holds seven small files beside the data directory:
+  `<plugin id>.scheduler.lock`, `<plugin id>.scheduler_last_run.json`, `<plugin id>.active`,
+  `<plugin id>.migrated`, `<plugin id>.operation.lock`, `<plugin id>.m3u_refresh.lock` and
+  `<plugin id>.m3u_refresh_pending` (the last exists only while a rerun is queued).
 
 Uninstalling the plugin and choosing "delete data" removes the data directory. That takes
 the match tally behind the Streams Matched badge and this install's anonymous usage id, so
-a reinstall starts a new id. The four small files and the shared reports folder are not
+a reinstall starts a new id. The seven small files and the shared reports folder are not
 removed by that choice.
 
 ## Changelog
