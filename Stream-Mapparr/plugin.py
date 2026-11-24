@@ -424,8 +424,8 @@ class PluginConfig:
 
     # === FILE PATHS ===
     # Fill Mirror Backups writes each changed channel's previous stream order
-    # here before it writes anything. Outside /data/plugins on purpose: a
-    # directory there is loaded as a plugin.
+    # here before it writes anything. It sits in the plugin data directory, which
+    # Dispatcharr's discovery skips, so nothing there is ever loaded as a plugin.
     CHANNEL_SNAPSHOT_DIR = "/data/stream_mapparr_snapshots"
     # Usage counts keep their own dir; storage.bind moves it with the rest.
     USAGE_DATA_DIR = "/data/plugin_stats"
@@ -1179,8 +1179,8 @@ class Plugin:
                              "and it carries one attachment, because a notification can "
                              "carry only one. The HTML page holds everything the CSV does "
                              "and reads on a phone, so it is the one that travels unless "
-                             "you pick CSV. Both files are always written to "
-                             "/data/stream_mapparr_reports, and the email names the one it "
+                             "you pick CSV. Both files are always written to the shared reports "
+                             "folder /data/plugins/_shared/newsflasharr/stream-mapparr/, and the email names the one it "
                              "did not attach so you know it is there.",
             },
             {
@@ -1901,7 +1901,7 @@ class Plugin:
             "id": "report_a_bug",
             "label": "🐛 Report a Bug or Request a Feature",
             "button_label": "🐛 Report a Bug",
-            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ (or /data/stream_mapparr_readouts/ when /config cannot be written) with the version, your settings and the latest CSV, and show the issues address.",
+            "description": "Write a ready-to-paste bug report to /config/stream-mapparr/ (or the readouts folder in the plugin's data directory when /config cannot be written) with the version, your settings and the latest CSV, and show the issues address.",
             "button_color": "cyan",
         },
         {
@@ -2061,7 +2061,7 @@ class Plugin:
     def _reconcile_schedule_with_db(self):
         """Make the schedule come from the DATABASE, not from a file that drifts.
 
-        `/data/stream_mapparr_settings.json` is a cache of what the interface
+        `settings.json` in the plugin data directory is a cache of what the interface
         last wrote; the plugin row in the database is what the interface
         actually saved. They can disagree, and on this installation they did:
         measured 2026-08-12, the row held a daily 05:00 schedule while the file
@@ -2214,7 +2214,7 @@ class Plugin:
         """Append one line to the lifetime tally the public badge is built from.
 
         Recorded as it happens because it cannot be reconstructed afterwards.
-        /data/stream_mapparr_last_results.json holds only the most recent run,
+        last_results.json in the plugin data directory holds only the most recent run,
         and a CSV export in /data/exports exists only when the operator has CSV
         export switched on, so neither is a record of what the plugin has done.
 
@@ -3489,7 +3489,7 @@ class Plugin:
         `getattr(self, '_prioritize_quality', False)` default in the comparator and
         ordered by source first. Resolve from the `settings` argument Dispatcharr
         passes to run() — NOT from self.saved_settings, which is hydrated from the
-        stream_mapparr_settings.json snapshot and is documented to drift from the DB.
+        settings.json snapshot and is documented to drift from the DB.
         """
         value = settings.get('prioritize_quality', PluginConfig.DEFAULT_PRIORITIZE_QUALITY)
         if isinstance(value, str):

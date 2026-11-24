@@ -248,7 +248,7 @@ the operation lock prevents concurrent runs and auto-expires after 10 minutes.
 | **Match US OTA Only** | Match US broadcast channels by callsign |
 | **Sort Alternate Streams** | Re-sort existing streams by quality, and by throughput tier where probe data exists |
 | **Probe Stream Throughput** | Measure sustained throughput for assigned streams. Run this before Sort Alternate Streams |
-| **Fill Mirror Backups** | For M3U accounts placed in one Dispatcharr server group that carry the same streams from different provider hosts, add to each channel the matching stream, found by provider stream id, from every other active account whose host the channel has no stream from yet. Two accounts on the same host count as one, and inactive accounts are skipped. New streams go after the existing provider streams and before any custom stream. Adds only and never removes. In live mode it first saves each changed channel's previous stream order to `/data/stream_mapparr_snapshots/`, and changes nothing if that save fails. Writes every addition to `/config/stream-mapparr/fill-mirror-backups.txt` |
+| **Fill Mirror Backups** | For M3U accounts placed in one Dispatcharr server group that carry the same streams from different provider hosts, add to each channel the matching stream, found by provider stream id, from every other active account whose host the channel has no stream from yet. Two accounts on the same host count as one, and inactive accounts are skipped. New streams go after the existing provider streams and before any custom stream. Adds only and never removes. In live mode it first saves each changed channel's previous stream order to `snapshots/` in the plugin's data directory (see [Where Stream-Mapparr keeps its files](#where-stream-mapparr-keeps-its-files)), and changes nothing if that save fails. Writes every addition to `/config/stream-mapparr/fill-mirror-backups.txt` |
 | **Manage Channel Visibility** | Enable or disable channels based on stream count |
 | **View Status** | Show the running operation's percentage and estimated time, or a summary of the last completed operation when nothing is running |
 | **Clear CSV Exports** | Delete plugin CSV files, skipping any written in the last 40 minutes |
@@ -348,11 +348,37 @@ asks the server to delete this install's figures. Once the server confirms the
 delete, the plugin forgets its id, and ticking the setting again later starts a
 new one; if the delete could not reach the server, the plugin keeps the id and
 retries. The plugin keeps that id and the timing of its reports in
-/data/plugin_stats/stream-mapparr/ (install_id, sent, backoff, disabled,
-delete_backoff, lock). To start a new id, untick the setting and let a run
+`usage/stream-mapparr/` inside the plugin's data directory (install_id, sent,
+backoff, disabled, delete_backoff, lock). To start a new id, untick the setting and let a run
 finish so the delete succeeds; deleting that folder while the setting is ticked
 leaves the old figures on the server, and the new id then sends the full total
 again, so the badge counts those matches twice.
+
+## Where Stream-Mapparr keeps its files
+
+Dispatcharr 0.34 gives each plugin a private data directory. On that version Stream-Mapparr
+keeps its state there, in `/data/plugins/_data/<plugin id>/` (for this plugin,
+`/data/plugins/_data/stream-mapparr/`). It holds the saved settings cache, the processed
+results, the last run's results, the match tally behind the Streams Matched badge, the
+channel snapshots, the readouts written when `/config` cannot be written, and the usage
+counts folder. On Dispatcharr 0.33 nothing moves.
+
+Four other places hold files:
+
+- `/data/plugins/_shared/newsflasharr/stream-mapparr/` holds the run reports that
+  Newsflasharr attaches to its notifications. The folder is shared with Newsflasharr.
+- `/data/exports/` holds the CSV exports, as before.
+- `/data/stream_mapparr_*` holds the files from earlier versions. The first run on this
+  version copies them across and leaves them where they are. Delete them by hand once
+  this version has run once.
+- `/data/plugins/_data/` holds four small files beside the data directory:
+  `<plugin id>.scheduler.lock`, `<plugin id>.scheduler_last_run.json`, `<plugin id>.active`
+  and `<plugin id>.migrated`.
+
+Uninstalling the plugin and choosing "delete data" removes the data directory. That takes
+the match tally behind the Streams Matched badge and this install's anonymous usage id, so
+a reinstall starts a new id. The four small files and the shared reports folder are not
+removed by that choice.
 
 ## Changelog
 

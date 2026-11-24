@@ -36,8 +36,9 @@ try:
 except ImportError:  # pragma: no cover - exercised by the test suite's path
     import report_chrome
 
-# Reports are written here, deliberately NOT under /data/logos: Dispatcharr's
-# nginx serves that tree unauthenticated to the entire local network.
+# Reports are written to PluginConfig.REPORT_DIR, which storage.bind moves to the shared
+# Newsflasharr folder. Deliberately NOT under /data/logos: Dispatcharr's nginx serves that
+# tree unauthenticated to the entire local network.
 # Marker appended to a stream name that was demoted for carrying too little
 # video for the resolution it claims (issue 40). Kept in step with
 # PluginConfig.CONTENT_STARVED_LABEL, and plain ASCII because this report is
