@@ -31,7 +31,7 @@ Choosing CSV emails the CSV instead.
 Earlier versions emitted one notification per file, so choosing both produced
 two separate emails per run.
 
-Both files are written to `/data/stream_mapparr_reports` either way, and the
+Both files are written to `/data/plugins/_shared/newsflasharr/stream-mapparr/` either way, and the
 email names the one it did not attach so it is not mistaken for missing.
 
 ## The Report a Bug button can email too
