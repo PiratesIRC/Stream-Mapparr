@@ -39,6 +39,10 @@ ALLOWED = {
     # vendored notify and usage clients and notify_bridge name for their own fallbacks.
     "/data/exports",
     "/data/iptv_checker_progress.json",
+    # IPTV Checker is the WRITER of the two new progress paths (the Hub route sets the hyphen
+    # slug). It writes them beside its data dir during the rollout; Stream-Mapparr only reads.
+    "/data/plugins/_data/iptv_checker.progress.json",
+    "/data/plugins/_data/iptv-checker.progress.json",
     "/data/newsflasharr",
 }
 

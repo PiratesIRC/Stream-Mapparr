@@ -155,7 +155,12 @@ def _sandbox_plugin_data_paths(plugin_module, tmp_path, monkeypatch):
         if name.startswith("_"):
             continue
         value = getattr(cfg, name)
-        if isinstance(value, str) and value.startswith("/data"):
+        if isinstance(value, tuple) and value and all(
+                isinstance(v, str) and v.startswith("/data") for v in value):
+            # A tuple of /data candidates (IPTV_CHECKER_PROGRESS_CANDIDATES) redirects per element.
+            monkeypatch.setattr(cfg, name, tuple(
+                str(sandbox / v[len("/data/"):].lstrip("/")) for v in value), raising=False)
+        elif isinstance(value, str) and value.startswith("/data"):
             monkeypatch.setattr(
                 cfg, name, str(sandbox / value[len("/data/"):].lstrip("/")), raising=False
             )

@@ -523,7 +523,14 @@ class PluginConfig:
     DEFAULT_IPTV_CHECKER_MAX_WAIT_HOURS = 6  # Maximum hours to wait for IPTV Checker
     DEFAULT_RUN_AFTER_IPTV_CHECKER_SCAN = False  # Run the scheduled sequence when IPTV Checker finishes a scheduled scan
     IPTV_CHECKER_TRIGGER_LABEL = "IPTV Checker scan"  # Names the trigger in logs and the CSV header
-    IPTV_CHECKER_PROGRESS_FILE = "/data/iptv_checker_progress.json"  # IPTV Checker progress file
+    IPTV_CHECKER_PROGRESS_FILE = "/data/iptv_checker_progress.json"  # IPTV Checker progress file (legacy path)
+    # IPTV Checker's new progress files, beside its data dir. The Hub install route sets the
+    # slug to hyphens. IPTV Checker writes the same bytes to these AND the legacy path during
+    # the rollout; _iptv_checker_progress_path() picks the newest existing one.
+    IPTV_CHECKER_PROGRESS_CANDIDATES = (
+        "/data/plugins/_data/iptv_checker.progress.json",
+        "/data/plugins/_data/iptv-checker.progress.json",
+    )
     IPTV_CHECKER_CHECK_INTERVAL = 60  # Check IPTV Checker status every 60 seconds
 
     # === THROUGHPUT PROBE SETTINGS ===
@@ -963,6 +970,27 @@ class _M3URefreshHold:
                 handle.close()
             except OSError:
                 pass
+
+
+def _iptv_checker_progress_path():
+    """The IPTV Checker progress file to read, or the legacy path when none exists.
+
+    Candidates are IPTV_CHECKER_PROGRESS_CANDIDATES in order, then the legacy
+    IPTV_CHECKER_PROGRESS_FILE. Missing files are skipped. The existing file with
+    the newest mtime wins; on a tie the earlier candidate wins. When no candidate
+    exists the legacy path is returned, so callers see the same missing file as
+    before this helper existed.
+    """
+    best_path, best_mtime = None, None
+    for candidate in (*PluginConfig.IPTV_CHECKER_PROGRESS_CANDIDATES,
+                      PluginConfig.IPTV_CHECKER_PROGRESS_FILE):
+        try:
+            mtime = os.path.getmtime(candidate)
+        except OSError:
+            continue
+        if best_mtime is None or mtime > best_mtime:
+            best_path, best_mtime = candidate, mtime
+    return best_path if best_path is not None else PluginConfig.IPTV_CHECKER_PROGRESS_FILE
 
 
 class Plugin:
@@ -5847,8 +5875,7 @@ class Plugin:
         
         max_wait_seconds = max_wait_hours * 3600
         check_interval = PluginConfig.IPTV_CHECKER_CHECK_INTERVAL
-        progress_file = PluginConfig.IPTV_CHECKER_PROGRESS_FILE
-        
+
         logger.info(f"[Stream-Mapparr] Checking if IPTV Checker is running (max wait: {max_wait_hours} hours)...")
         
         start_time = time.time()
@@ -5857,7 +5884,8 @@ class Plugin:
         
         while True:
             try:
-                # Check if IPTV Checker progress file exists
+                # Check if IPTV Checker progress file exists (newest of its candidate paths)
+                progress_file = _iptv_checker_progress_path()
                 if not os.path.exists(progress_file):
                     logger.info("[Stream-Mapparr] IPTV Checker progress file not found - assuming not running")
                     return True
@@ -9423,7 +9451,7 @@ class Plugin:
         can never silence the schedule.
         """
         try:
-            with open(PluginConfig.IPTV_CHECKER_PROGRESS_FILE, 'r') as fh:
+            with open(_iptv_checker_progress_path(), 'r') as fh:
                 return json.load(fh).get('status') == 'running'
         except (OSError, ValueError, AttributeError):
             return False
