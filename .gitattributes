@@ -25,4 +25,7 @@ aliases_base.py text eol=lf
 # The vendored usage client is sha256-pinned (scripts/client_manifest.json and
 # tests/test_usage_client_parity.py), so it MUST stay LF on every OS.
 Stream-Mapparr/usage_client.py text eol=lf
+# The vendored storage layer is sha256-pinned (scripts/storage_manifest.json and
+# tests/test_storage_parity.py), so it MUST stay LF on every OS.
+Stream-Mapparr/plugin_storage.py text eol=lf
 .githooks/* text eol=lf
