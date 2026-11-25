@@ -336,7 +336,7 @@ def test_second_pass_leaves_the_carry_over_record_alone(rollout):
     before = record.read_bytes()
     assert any("carry-over copied" in str(a) for a in first.infos)
 
-    rollout.storage._state().migrated_dirs.clear()   # a new process: flag not set
+    rollout.storage._ps._state(rollout.storage.SPEC).migrated_dirs.clear()   # a new process: flag not set
     second = Log()
     rollout.storage.migrate(layout, items, second, version="t")
     assert record.read_bytes() == before

@@ -102,7 +102,7 @@ def layout_of(storage, roots, data=None, key="stream-mapparr"):
 
 
 def use_layout(monkeypatch, storage, layout):
-    monkeypatch.setattr(storage, "resolve", lambda *a, **k: layout)
+    monkeypatch.setattr(storage._ps, "resolve", lambda *a, **k: layout)
 
 
 def write(path, text):
@@ -132,8 +132,8 @@ def load_bound_plugin(monkeypatch, storage, roots, layout, before_exec=None):
     sys.modules[pkg] = pkg_mod
     fresh_storage = importlib.import_module(f"{pkg}.storage")
     assert fresh_storage is not storage
-    monkeypatch.setattr(fresh_storage, "resolve", lambda *a, **k: layout)
-    monkeypatch.setattr(fresh_storage, "REFUSE_REAL_DATA", True)
+    monkeypatch.setattr(fresh_storage._ps, "resolve", lambda *a, **k: layout)
+    monkeypatch.setattr(fresh_storage._ps, "REFUSE_REAL_DATA", True)
     if before_exec is not None:
         before_exec(fresh_storage)
     source = Path(plugin_file()).read_text(encoding="utf-8")
@@ -195,7 +195,7 @@ def test_bind_rebinds_every_table_row(storage, roots, monkeypatch):
     assert cfg.USAGE_DATA_DIR == os.path.join(d, "usage")
     assert cfg.SCHEDULER_LAST_RUN_FILE == layout.beside(".scheduler_last_run.json")
     assert cfg.SCHEDULER_LOCK_FILE == layout.beside(".scheduler.lock")
-    assert cfg.REPORT_DIR == layout.shared_reports_dir()
+    assert cfg.REPORT_DIR == layout.shared_reports_dir("stream-mapparr")
 
 
 def test_legacy_paths_recorded(storage, roots, monkeypatch):
@@ -213,7 +213,7 @@ def test_migrate_failure_restores_legacy_paths(storage, roots, monkeypatch):
     def boom(*args, **kwargs):
         raise OSError("lock failed")
 
-    monkeypatch.setattr(storage, "migrate", boom)
+    monkeypatch.setattr(storage._ps, "migrate", boom)
     cfg = make_cfg(roots.old)
     before = {n: getattr(cfg, n) for n in OLD_LEAVES}
     log = Log()
@@ -240,14 +240,14 @@ def test_reimport_does_not_recopy(storage, roots, monkeypatch):
 def test_install_id_blocked_flag_set_on_failed_copy(storage, roots, monkeypatch):
     use_layout(monkeypatch, storage, layout_of(storage, roots))
     write(os.path.join(roots.old, "plugin_stats", "stream-mapparr", "install_id"), "abc")
-    real_copy = storage._copy_one
+    real_copy = storage._ps._copy_one
 
     def fail_install_id(dst, sources, copied):
         if os.path.basename(dst) == "install_id":
             raise OSError("denied")
         return real_copy(dst, sources, copied)
 
-    monkeypatch.setattr(storage, "_copy_one", fail_install_id)
+    monkeypatch.setattr(storage._ps, "_copy_one", fail_install_id)
     cfg = make_cfg(roots.old)
     storage.bind(cfg, plugin_file(), Log())
     assert cfg.STORAGE_MIGRATION.install_id_blocked is True
@@ -361,14 +361,14 @@ def test_install_id_blocked_never_mints(storage, roots, monkeypatch):
     write(os.path.join(usage_old, "install_id"), "abc")
 
     def fail_install_id_copy(fresh_storage):
-        real_copy = fresh_storage._copy_one
+        real_copy = fresh_storage._ps._copy_one
 
         def fail_install_id(dst, sources, copied):
             if os.path.basename(dst) == "install_id":
                 raise OSError("denied")
             return real_copy(dst, sources, copied)
 
-        monkeypatch.setattr(fresh_storage, "_copy_one", fail_install_id)
+        monkeypatch.setattr(fresh_storage._ps, "_copy_one", fail_install_id)
 
     mod = load_bound_plugin(monkeypatch, storage, roots, layout, before_exec=fail_install_id_copy)
     usage_client = importlib.import_module(mod.__package__ + ".usage_client")
@@ -414,13 +414,13 @@ def test_opted_in_send_is_reachable_without_the_override(storage, roots, monkeyp
 
 
 def test_refuse_real_blocks_plugin_writes(storage, monkeypatch):
-    monkeypatch.setattr(storage, "REFUSE_REAL_DATA", True)
+    monkeypatch.setattr(storage._ps, "REFUSE_REAL_DATA", True)
     with pytest.raises(RuntimeError):
         storage.atomic_write_json("/data/x.json", {})
     with pytest.raises(RuntimeError):
         storage.atomic_write_bytes("/data/x.json", b"{}")
     with pytest.raises(RuntimeError):
-        storage._append_bytes("/data/match_counts.jsonl", b"x\n")
+        storage._ps._append_bytes("/data/match_counts.jsonl", b"x\n")
 
 
 @pytest.mark.parametrize("breaks", ["items_for", "resolve"])
@@ -429,7 +429,7 @@ def test_any_bind_exception_degrades_to_legacy(storage, roots, monkeypatch, brea
         raise ValueError("broken")
 
     use_layout(monkeypatch, storage, layout_of(storage, roots))  # non-legacy, so items_for runs
-    monkeypatch.setattr(storage, breaks, boom)
+    monkeypatch.setattr(storage._ps, breaks, boom)
     cfg = make_cfg(roots.old)
     before = {n: getattr(cfg, n) for n in OLD_LEAVES}
     log = Log()
@@ -457,7 +457,7 @@ def test_reports_copied_and_new_dir_used(storage, roots, monkeypatch):
         os.utime(path, (1_000_000 + i, 1_000_000 + i))
     old_files = sorted(os.listdir(report_old))
     mod = load_bound_plugin(monkeypatch, storage, roots, layout)
-    shared = layout.shared_reports_dir()
+    shared = layout.shared_reports_dir("stream-mapparr")
     assert mod.PluginConfig.REPORT_DIR == shared
     assert read(os.path.join(shared, names[0])) == "<p>0</p>"
     if os.name == "posix":

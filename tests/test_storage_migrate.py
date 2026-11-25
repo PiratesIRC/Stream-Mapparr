@@ -174,14 +174,14 @@ def test_marker_stops_legacy_reads(storage, env):
 def test_failed_pass_writes_no_marker_or_active(storage, env, monkeypatch):
     write(P(env.old, "stream_mapparr_settings.json"), "OLD")
     bad = P(env.old, "stream_mapparr_settings.json")
-    real = storage._read_bytes
+    real = storage._ps._read_bytes
 
     def denied(path):
         if path == bad:
             raise PermissionError(13, "denied")
         return real(path)
 
-    monkeypatch.setattr(storage, "_read_bytes", denied)
+    monkeypatch.setattr(storage._ps, "_read_bytes", denied)
     res = storage.migrate(layout_for(storage, env), [settings_item(storage, env)], Log())
     assert res.failed == ["settings.json"]
     assert not os.path.exists(P(env.plugins, "_data", "stream-mapparr.migrated"))
@@ -193,14 +193,14 @@ def test_unreadable_source_blocks_marker_only(storage, env, monkeypatch):
     good = P(env.old, "stream_mapparr_processed.json")
     write(bad, "S")
     write(good, "P")
-    real = storage._read_bytes
+    real = storage._ps._read_bytes
 
     def denied(path):
         if path == bad:
             raise PermissionError(13, "denied")
         return real(path)
 
-    monkeypatch.setattr(storage, "_read_bytes", denied)
+    monkeypatch.setattr(storage._ps, "_read_bytes", denied)
     items = [settings_item(storage, env),
              storage.Item("PROCESSED", good, P(env.new, "processed.json"), "file", rel="processed.json")]
     lay = layout_for(storage, env)
@@ -210,7 +210,7 @@ def test_unreadable_source_blocks_marker_only(storage, env, monkeypatch):
     assert res.failed == ["settings.json"]
     assert not os.path.exists(P(env.plugins, "_data", "stream-mapparr.migrated"))
     # Retry on the next start, with the source readable again.
-    monkeypatch.setattr(storage, "_read_bytes", real)
+    monkeypatch.setattr(storage._ps, "_read_bytes", real)
     sys.modules.pop(STATE, None)
     res2 = storage.migrate(lay, items, Log())
     assert res2.failed == []
@@ -278,20 +278,20 @@ def test_install_id_copy_failure_blocks(storage, env, monkeypatch):
     items = [storage.Item("USAGE", P(env.old, "usage"), P(env.new, "usage"), "usage_dir",
                           rel="usage")]
     lay = layout_for(storage, env)
-    real = storage._read_bytes
+    real = storage._ps._read_bytes
 
     def denied(path):
         if path == install:
             raise PermissionError(13, "denied")
         return real(path)
 
-    monkeypatch.setattr(storage, "_read_bytes", denied)
+    monkeypatch.setattr(storage._ps, "_read_bytes", denied)
     res = storage.migrate(lay, items, Log())
     assert res.install_id_blocked is True
     assert res.skipped_pass is False
     assert not os.path.exists(P(env.plugins, "_data", "stream-mapparr.migrated"))
     # The flag is not set, so the next call runs the pass again and succeeds.
-    monkeypatch.setattr(storage, "_read_bytes", real)
+    monkeypatch.setattr(storage._ps, "_read_bytes", real)
     res2 = storage.migrate(lay, items, Log())
     assert res2.skipped_pass is False
     assert res2.install_id_blocked is False
@@ -308,7 +308,7 @@ def test_second_call_is_noop_without_lock(storage, env, monkeypatch):
     def no_lock(path):
         raise AssertionError("the hot path must not lock")
 
-    monkeypatch.setattr(storage, "_lock", no_lock)
+    monkeypatch.setattr(storage._ps, "_lock", no_lock)
     res = storage.migrate(lay, [settings_item(storage, env)], Log())
     assert res.skipped_pass is True
     assert res.copied == [] and res.failed == []
@@ -319,14 +319,14 @@ def test_temp_name_outside_tally_glob(storage, env):
     tally = P(env.new, "match_counts.jsonl")
     storage.migrate(layout_for(storage, env), [tally_item(storage, env)], Log())
     assert glob.glob(tally + "*") == [tally]
-    assert os.path.basename(storage._temp_path(tally)).startswith(".")
+    assert os.path.basename(storage._ps._temp_path(tally)).startswith(".")
 
 
 def test_tally_offset_equals_bytes_copied_even_if_source_grows(storage, env, monkeypatch):
     old_tally = P(env.old, "stream_mapparr_match_counts.jsonl")
     write(old_tally, "t1\n")
     grow = [True]
-    real = storage._read_bytes
+    real = storage._ps._read_bytes
 
     def growing(path):
         data = real(path)
@@ -335,7 +335,7 @@ def test_tally_offset_equals_bytes_copied_even_if_source_grows(storage, env, mon
                 fh.write(b"t2\n")
         return data
 
-    monkeypatch.setattr(storage, "_read_bytes", growing)
+    monkeypatch.setattr(storage._ps, "_read_bytes", growing)
     lay = layout_for(storage, env)
     storage.migrate(lay, [tally_item(storage, env)], Log())
     grow[0] = False
@@ -370,12 +370,12 @@ def test_crash_between_offsets_and_replace(storage, env, monkeypatch):
             raise OSError("simulated crash")
         return real_replace(src, dst)
 
-    monkeypatch.setattr(storage.os, "replace", crash_on_tally)
+    monkeypatch.setattr(storage._ps.os, "replace", crash_on_tally)
     lay = layout_for(storage, env)
     res = storage.migrate(lay, [tally_item(storage, env)], Log())
     assert res.failed == ["match_counts.jsonl"]
     assert not os.path.exists(tally)
-    monkeypatch.setattr(storage.os, "replace", real_replace)
+    monkeypatch.setattr(storage._ps.os, "replace", real_replace)
     sys.modules.pop(STATE, None)
     res2 = storage.migrate(lay, [tally_item(storage, env)], Log())
     assert res2.failed == []
@@ -397,7 +397,7 @@ def test_crash_between_offset_write_and_append(storage, env, monkeypatch):
     def crash(path, data):
         raise OSError("simulated crash")
 
-    monkeypatch.setattr(storage, "_append_bytes", crash)
+    monkeypatch.setattr(storage._ps, "_append_bytes", crash)
     assert storage.sync_tally_tail(lay, tally, Log()) == 0
     monkeypatch.undo()
     # The offset moved past the lost batch, so it is never appended later (undercount, not double).
@@ -423,7 +423,7 @@ def test_legacy_layout_is_a_no_op(storage, env):
 
 
 def test_refuse_real_data_flag(storage, env, monkeypatch):
-    monkeypatch.setattr(storage, "REFUSE_REAL_DATA", True)
+    monkeypatch.setattr(storage._ps, "REFUSE_REAL_DATA", True)
     item = storage.Item("SETTINGS", "/data/stream_mapparr_settings.json",
                         P(env.new, "settings.json"), "file", rel="settings.json")
     with pytest.raises(RuntimeError):
@@ -493,11 +493,11 @@ def test_tail_during_copy_is_never_lost(storage, env, monkeypatch):
             t.join(0.5)
         return real_write(path, data)
 
-    monkeypatch.setattr(storage, "atomic_write_bytes", racing_write)
+    monkeypatch.setattr(storage._ps, "atomic_write_bytes", racing_write)
     storage.migrate(lay, [tally_item(storage, env)], Log())
     for t in threads:
         t.join(5)
-    monkeypatch.setattr(storage, "atomic_write_bytes", real_write)
+    monkeypatch.setattr(storage._ps, "atomic_write_bytes", real_write)
     storage.sync_tally_tail(lay, tally, Log())
     assert read(tally) == b"t1\nt2\n"
     assert read(tally).count(b"t2\n") == 1

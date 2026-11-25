@@ -148,7 +148,7 @@ def test_makedirs_failure_is_legacy(storage, monkeypatch, tmp_path):
     def refuse(*args, **kwargs):
         raise PermissionError("denied")
 
-    monkeypatch.setattr(storage.os, "makedirs", refuse)
+    monkeypatch.setattr(storage._ps.os, "makedirs", refuse)
     logger = MagicMock()
 
     layout = storage.resolve(plugin_dir, "stream-mapparr", logger)
@@ -164,7 +164,7 @@ def test_makedirs_non_oserror_is_legacy(storage, monkeypatch, tmp_path):
     def refuse(*args, **kwargs):
         raise ValueError("not a path")
 
-    monkeypatch.setattr(storage.os, "makedirs", refuse)
+    monkeypatch.setattr(storage._ps.os, "makedirs", refuse)
     logger = MagicMock()
 
     layout = storage.resolve(plugin_dir, "stream-mapparr", logger)
@@ -234,7 +234,7 @@ def test_beside_and_shared_reports_dir_hang_off_plugins_dir(storage, monkeypatch
     layout = storage.resolve(plugin_dir, "stream-mapparr", MagicMock())
 
     assert layout.beside(".active") == os.path.join(plugins, "_data", "stream-mapparr.active")
-    assert layout.shared_reports_dir() == os.path.join(
+    assert layout.shared_reports_dir("stream-mapparr") == os.path.join(
         plugins, "_shared", "newsflasharr", "stream-mapparr")
 
 

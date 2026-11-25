@@ -167,8 +167,8 @@ def _sandbox_plugin_data_paths(plugin_module, tmp_path, monkeypatch):
             for name, value in legacy.items()
         }
         monkeypatch.setattr(cfg, "LEGACY_PATHS", redirected, raising=False)
-    # Real Dispatcharr data is refused at the storage layer too, on the module plugin.py imported.
-    monkeypatch.setattr(plugin_module.storage, "REFUSE_REAL_DATA", True)
+    # Real Dispatcharr data is refused at the storage layer too, on the vendored module plugin.py imported.
+    monkeypatch.setattr(plugin_module.storage._ps, "REFUSE_REAL_DATA", True)
     yield
 
 
@@ -200,7 +200,7 @@ def production_report_dirs(storage_module):
     fake = SimpleNamespace(LEGACY_PATHS={
         name: "/data/legacy/" + name for name, _kind, _rel in storage_module._BIND_TABLE})
     row = next(item for item in storage_module.items_for(fake, layout) if item.name == "REPORT_DIR")
-    return layout.shared_reports_dir(), row.new
+    return layout.shared_reports_dir("stream-mapparr"), row.new
 
 
 def report_dir_problems(path):

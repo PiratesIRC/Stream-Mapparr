@@ -57,7 +57,9 @@ def _literals(path):
 def test_every_data_literal_is_accounted_for():
     found = set()
     for path in sorted(PLUGIN_DIR.glob("*.py")):
-        if path.name == "storage.py":
+        if path.name in ("storage.py", "plugin_storage.py"):
+            # Both name the legacy /data paths on purpose: storage.py's table and the vendored
+            # layer's guard and docstrings. plugin.py and the rest are still checked.
             continue
         found |= _literals(path)
     strays = found - ALLOWED

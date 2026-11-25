@@ -1,4 +1,4 @@
-"""storage._lock creates its lock file readable and writable by its owner only.
+"""plugin_storage._lock creates its lock file readable and writable by its owner only.
 
 The Dispatcharr Plugin Hub runs CodeQL on the released archive and refuses a pull
 request on a high finding. Mode 0o644 on the lock file's os.open raised
@@ -24,7 +24,7 @@ def storage():
 
 
 def test_no_world_bits_in_any_os_open_mode():
-    path = os.path.join(os.path.dirname(__file__), os.pardir, "Stream-Mapparr", "storage.py")
+    path = os.path.join(os.path.dirname(__file__), os.pardir, "Stream-Mapparr", "plugin_storage.py")
     with open(path, encoding="utf-8") as fh:
         source = fh.read()
     modes = re.findall(r"os\.open\([^)]*?(0o[0-7]{3})\)", source)
@@ -38,7 +38,7 @@ def test_created_lock_file_has_no_world_bits(storage, tmp_path):
     lock_path = str(tmp_path / "x.lock")
     old_umask = os.umask(0)
     try:
-        with storage._lock(lock_path):
+        with storage._ps._lock(lock_path):
             pass
     finally:
         os.umask(old_umask)
