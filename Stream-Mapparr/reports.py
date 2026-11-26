@@ -45,8 +45,6 @@ except ImportError:  # pragma: no cover - exercised by the test suite's path
 # emailed and rendered as both HTML and CSV.
 PLACEHOLDER_LABEL = "placeholder"
 
-REPORT_DIR = "/data/stream_mapparr_reports"
-
 # How many of each file type to keep. Newsflasharr re-reads an attachment path
 # on every retry attempt across a worst case of 2130 seconds, about 35 minutes,
 # so retention must exceed that by a wide margin. At one report per run, eight

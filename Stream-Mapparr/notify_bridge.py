@@ -13,12 +13,6 @@ has shipped before.
 import json
 import os
 
-# Written by the SCHEDULED path only. Newsflasharr's own absence detector stamps
-# a timestamp on ANY successful attachment send, so it cannot tell a scheduled
-# run from a button press. This file is the only signal that can answer whether
-# the schedule itself is still alive.
-SCHEDULED_RUN_FILE = "/data/stream_mapparr_scheduled_run.json"
-
 _TRIGGERS = ("never", "scheduled", "every_run")
 _DEFAULT_TRIGGER = "scheduled"
 
