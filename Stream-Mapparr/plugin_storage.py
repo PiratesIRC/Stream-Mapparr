@@ -408,7 +408,7 @@ def _restore_offsets(offsets_path, before):
         pass
 
 
-def _copy_tally(spec: Spec, item, data_dir, sources, copied, logger):
+def _copy_tally(spec: Spec, item, data_dir, sources, copied, logger=None):
     """Copy the tally cut at its last newline, recording the offset before the copy shows.
 
     When the new tally already exists (a first pass failed here and the plugin wrote its own
@@ -429,8 +429,9 @@ def _copy_tally(spec: Spec, item, data_dir, sources, copied, logger):
                 if src not in offsets:
                     offsets[src] = 0
                     atomic_write_json(offsets_path, offsets)
-                    logger.info("%s: tally offset recorded at 0 for a legacy file the new tally "
-                                "already holds" % spec.label)
+                    if logger is not None:
+                        logger.info("%s: tally offset recorded at 0 for a legacy file the new tally "
+                                    "already holds" % spec.label)
             return
         return
     for src in sources:
