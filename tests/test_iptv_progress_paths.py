@@ -109,3 +109,31 @@ def test_wait_site_newest_idle_file_wins(plugin_module, monkeypatch, tmp_path):
     _write(legacy, IDLE, 2_000_000)
     settings = {"wait_for_iptv_checker": True, "iptv_checker_max_wait_hours": 0}
     assert _plugin(plugin_module)._wait_for_iptv_checker_completion(settings, log) is True
+
+
+def _warnings(caplog):
+    return [r for r in caplog.records
+            if r.levelno == logging.WARNING and "progress" in r.getMessage().lower()]
+
+
+def test_legacy_fallback_warns_once_per_process(plugin_module, monkeypatch, tmp_path, caplog):
+    """No candidate exists: the legacy path is returned, and the fallback is named in
+    exactly one WARNING however many times the helper runs in this process."""
+    new, hyphen, legacy = _paths(plugin_module, monkeypatch, tmp_path)
+    monkeypatch.setattr(plugin_module, "_LEGACY_PROGRESS_WARNED", False)
+    caplog.set_level(logging.WARNING, logger=plugin_module.LOGGER.name)
+    for _ in range(3):
+        assert plugin_module._iptv_checker_progress_path() == str(legacy)
+    warnings = _warnings(caplog)
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert str(new) in message and str(hyphen) in message and str(legacy) in message
+
+
+def test_no_warning_when_a_candidate_exists(plugin_module, monkeypatch, tmp_path, caplog):
+    new, _, _ = _paths(plugin_module, monkeypatch, tmp_path)
+    monkeypatch.setattr(plugin_module, "_LEGACY_PROGRESS_WARNED", False)
+    caplog.set_level(logging.WARNING, logger=plugin_module.LOGGER.name)
+    _write(new, IDLE, 1_000_000)
+    assert plugin_module._iptv_checker_progress_path() == str(new)
+    assert _warnings(caplog) == []

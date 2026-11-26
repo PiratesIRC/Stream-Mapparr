@@ -972,6 +972,9 @@ class _M3URefreshHold:
                 pass
 
 
+_LEGACY_PROGRESS_WARNED = False
+
+
 def _iptv_checker_progress_path():
     """The IPTV Checker progress file to read, or the legacy path when none exists.
 
@@ -979,8 +982,9 @@ def _iptv_checker_progress_path():
     IPTV_CHECKER_PROGRESS_FILE. Missing files are skipped. The existing file with
     the newest mtime wins; on a tie the earlier candidate wins. When no candidate
     exists the legacy path is returned, so callers see the same missing file as
-    before this helper existed.
+    before this helper existed, and one WARNING per process names the paths checked.
     """
+    global _LEGACY_PROGRESS_WARNED
     best_path, best_mtime = None, None
     for candidate in (*PluginConfig.IPTV_CHECKER_PROGRESS_CANDIDATES,
                       PluginConfig.IPTV_CHECKER_PROGRESS_FILE):
@@ -990,7 +994,16 @@ def _iptv_checker_progress_path():
             continue
         if best_mtime is None or mtime > best_mtime:
             best_path, best_mtime = candidate, mtime
-    return best_path if best_path is not None else PluginConfig.IPTV_CHECKER_PROGRESS_FILE
+    if best_path is not None:
+        return best_path
+    if not _LEGACY_PROGRESS_WARNED:
+        _LEGACY_PROGRESS_WARNED = True
+        LOGGER.warning(
+            "IPTV Checker progress file not found at any candidate path (%s); "
+            "reading the legacy path %s",
+            ", ".join(PluginConfig.IPTV_CHECKER_PROGRESS_CANDIDATES),
+            PluginConfig.IPTV_CHECKER_PROGRESS_FILE)
+    return PluginConfig.IPTV_CHECKER_PROGRESS_FILE
 
 
 class Plugin:
