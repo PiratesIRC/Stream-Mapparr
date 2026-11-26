@@ -358,10 +358,13 @@ again, so the badge counts those matches twice.
 
 Dispatcharr 0.34 gives each plugin a private data directory. On that version Stream-Mapparr
 keeps its state there, in `/data/plugins/_data/<plugin id>/` (for this plugin,
-`/data/plugins/_data/stream-mapparr/`). It holds the saved settings cache, the processed
-results, the last run's results, the match tally behind the Streams Matched badge, the
-channel snapshots, the readouts written when `/config` cannot be written, and the usage
-counts folder. On Dispatcharr 0.33 nothing moves.
+`/data/plugins/_data/stream-mapparr/`). It holds the saved settings cache (`settings.json`),
+the processed results (`processed.json`), the last run's results (`last_results.json`), the
+live operation progress (`progress.json`), the pick list names (`pick_list_names.json`), the
+run timing (`run_timing.json`), the throughput cache (`throughput_cache.json`), the scheduled
+run stamp (`scheduled_run.json`), the match tally behind the Streams Matched badge
+(`match_counts.jsonl`), the channel snapshots, the readouts written when `/config` cannot be
+written, and the usage counts folder. On Dispatcharr 0.33 nothing moves.
 
 Four other places hold files:
 
