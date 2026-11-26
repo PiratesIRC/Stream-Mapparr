@@ -233,3 +233,52 @@ def test_makedirs_mode_and_refuse_real_data_before_makedirs(storage, env, monkey
     with pytest.raises(RuntimeError):
         storage.resolve(plugin_dir, "stream-mapparr", Log())
     assert calls == [], "REFUSE_REAL_DATA must be checked before any makedirs"
+
+
+def test_tally_two_existing_sources_counted_once(storage, env):
+    # Source (a), the last finished pass's data dir, beats the legacy file. Both exist.
+    prev = P(env.plugins, "_data", "old-dir")
+    write(P(prev, "match_counts.jsonl"), "t1\n")
+    write(legacy_tally(env), "t1\nt2\n")
+    write(P(env.plugins, "_data", "stream-mapparr.active"), json.dumps({"data_dir": prev}))
+    lay = layout_for(storage, env)
+    storage.migrate(lay, [tally_item(storage, env)], Log())
+    assert read(tally_path(env)) == b"t1\n"
+    assert storage.sync_tally_tail(lay, tally_path(env), Log()) == 0
+    assert read(tally_path(env)) == b"t1\n", "the second existing source must not be counted on top of the copy"
+
+
+def test_sync_tail_absent_offsets_file_same_process_reads_legacy(storage, env, monkeypatch):
+    write(legacy_tally(env), "t1\nt2\n")
+    lay = layout_for(storage, env)
+    fail_writes_to(storage, monkeypatch, tally_path(env))
+    storage.migrate(lay, [tally_item(storage, env)], Log())
+    monkeypatch.undo()
+    assert not os.path.exists(offsets_path(env)), "the failed copy must leave no offsets file"
+    write(tally_path(env), "n1\n")
+    assert storage.sync_tally_tail(lay, tally_path(env), Log()) == 6
+    assert read(tally_path(env)) == b"n1\nt1\nt2\n"
+
+
+def test_previous_dir_active_pointer_is_guarded(storage, env):
+    write(P(env.plugins, "escape", "settings.json"), "ESCAPE")
+    write(P(env.plugins, "_data", "stream-mapparr.active"), json.dumps({"data_dir": P(env.plugins, "escape")}))
+    lay = layout_for(storage, env)
+    item = storage.Item("SETTINGS", P(env.old, "stream_mapparr_settings.json"),
+                        P(env.new, "settings.json"), "file", rel="settings.json")
+    storage.migrate(lay, [item], Log())
+    assert not os.path.exists(P(env.new, "settings.json"))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_atomic_write_fixes_mode_of_stale_temp_file(storage, tmp_path):
+    target = str(tmp_path / "state.json")
+    stale = storage._ps._temp_path(target)
+    write(stale, "left by a crash")
+    os.chmod(stale, 0o666)
+    old_umask = os.umask(0)
+    try:
+        storage._ps.atomic_write_bytes(target, b"x")
+    finally:
+        os.umask(old_umask)
+    assert stat.S_IMODE(os.stat(target).st_mode) & 0o077 == 0

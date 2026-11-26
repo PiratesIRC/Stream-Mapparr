@@ -319,7 +319,15 @@ def atomic_write_bytes(path, data):
     tmp = _temp_path(path)
     try:
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "wb") as fh:
+        try:
+            # O_CREAT does not change the mode of a temp file left by an earlier crash.
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, 0o600)
+            fh = os.fdopen(fd, "wb")
+        except BaseException:
+            os.close(fd)
+            raise
+        with fh:
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
@@ -368,6 +376,12 @@ def _previous_dir(spec: Spec, layout, logger):
             logger.error("%s: %s unreadable (%s); using the folder-key directory"
                          % (spec.label, os.path.basename(active), type(exc).__name__))
             prev = _fallback_dir(layout)
+        else:
+            # The pointer is a copy source, so it gets the same guard as the fallback.
+            if isinstance(prev, str) and prev and _guard(prev, layout.plugins_dir) is not None:
+                logger.error("%s: %s names a directory outside <plugins>/_data; not used as a source"
+                             % (spec.label, os.path.basename(active)))
+                prev = None
     else:
         prev = _fallback_dir(layout)
     if not isinstance(prev, str) or not prev:
@@ -525,9 +539,12 @@ def migrate(spec: Spec, layout, items, logger, version=None):
                     _copy_one(item.new, _sources(item, None, pass_b, False), copied)
                 elif item.kind == "tally":
                     srcs = _sources(item, prev, pass_b, True)
-                    # Recorded before the copy, so sync_tally_tail knows the legacy source even when
-                    # this pass fails before it writes an offset (S2 a).
-                    _state(spec).tally_sources[_norm(item.new)] = list(srcs)
+                    # Recorded before the copy, so sync_tally_tail knows the source even when this
+                    # pass fails before it writes an offset (S2 a). Only the first existing source is
+                    # recorded: _copy_tally reads that one alone, so a later source is never counted
+                    # on top of the copy.
+                    first = next((src for src in srcs if os.path.isfile(src)), None)
+                    _state(spec).tally_sources[_norm(item.new)] = [first] if first else []
                     _copy_tally(spec, item, layout.data_dir, srcs, copied, logger)
                 elif item.kind in ("dir", "usage_dir"):
                     sub = (spec.usage_subdir,) if item.kind == "usage_dir" and spec.usage_subdir else ()
@@ -584,7 +601,9 @@ def sync_tally_tail(spec: Spec, layout, tally_path, logger):
     _refuse_real(tally_path)
     _refuse_real(layout.data_dir)
     offsets_path = os.path.join(layout.data_dir, spec.tally_offsets)
-    if not os.path.exists(offsets_path) or not os.path.exists(tally_path):
+    # No offsets file is not an early return: a source migrate registered for this tally gets
+    # offset 0 below, and _load_offsets returns {} for a missing file.
+    if not os.path.exists(tally_path):
         return 0
     appended = 0
     with _lock(os.path.join(layout.data_dir, spec.tally_lock)):
@@ -610,6 +629,9 @@ def sync_tally_tail(spec: Spec, layout, tally_path, logger):
                 rotated = size < off
                 if rotated:
                     # Old code rotated the legacy file: read it again from the start (S2 c).
+                    # Known limitation (review probe D): only the length is compared, so a rotation
+                    # that regrows past the old offset is not seen and the bytes below that offset are
+                    # skipped. A fingerprint would change the offsets file format; not done here.
                     logger.info("%s: tally source is shorter than its offset (rotated); reading from 0"
                                 % spec.label)
                     off = 0
