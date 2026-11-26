@@ -113,10 +113,11 @@ def resolve(spec: Spec, plugin_dir: str, key: str, logger) -> Layout:
                      spec.label, "; ".join(failures) or "no lookup returned a path")
         return _legacy(key, "no lookup returned a path")
 
+    _refuse_real(data_dir)
     problem = _guard(data_dir, plugins_dir)
     if problem is None:
         try:
-            os.makedirs(data_dir, exist_ok=True)
+            os.makedirs(data_dir, mode=0o755, exist_ok=True)
         except Exception as exc:
             problem = "makedirs failed (%s)" % type(exc).__name__
     if problem is not None:
@@ -236,6 +237,9 @@ def _state(spec: Spec):
         sys.modules[spec.state_name] = mod
     if not hasattr(mod, "migrated_dirs"):
         mod.migrated_dirs = set()
+    if not hasattr(mod, "tally_sources"):
+        # normalized tally path -> the legacy sources migrate was given for it (this process only)
+        mod.tally_sources = {}
     return mod
 
 
@@ -289,15 +293,33 @@ def _temp_path(path):
     return os.path.join(head, ".%s.tmp-%d" % (tail, os.getpid()))
 
 
+def _fsync_dir(head):
+    """fsync a directory so a rename inside it survives a crash. POSIX only; never raises."""
+    if os.name != "posix" or not head:
+        return
+    try:
+        fd = os.open(head, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except Exception:
+        pass
+
+
 def atomic_write_bytes(path, data):
-    """Write data to path through a dot-prefixed temp file, fsync and os.replace."""
+    """Write data to path through a dot-prefixed temp file, fsync and os.replace.
+
+    The temp file is owner-only (0o600), so state files are not readable by other users.
+    """
     _refuse_real(path)
     head = os.path.dirname(path)
     if head:
-        os.makedirs(head, exist_ok=True)
+        os.makedirs(head, mode=0o755, exist_ok=True)
     tmp = _temp_path(path)
     try:
-        with open(tmp, "wb") as fh:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "wb") as fh:
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
@@ -308,6 +330,7 @@ def atomic_write_bytes(path, data):
         except OSError:
             pass
         raise
+    _fsync_dir(head)
 
 
 def atomic_write_json(path, obj):
@@ -324,6 +347,12 @@ def _load_offsets(path):
     return {str(k): int(v) for k, v in obj.items()}
 
 
+def _fallback_dir(layout):
+    """The key-derived data dir, or None when the guard refuses it. It is a copy source, so it is guarded."""
+    fallback = os.path.join(layout.plugins_dir, "_data", layout.key)
+    return fallback if _guard(fallback, layout.plugins_dir) is None else None
+
+
 def _previous_dir(spec: Spec, layout, logger):
     """Source (a): the data dir of the last finished pass, or None.
 
@@ -331,14 +360,16 @@ def _previous_dir(spec: Spec, layout, logger):
     and the pass can still complete and rewrite a valid pointer.
     """
     active = layout.beside(".active")
-    prev = os.path.join(layout.plugins_dir, "_data", layout.key)
+    prev = None
     if os.path.exists(active):
         try:
             prev = json.loads(_read_bytes(active).decode("utf-8")).get("data_dir")
         except Exception as exc:
             logger.error("%s: %s unreadable (%s); using the folder-key directory"
                          % (spec.label, os.path.basename(active), type(exc).__name__))
-            prev = os.path.join(layout.plugins_dir, "_data", layout.key)
+            prev = _fallback_dir(layout)
+    else:
+        prev = _fallback_dir(layout)
     if not isinstance(prev, str) or not prev:
         return None
     if _norm(prev) == _norm(layout.data_dir) or not os.path.isdir(prev):
@@ -366,22 +397,59 @@ def _copy_one(dst, sources, copied):
             return
 
 
-def _copy_tally(spec: Spec, item, data_dir, sources, copied):
-    """Copy the tally cut at its last newline, recording the offset before the copy shows."""
+def _restore_offsets(offsets_path, before):
+    """Put the offsets file back as it was before a failed copy. Best effort."""
+    try:
+        if before:
+            atomic_write_json(offsets_path, before)
+        elif os.path.exists(offsets_path):
+            os.remove(offsets_path)
+    except Exception:
+        pass
+
+
+def _copy_tally(spec: Spec, item, data_dir, sources, copied, logger):
+    """Copy the tally cut at its last newline, recording the offset before the copy shows.
+
+    When the new tally already exists (a first pass failed here and the plugin wrote its own
+    lines), the legacy source has no offset yet. Its whole file is then new to the count, so the
+    offset is 0 and the tail appends it once.
+
+    The one double count is accepted: the offsets file is deleted by hand after a successful copy.
+    The copy then holds the legacy lines with no offset, so the tail appends the whole legacy file
+    again. A hand deletion is rare, and the tally is a badge counter, not a ledger.
+    """
+    offsets_path = os.path.join(data_dir, spec.tally_offsets)
     if os.path.exists(item.new):
+        for src in sources:
+            if not os.path.isfile(src):
+                continue
+            with _lock(os.path.join(data_dir, spec.tally_lock)):
+                offsets = _load_offsets(offsets_path)
+                if src not in offsets:
+                    offsets[src] = 0
+                    atomic_write_json(offsets_path, offsets)
+                    logger.info("%s: tally offset recorded at 0 for a legacy file the new tally "
+                                "already holds" % spec.label)
+            return
         return
     for src in sources:
         if os.path.isfile(src):
             data = _read_bytes(src)
             cut = data[: data.rfind(b"\n") + 1]
-            offsets_path = os.path.join(data_dir, spec.tally_offsets)
             # The tail takes the same lock, so it never sees the offset without the tally,
             # or the tally without its offset.
             with _lock(os.path.join(data_dir, spec.tally_lock)):
-                offsets = _load_offsets(offsets_path)
+                before = _load_offsets(offsets_path)
+                offsets = dict(before)
                 offsets[src] = len(cut)
                 atomic_write_json(offsets_path, offsets)
-                atomic_write_bytes(item.new, cut)
+                try:
+                    atomic_write_bytes(item.new, cut)
+                except BaseException:
+                    # The offset must not claim bytes the new tally does not hold.
+                    _restore_offsets(offsets_path, before)
+                    raise
             copied.append((item.new, src))
             return
 
@@ -436,7 +504,7 @@ def migrate(spec: Spec, layout, items, logger, version=None):
     for item in items:
         _refuse_real(item.old)
         _refuse_real(item.new)
-    os.makedirs(layout.data_dir, exist_ok=True)
+    os.makedirs(layout.data_dir, mode=0o755, exist_ok=True)
     with _lock(os.path.join(layout.data_dir, _MIGRATE_LOCK)):
         if _norm(layout.data_dir) in flags:
             return _skipped()
@@ -455,7 +523,11 @@ def migrate(spec: Spec, layout, items, logger, version=None):
                 elif item.kind == "beside":
                     _copy_one(item.new, _sources(item, None, pass_b, False), copied)
                 elif item.kind == "tally":
-                    _copy_tally(spec, item, layout.data_dir, _sources(item, prev, pass_b, True), copied)
+                    srcs = _sources(item, prev, pass_b, True)
+                    # Recorded before the copy, so sync_tally_tail knows the legacy source even when
+                    # this pass fails before it writes an offset (S2 a).
+                    _state(spec).tally_sources[_norm(item.new)] = list(srcs)
+                    _copy_tally(spec, item, layout.data_dir, srcs, copied, logger)
                 elif item.kind in ("dir", "usage_dir"):
                     sub = (spec.usage_subdir,) if item.kind == "usage_dir" and spec.usage_subdir else ()
                     if item.rel is None:
@@ -521,19 +593,33 @@ def sync_tally_tail(spec: Spec, layout, tally_path, logger):
             logger.error("%s: tally offsets unreadable (%s); no tail appended"
                          % (spec.label, type(exc).__name__))
             return 0
+        # A legacy source migrate named for this tally but that has no offset yet is read from 0 (S2 a).
+        for src in _state(spec).tally_sources.get(_norm(tally_path), []):
+            if os.path.isfile(src) and src not in offsets:
+                offsets[src] = 0
+                logger.info("%s: tally offset for a legacy file with no record read from 0"
+                            % spec.label)
         for src in sorted(offsets):
             _refuse_real(src)
             if not os.path.isfile(src):
                 continue
             off = offsets[src]
             try:
-                data = _read_bytes(src)
+                size = os.path.getsize(src)
+                rotated = size < off
+                if rotated:
+                    # Old code rotated the legacy file: read it again from the start (S2 c).
+                    logger.info("%s: tally source is shorter than its offset (rotated); reading from 0"
+                                % spec.label)
+                    off = 0
+                with open(src, "rb") as fh:
+                    fh.seek(off)
+                    data = fh.read()
             except Exception as exc:
                 logger.error("%s: tally source unreadable (%s)" % (spec.label, type(exc).__name__))
                 continue
-            chunk = data[off:]
-            cut = chunk[: chunk.rfind(b"\n") + 1]
-            if not cut:
+            cut = data[: data.rfind(b"\n") + 1]
+            if not cut and not rotated:
                 continue
             trial = dict(offsets)
             trial[src] = off + len(cut)
@@ -544,6 +630,8 @@ def sync_tally_tail(spec: Spec, layout, tally_path, logger):
                              % (spec.label, type(exc).__name__))
                 continue
             offsets[src] = off + len(cut)
+            if not cut:
+                continue
             try:
                 _append_bytes(tally_path, cut)
             except Exception as exc:
