@@ -2292,8 +2292,9 @@ class Plugin:
                     storage.sync_tally_tail(PluginConfig.STORAGE_LAYOUT, PluginConfig.MATCH_TALLY_FILE, LOGGER)
                 except Exception as e:
                     LOGGER.debug(f"[Stream-Mapparr] Could not append the old tally tail: {e}")
-            with open(PluginConfig.MATCH_TALLY_FILE, "a", encoding="utf-8") as handle:
-                handle.write(line + "\n")
+            with storage.tally_lock(getattr(PluginConfig, "STORAGE_LAYOUT", None)):
+                with open(PluginConfig.MATCH_TALLY_FILE, "a", encoding="utf-8") as handle:
+                    handle.write(line + "\n")
             self._report_usage(None, LOGGER, force=True)
         except Exception as e:
             LOGGER.debug(f"[Stream-Mapparr] Could not record the streams-matched tally: {e}")

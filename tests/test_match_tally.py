@@ -22,6 +22,7 @@ every day on an installation where an unchanged library correctly adds nothing,
 while contributing zero to the number the badge shows.
 """
 import ast
+import contextlib
 import io
 import json
 import os
@@ -188,3 +189,136 @@ def test_the_tally_is_declared_under_the_data_volume(plugin_ast):
     assert declared is not None, "MATCH_TALLY_FILE is not declared"
     assert declared.startswith("/data/"), declared
     assert declared.endswith(".jsonl"), declared
+
+
+# --------------------------------------------------------------------------- #
+# The append holds the tally lock (the one sync_tally_tail takes)
+# --------------------------------------------------------------------------- #
+class _RecordingLock:
+    """Stands in for storage.tally_lock: records that it was entered and what the file held
+    the moment it was released, so the test sees the append happen inside the lock."""
+
+    def __init__(self, path):
+        self.path = path
+        self.entered = 0
+        self.lines_at_release = None
+
+    @contextlib.contextmanager
+    def __call__(self, layout):
+        self.entered += 1
+        yield
+        with open(self.path, encoding="utf-8") as fh:
+            self.lines_at_release = fh.read().count("\n")
+
+
+def _non_legacy_layout(plugin_module, tmp_path):
+    return plugin_module.storage.Layout(False, str(tmp_path), str(tmp_path), "stream-mapparr", "test")
+
+
+def test_the_tally_append_runs_inside_the_tally_lock(plugin_module, tmp_path, monkeypatch):
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch)
+    tally = str(tmp_path / "tally.jsonl")
+    lock = _RecordingLock(tally)
+    monkeypatch.setattr(plugin_module.storage, "tally_lock", lock)
+    monkeypatch.setattr(plugin_module.storage, "sync_tally_tail", lambda *a, **k: None)
+    monkeypatch.setattr(plugin_module.PluginConfig, "STORAGE_LAYOUT", _non_legacy_layout(plugin_module, tmp_path))
+    monkeypatch.setattr(plugin, "_report_usage", lambda *a, **k: None, raising=False)
+
+    plugin._record_streams_matched("add_streams_to_channels", 3, 7, dry_run=False)
+
+    assert lock.entered == 1, "the tally append did not take the tally lock"
+    assert lock.lines_at_release == 1, "the line was not written before the lock was released"
+
+
+def test_the_tail_sync_runs_before_the_lock_and_not_inside_it(plugin_module, tmp_path, monkeypatch):
+    """sync_tally_tail takes the same lock, which is not reentrant: nesting it deadlocks."""
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch)
+    events = []
+
+    @contextlib.contextmanager
+    def lock(layout):
+        events.append("lock-enter")
+        yield
+        events.append("lock-exit")
+
+    monkeypatch.setattr(plugin_module.storage, "tally_lock", lock)
+    monkeypatch.setattr(plugin_module.storage, "sync_tally_tail",
+                        lambda *a, **k: events.append("sync"))
+    monkeypatch.setattr(plugin_module.PluginConfig, "STORAGE_LAYOUT", _non_legacy_layout(plugin_module, tmp_path))
+    monkeypatch.setattr(plugin, "_report_usage", lambda *a, **k: None, raising=False)
+
+    plugin._record_streams_matched("add_streams_to_channels", 3, 7, dry_run=False)
+
+    assert events == ["sync", "lock-enter", "lock-exit"]
+
+
+def test_a_tally_lock_that_fails_records_nothing_and_does_not_raise(plugin_module, tmp_path, monkeypatch):
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch)
+
+    @contextlib.contextmanager
+    def failing(layout):
+        raise OSError("lock file unavailable")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(plugin_module.storage, "tally_lock", failing)
+    monkeypatch.setattr(plugin_module.storage, "sync_tally_tail", lambda *a, **k: None)
+    monkeypatch.setattr(plugin_module.PluginConfig, "STORAGE_LAYOUT", _non_legacy_layout(plugin_module, tmp_path))
+
+    plugin._record_streams_matched("add_streams_to_channels", 3, 7, dry_run=False)
+
+    assert _lines(tmp_path) == []
+
+
+def test_legacy_mode_takes_no_tally_lock(plugin_module, tmp_path, monkeypatch):
+    """Legacy mode has no data directory to hold a lock in, so the append runs unlocked.
+
+    Patches the vendored flock helper underneath storage.tally_lock, so the test sees
+    whether any lock is taken at all, not just whether the plugin asked for one.
+    """
+    plugin = _plugin(plugin_module, tmp_path, monkeypatch)
+    taken = []
+
+    @contextlib.contextmanager
+    def recording_flock(path):
+        taken.append(path)
+        yield
+
+    monkeypatch.setattr(plugin_module.storage._ps, "_lock", recording_flock)
+    assert plugin_module.PluginConfig.STORAGE_LAYOUT.legacy is True
+
+    plugin._record_streams_matched("add_streams_to_channels", 3, 7, dry_run=False)
+
+    assert taken == []
+    assert len(_lines(tmp_path)) == 1
+
+
+def test_the_real_tally_lock_is_a_no_op_in_legacy_mode(plugin_module, tmp_path):
+    storage = plugin_module.storage
+    layout = storage.Layout(True, None, None, "stream-mapparr", "test")
+    with storage.tally_lock(layout):
+        pass
+    assert not (tmp_path / storage.SPEC.tally_lock).exists()
+
+
+def test_the_tally_lock_takes_the_lock_file_beside_the_tally(plugin_module, tmp_path, monkeypatch):
+    """Platform-independent: records the path the real helper asks the flock layer to lock."""
+    storage = plugin_module.storage
+    locked = []
+
+    @contextlib.contextmanager
+    def recording_flock(path):
+        locked.append(path)
+        yield
+
+    monkeypatch.setattr(storage._ps, "_lock", recording_flock)
+    layout = storage.Layout(False, str(tmp_path), str(tmp_path), "stream-mapparr", "test")
+    with storage.tally_lock(layout):
+        assert locked == [os.path.join(str(tmp_path), storage.SPEC.tally_lock)]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="fcntl locks run on POSIX only")
+def test_the_real_tally_lock_file_lives_beside_the_tally(plugin_module, tmp_path):
+    storage = plugin_module.storage
+    layout = storage.Layout(False, str(tmp_path), str(tmp_path), "stream-mapparr", "test")
+    with storage.tally_lock(layout):
+        assert os.path.exists(os.path.join(str(tmp_path), storage.SPEC.tally_lock))
