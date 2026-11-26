@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3302105 (2026-11-26)
+
+### Fixed
+
+- After a failed first copy of the match tally, each legacy tally line is
+  counted once, and the catch-up happens in the same process. Answers the Plugin
+  Hub storage audit (issue #622).
+- Match tally lines are appended under a lock, so two runs that finish at the
+  same moment cannot interleave their lines.
+- The state files Stream-Mapparr writes are owner-only, including a temporary
+  file left behind by an earlier crash.
+- When the IPTV Checker progress reader falls back to the legacy path, it logs
+  one warning per process instead of one per read.
+
 ## 1.26.3301534 (2026-11-26)
 
 ### Changed
