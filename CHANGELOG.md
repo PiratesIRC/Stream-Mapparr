@@ -1,5 +1,19 @@
 # Stream-Mapparr CHANGELOG
 
+## 1.26.3301534 (2026-11-26)
+
+### Changed
+
+- **Stream-Mapparr finds IPTV Checker's progress file in its new location.**
+  IPTV Checker's next release keeps its progress file in Dispatcharr's plugin
+  data directory (`/data/plugins/_data/`). Stream-Mapparr now reads whichever
+  of the new file and the old `/data/iptv_checker_progress.json` was written
+  most recently, so the scheduled run still waits while an IPTV Checker scan
+  is running, before and after IPTV Checker updates.
+- The code that places Stream-Mapparr's own files in the plugin data
+  directory now comes from a shared module (`plugin_storage.py`). File
+  locations and behaviour are unchanged.
+
 ## 1.26.3281300 (2026-11-24)
 
 ### Fixed
